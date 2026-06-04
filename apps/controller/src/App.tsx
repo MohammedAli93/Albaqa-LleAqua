@@ -6,6 +6,7 @@ import { useStore } from './store.js';
 import { connect } from './socket.js';
 import { loadSession } from './lib/config.js';
 import { useWakeLock } from './hooks/useDevice.js';
+import { Aurora } from './components/Aurora.js';
 // In-game flow
 import { Join } from './screens/Join.js';
 import { Lobby } from './screens/Lobby.js';
@@ -56,6 +57,7 @@ export default function App() {
   if (appView !== 'game') {
     return (
       <div className="relative min-h-full">
+        <Aurora />
         <AnimatePresence mode="wait">
           <motion.div
             key={appView}
@@ -78,6 +80,7 @@ export default function App() {
   // ── In-game flow ──
   return (
     <div className="relative min-h-full">
+      <Aurora />
       <AnimatePresence mode="wait">
         <motion.div
           key={phase}

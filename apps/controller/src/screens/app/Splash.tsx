@@ -1,37 +1,65 @@
 import { motion } from 'framer-motion';
-import { t } from '@tahaddi/i18n';
+import { Sparkles, ScanLine } from 'lucide-react';
 import { useStore } from '../../store.js';
 
 export function Splash() {
-  const { locale, set } = useStore();
+  const { set } = useStore();
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-12 px-6 text-center">
-      <div>
-        <motion.h1
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="font-display text-6xl font-black text-gradient"
+    <div className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass mt-4 flex items-center gap-2 rounded-full px-4 py-1.5 text-sm text-ink-secondary"
+      >
+        <span className="h-2 w-2 rounded-full bg-action animate-pulse-glow" /> برنامج المسابقات الأول
+      </motion.div>
+
+      {/* Hero wordmark */}
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <motion.div
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 190, damping: 16 }}
+          className="relative"
         >
-          {t(locale, 'appName')}
-        </motion.h1>
-        <p className="mt-3 text-lg text-ink-secondary">لعبة الأسئلة الثقافية</p>
+          <div className="absolute inset-0 -z-10 rounded-[40%] bg-brand-violet/30 blur-3xl animate-pulse-glow" />
+          <h1 className="font-display text-[5.5rem] font-black leading-[0.95] text-gradient text-glow">
+            البقاء
+            <br />
+            للأقوى
+          </h1>
+        </motion.div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.35 }}
+          className="mt-6 max-w-xs text-lg leading-relaxed text-ink-secondary"
+        >
+          تحدَّ أصحابك في أقوى لعبة أسئلة ثقافية — والبقاء للأقوى.
+        </motion.p>
       </div>
 
-      <div className="w-full max-w-sm space-y-4">
+      {/* CTAs */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="w-full max-w-sm space-y-3"
+      >
         <motion.button
-          whileTap={{ scale: 0.96 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => set({ appView: 'login' })}
-          className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold shadow-glow"
+          className="btn-cta flex w-full items-center justify-center gap-2 rounded-2xl py-5 text-2xl animate-glow-pulse"
         >
-          تسجيل الدخول / حساب جديد
+          <Sparkles size={24} /> ابدأ اللعب
         </motion.button>
         <button
           onClick={() => set({ appView: 'game', phase: 'join' })}
-          className="w-full rounded-2xl glass py-4 text-xl font-semibold text-ink-secondary"
+          className="glass flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-semibold text-ink-secondary"
         >
-          عندك كود؟ انضمّ للعبة
+          <ScanLine size={18} /> عندك كود؟ انضمّ مباشرة
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 }

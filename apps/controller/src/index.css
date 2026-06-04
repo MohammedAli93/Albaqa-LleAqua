@@ -14,27 +14,53 @@
   }
   body {
     @apply bg-bg-base text-ink-primary font-body antialiased;
-    /* Safe-area padding for notched devices */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
   }
   button {
     touch-action: manipulation;
+    cursor: pointer;
+  }
+  /* Cinematic display headings */
+  .font-display {
+    letter-spacing: -0.01em;
   }
 }
 
 @layer components {
+  /* Premium glass — gradient fill + hairline highlight */
   .glass {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    backdrop-filter: blur(16px);
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(18px);
+    @apply shadow-glass;
   }
+  .glass-strong {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(24px);
+    @apply shadow-card;
+  }
+  /* Gradient text */
   .text-gradient {
     @apply bg-gradient-brand bg-clip-text text-transparent;
   }
   .text-gold-gradient {
     @apply bg-gradient-prize bg-clip-text text-transparent;
+  }
+  /* Neon text glow */
+  .text-glow {
+    text-shadow: 0 0 24px rgba(139, 92, 246, 0.55), 0 0 8px rgba(217, 70, 239, 0.4);
+  }
+  /* Primary CTA — rose, glowing, pressable */
+  .btn-cta {
+    @apply bg-gradient-action font-display font-bold text-white shadow-glow-rose transition active:scale-[0.97];
+  }
+  /* Shiny sweep for hero text/badges */
+  .shine {
+    background-size: 200% 100%;
+    @apply animate-shimmer;
   }
 }
 
