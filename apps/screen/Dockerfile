@@ -15,6 +15,7 @@ ENV VITE_CONTROLLER_URL=$VITE_CONTROLLER_URL
 RUN pnpm --filter @tahaddi/screen build
 
 FROM nginx:alpine
-COPY infra/nginx/spa.conf /etc/nginx/conf.d/default.conf
+ENV PORT=80
+COPY infra/nginx/spa.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/apps/screen/dist /usr/share/nginx/html
 EXPOSE 80

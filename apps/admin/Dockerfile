@@ -13,6 +13,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm --filter @tahaddi/admin build
 
 FROM nginx:alpine
-COPY infra/nginx/spa.conf /etc/nginx/conf.d/default.conf
+ENV PORT=80
+COPY infra/nginx/spa.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/apps/admin/dist /usr/share/nginx/html
 EXPOSE 80
