@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    @apply bg-bg-base text-ink-primary font-body antialiased;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  /* Glass surface */
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+    @apply shadow-glass;
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(24px);
+  }
+  /* TV safe area: keep critical content off the overscan edges */
+  .safe {
+    padding: 4vmin 5vmin;
+  }
+  .text-gradient {
+    @apply bg-gradient-brand bg-clip-text text-transparent;
+  }
+  .text-gold-gradient {
+    @apply bg-gradient-prize bg-clip-text text-transparent;
+  }
+}
+
+/* Tabular numerals so timers/scores don't jitter */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}

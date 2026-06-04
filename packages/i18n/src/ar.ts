@@ -1,0 +1,52 @@
+/** Arabic message catalogue (source of truth for keys). */
+const ar = {
+  appName: 'البقاء للأقوى',
+  // lobby / join
+  scanToJoin: 'امسح الرمز للانضمام',
+  roomCode: 'رمز الغرفة',
+  waitingForPlayers: 'في انتظار اللاعبين…',
+  players: 'اللاعبون',
+  playerCount: '{count} لاعب',
+  startGame: 'ابدأ اللعبة',
+  enterNickname: 'أدخل اسمك',
+  chooseAvatar: 'اختر شخصيتك',
+  join: 'انضمام',
+  joining: 'جارٍ الانضمام…',
+  enterRoomCode: 'أدخل رمز الغرفة',
+  // gameplay
+  round: 'الجولة',
+  roundOf: 'الجولة {current} من {total}',
+  getReady: 'استعد!',
+  timeLeft: 'الوقت المتبقي',
+  answerLocked: 'تم تثبيت إجابتك',
+  waitingForResults: 'في انتظار النتائج…',
+  correct: 'إجابة صحيحة!',
+  wrong: 'إجابة خاطئة',
+  correctAnswer: 'الإجابة الصحيحة',
+  // status
+  score: 'النقاط',
+  lives: 'المحاولات',
+  rank: 'الترتيب',
+  eliminated: 'تم إقصاؤك',
+  youAdvanced: 'تأهلت للجولة التالية!',
+  stillIn: 'ما زلت في اللعبة',
+  // leaderboard / winner
+  leaderboard: 'لوحة الصدارة',
+  scoreboard: 'النتائج',
+  winner: 'الفائز',
+  champion: 'البطل',
+  gameOver: 'انتهت اللعبة',
+  congratulations: 'مبروك!',
+  playAgain: 'العب مرة أخرى',
+  // generic
+  loading: 'جارٍ التحميل…',
+  connecting: 'جارٍ الاتصال…',
+  reconnecting: 'جارٍ إعادة الاتصال…',
+  paused: 'اللعبة متوقفة مؤقتاً',
+  hostReconnecting: 'المضيف يعيد الاتصال…',
+  roomNotFound: 'الغرفة غير موجودة',
+  roomFull: 'الغرفة ممتلئة',
+  nicknameTaken: 'الاسم مستخدم بالفعل',
+  error: 'حدث خطأ',
+};
+export default ar;

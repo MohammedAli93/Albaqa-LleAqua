@@ -1,0 +1,549 @@
+// Tahaddi — Prisma schema
+// Durable system of record. Live ephemeral game state lives in Redis; only
+// reconciled outcomes (resolved rounds, completed games) are written here.
+// See docs/architecture/02-database-schema.md for the full rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Identity & Admin ───────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  role         UserRole  @default(EDITOR)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz
+
+  // security
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime? @db.Timestamptz
+  tokenVersion Int       @default(0)
+
+  packages  Package[]       @relation("PackageAuthor")
+  media     MediaAsset[]    @relation("MediaUploader")
+  auditLogs AdminAuditLog[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@index([role, isActive])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @db.Timestamptz
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}
+
+// ──────────────────────────────────── Content ───────────────────────────────
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  slug      String     @unique
+  nameAr    String
+  nameEn    String
+  color     String     @default("#7C3AED")
+  icon      String?
+  sortOrder Int        @default(0)
+  questions Question[]
+  deletedAt DateTime?  @db.Timestamptz
+  createdAt DateTime   @default(now()) @db.Timestamptz
+  updatedAt DateTime   @updatedAt @db.Timestamptz
+}
+
+model Question {
+  id         String       @id @default(uuid())
+  type       QuestionType @default(MULTIPLE_CHOICE)
+  difficulty Difficulty   @default(MEDIUM)
+  categoryId String
+  category   Category     @relation(fields: [categoryId], references: [id])
+
+  promptAr      String
+  promptEn      String?
+  explanationAr String?
+  explanationEn String?
+
+  // options: [{ id, textAr, textEn?, mediaId? }] — shape enforced by Zod
+  options         Json
+  correctOptionId String
+
+  timeLimitSec Int     @default(15)
+  basePoints   Int     @default(100)
+  speedBonus   Boolean @default(true)
+
+  promptMediaId String?
+  promptMedia   MediaAsset? @relation("QuestionPromptMedia", fields: [promptMediaId], references: [id])
+
+  tags        String[]
+  usageCount  Int      @default(0)
+  correctRate Float?
+  isApproved  Boolean  @default(false)
+
+  packageLinks PackageQuestion[]
+  answers      Answer[]
+  rounds       Round[]
+
+  deletedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+
+  @@index([categoryId, difficulty])
+  @@index([type, isApproved])
+}
+
+model Package {
+  id           String      @id @default(uuid())
+  slug         String      @unique
+  titleAr      String
+  titleEn      String?
+  descAr       String?
+  descEn       String?
+  coverMediaId String?
+  coverMedia   MediaAsset? @relation("PackageCover", fields: [coverMediaId], references: [id])
+
+  isPublished Boolean @default(false)
+  isPremium   Boolean @default(false)
+  priceMinor  Int     @default(0)
+  currency    String  @default("SAR")
+
+  createdById String
+  createdBy   User   @relation("PackageAuthor", fields: [createdById], references: [id])
+
+  questions PackageQuestion[]
+  games     Game[]
+  orders    Order[]
+
+  deletedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+
+  @@index([isPublished, isPremium])
+}
+
+model PackageQuestion {
+  packageId  String
+  questionId String
+  order      Int
+  package    Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id])
+
+  @@id([packageId, questionId])
+  @@index([packageId, order])
+}
+
+enum MediaType {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model MediaAsset {
+  id          String      @id @default(uuid())
+  type        MediaType
+  status      MediaStatus @default(PENDING)
+  storageKey  String      @unique
+  url         String?
+  mimeType    String
+  sizeBytes   Int?
+  width       Int?
+  height      Int?
+  durationSec Float?
+  checksum    String?
+
+  uploadedById String?
+  uploadedBy   User?   @relation("MediaUploader", fields: [uploadedById], references: [id])
+
+  questionPrompts Question[] @relation("QuestionPromptMedia")
+  packageCovers   Package[]  @relation("PackageCover")
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([type, status])
+}
+
+// ─────────────────────── Live game (durable summary) ────────────────────────
+
+enum GameMode {
+  INDIVIDUAL
+  TEAMS
+  SUDDEN_DEATH
+  TOURNAMENT
+  SEEN_JEEM
+  LEAGUE
+  CUP
+}
+
+enum Lifeline {
+  CALL_FRIEND
+  DISCARD
+  DOUBLE
+}
+
+enum GameStatus {
+  LOBBY
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
+model Game {
+  id       String     @id @default(uuid())
+  roomCode String     @unique
+  mode     GameMode   @default(INDIVIDUAL)
+  status   GameStatus @default(LOBBY)
+
+  packageId    String
+  package      Package     @relation(fields: [packageId], references: [id])
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+
+  settings  Json
+  hostToken String
+
+  startedAt DateTime? @db.Timestamptz
+  endedAt   DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+
+  participants   Participant[]
+  teams          Team[]
+  rounds         Round[]
+  answers        Answer[]
+  result         GameResult?
+  lifelineUsages LifelineUsage[]
+
+  @@index([status, createdAt])
+  @@index([tournamentId])
+}
+
+/// Durable audit of a Seen-Jeem lifeline spend (one of three per team per game).
+model LifelineUsage {
+  id        String   @id @default(uuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  teamId    String
+  lifeline  Lifeline
+  cellId    String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([gameId, teamId, lifeline])
+  @@index([gameId, teamId])
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  ELIMINATED
+  DISCONNECTED
+  LEFT
+  WINNER
+}
+
+model Participant {
+  id     String @id @default(uuid())
+  gameId String
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  teamId String?
+  team   Team?  @relation(fields: [teamId], references: [id])
+
+  nickname        String
+  avatarId        String
+  status          ParticipantStatus @default(ACTIVE)
+  score           Int               @default(0)
+  lives           Int               @default(1)
+  joinOrder       Int
+  eliminatedRound Int?
+
+  /// Linked account (if the player was logged in); null for guest play.
+  playerId String?
+  player   Player? @relation(fields: [playerId], references: [id])
+
+  sessionToken String   @unique
+  answers      Answer[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([gameId, nickname])
+  @@index([gameId, status])
+  @@index([playerId])
+}
+
+model Team {
+  id      String        @id @default(uuid())
+  gameId  String
+  game    Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name    String
+  color   String
+  score   Int           @default(0)
+  members Participant[]
+
+  @@unique([gameId, name])
+}
+
+model Round {
+  id              String    @id @default(uuid())
+  gameId          String
+  game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  index           Int
+  questionId      String
+  question        Question  @relation(fields: [questionId], references: [id])
+  startedAt       DateTime  @db.Timestamptz
+  endedAt         DateTime? @db.Timestamptz
+  correctOptionId String
+  answers         Answer[]
+
+  @@unique([gameId, index])
+}
+
+model Answer {
+  id            String @id @default(uuid())
+  gameId        String
+  game          Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question    @relation(fields: [questionId], references: [id])
+
+  selectedOptionId String?
+  isCorrect        Boolean
+  responseMs       Int
+  pointsAwarded    Int      @default(0)
+  createdAt        DateTime @default(now()) @db.Timestamptz
+
+  @@unique([roundId, participantId])
+  @@index([gameId, participantId])
+}
+
+model GameResult {
+  id                  String   @id @default(uuid())
+  gameId              String   @unique
+  game                Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  winnerParticipantId String?
+  winnerTeamId        String?
+  totalPlayers        Int
+  totalRounds         Int
+  durationSec         Int
+  leaderboard         Json
+  createdAt           DateTime @default(now()) @db.Timestamptz
+}
+
+model Tournament {
+  id        String     @id @default(uuid())
+  name      String
+  status    GameStatus @default(LOBBY)
+  bracket   Json?
+  games     Game[]
+  createdAt DateTime   @default(now()) @db.Timestamptz
+}
+
+// ──────────────────────────────────── Payments ──────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYMOB
+  MADA
+  FAWRY
+  APPLE_PAY
+  GOOGLE_PAY
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  userId      String?
+  /// Host account (Player) for entitlement purchases (البقاء للأقوى).
+  ownerId     String?
+  owner       Player?     @relation(fields: [ownerId], references: [id])
+  packageId   String?
+  package     Package?    @relation(fields: [packageId], references: [id])
+  productId   String?
+  product     Product?    @relation(fields: [productId], references: [id])
+  amountMinor Int
+  currency    String
+  status      OrderStatus @default(PENDING)
+  payments    Payment[]
+  createdAt   DateTime    @default(now()) @db.Timestamptz
+  updatedAt   DateTime    @updatedAt @db.Timestamptz
+
+  @@index([userId, status])
+  @@index([ownerId, status])
+}
+
+// ───────────────────── Entitlements (play access — البقاء للأقوى) ────────────
+// The sellable unit is access to PLAY, not content: game credits + a time pass.
+// First game per host is free. ownerId is the host account id (Player, added in
+// the accounts phase). See docs/architecture/12-entitlements.md.
+
+enum ProductKind {
+  CREDITS // a number of game-starts
+  TIME_PASS // unlimited game-starts for a window (e.g. 6h)
+}
+
+model Product {
+  id              String      @id @default(uuid())
+  sku             String      @unique
+  nameAr          String
+  nameEn          String?
+  kind            ProductKind
+  credits         Int? // CREDITS: number of games granted
+  durationMinutes Int? // TIME_PASS: validity window in minutes
+  priceMinor      Int
+  currency        String      @default("SAR")
+  isActive        Boolean     @default(true)
+  sortOrder       Int         @default(0)
+  orders          Order[]
+  passes          GamePass[]
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @db.Timestamptz
+}
+
+/// A host's play wallet: the one-time free game + purchased game credits.
+model Wallet {
+  id           String   @id @default(uuid())
+  ownerId      String   @unique
+  owner        Player   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  credits      Int      @default(0)
+  freeGameUsed Boolean  @default(false)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+}
+
+/// A time-boxed unlimited pass (e.g. 6 hours). Active while now < expiresAt.
+model GamePass {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     Player   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  startedAt DateTime @default(now()) @db.Timestamptz
+  expiresAt DateTime @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([ownerId, expiresAt])
+}
+
+// ─────────────────────────── Player accounts (البقاء للأقوى) ─────────────────
+// Persistent player identity (separate from admin Users). Phone-OTP verified.
+// Holds the profile stats the client wants (league / cup wins) and is the owner
+// of wallets/passes/orders. See docs/architecture/13-accounts-auth.md.
+
+model Player {
+  id            String  @id @default(uuid())
+  phone         String  @unique
+  phoneVerified Boolean @default(false)
+  displayName   String
+  /// Country code (one of the launch countries — KSA, KW, BH, …).
+  country       String?
+  avatarId      String  @default("falcon")
+
+  // Profile stats
+  leagueWins  Int @default(0)
+  cupWins     Int @default(0)
+  gamesPlayed Int @default(0)
+
+  wallet         Wallet?
+  passes         GamePass[]
+  orders         Order[]
+  participations Participant[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@index([country, leagueWins])
+  @@index([country, cupWins])
+}
+
+/// One-time passcode for phone verification (hashed; never store the raw code).
+model PlayerOtp {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime  @db.Timestamptz
+  attempts   Int       @default(0)
+  consumedAt DateTime? @db.Timestamptz
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+
+  @@index([phone, createdAt])
+}
+
+model Payment {
+  id          String          @id @default(uuid())
+  orderId     String
+  order       Order           @relation(fields: [orderId], references: [id])
+  provider    PaymentProvider
+  providerRef String
+  amountMinor Int
+  currency    String
+  status      OrderStatus
+  rawPayload  Json?
+  createdAt   DateTime        @default(now()) @db.Timestamptz
+
+  @@unique([provider, providerRef])
+  @@index([orderId])
+}
+
+model WebhookEvent {
+  id          String          @id @default(uuid())
+  provider    PaymentProvider
+  eventId     String
+  type        String
+  payload     Json
+  processedAt DateTime?       @db.Timestamptz
+  createdAt   DateTime        @default(now()) @db.Timestamptz
+
+  @@unique([provider, eventId])
+}

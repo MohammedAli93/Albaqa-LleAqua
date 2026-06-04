@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    @apply bg-bg-base text-ink-primary font-body antialiased;
+    /* Safe-area padding for notched devices */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(16px);
+  }
+  .text-gradient {
+    @apply bg-gradient-brand bg-clip-text text-transparent;
+  }
+  .text-gold-gradient {
+    @apply bg-gradient-prize bg-clip-text text-transparent;
+  }
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}

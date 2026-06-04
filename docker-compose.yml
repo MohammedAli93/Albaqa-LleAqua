@@ -1,0 +1,81 @@
+# Local development infrastructure for Tahaddi.
+# Brings up Postgres, Redis, MinIO (S3-compatible) and Mailhog so the full
+# stack runs on one machine. App processes run via `pnpm dev` against these.
+#
+#   pnpm infra:up      # start
+#   pnpm infra:down    # stop
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tahaddi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tahaddi
+      POSTGRES_PASSWORD: tahaddi_dev_pw
+      POSTGRES_DB: tahaddi
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./.volumes/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tahaddi -d tahaddi']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: tahaddi-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', 'tahaddi_dev_pw']
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./.volumes/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'tahaddi_dev_pw', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: tahaddi-minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: tahaddi
+      MINIO_ROOT_PASSWORD: tahaddi_dev_pw
+    ports:
+      - '9000:9000' # S3 API
+      - '9001:9001' # console
+    volumes:
+      - ./.volumes/minio:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates the media bucket on startup so the app has somewhere to upload.
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 tahaddi tahaddi_dev_pw;
+      mc mb --ignore-existing local/tahaddi-media;
+      mc anonymous set download local/tahaddi-media;
+      exit 0;
+      "
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: tahaddi-mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # web UI

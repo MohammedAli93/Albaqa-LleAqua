@@ -1,0 +1,197 @@
+/**
+ * Screen state (Zustand). Holds a projection of authoritative server state plus
+ * scene-orchestration flags. `applyServerEvent` is the single surface where WS
+ * events enter state (doc 06 §4).
+ */
+import { create } from 'zustand';
+import {
+  ServerEvent,
+  type RoomSnapshot,
+  type PublicParticipant,
+  type RankedEntry,
+  type PublicQuestion,
+  type QuestionShowPayload,
+  type QuestionRevealPayload,
+  type ScoreUpdatePayload,
+  type PlayerEliminatedPayload,
+  type GameCompletedPayload,
+  type TimerTickPayload,
+  type AnswerReceivedPayload,
+  type TeamPublic,
+  type SeenJeemSnapshot,
+  type SjCellResolvedPayload,
+} from '@tahaddi/shared';
+import type { Locale } from '@tahaddi/i18n';
+
+export type ConnState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
+
+export interface ScreenState {
+  conn: ConnState;
+  locale: Locale;
+
+  roomCode: string;
+  joinUrl: string;
+
+  status: RoomSnapshot['game']['status'];
+  mode: RoomSnapshot['game']['mode'];
+  round: number;
+  totalRounds: number;
+  participants: PublicParticipant[];
+  leaderboard: RankedEntry[];
+
+  // current round
+  roundId: string | null;
+  question: PublicQuestion | null;
+  endsAt: number | null;
+  roundTotalMs: number;
+  remainingMs: number;
+  answeredCount: number;
+  totalActive: number;
+  phase: 'idle' | 'collecting' | 'locked' | 'reveal' | 'intermission';
+
+  // reveal
+  correctOptionId: string | null;
+  distribution: Record<string, number>;
+
+  eliminatedThisRound: string[];
+  winner: GameCompletedPayload | null;
+  paused: boolean;
+
+  // Seen-Jeem mode
+  teams: TeamPublic[];
+  seenJeem: SeenJeemSnapshot | null;
+  sjResolved: SjCellResolvedPayload | null;
+
+  setConn: (c: ConnState) => void;
+  setRoom: (code: string, joinUrl: string) => void;
+  setLocale: (l: Locale) => void;
+  applyServerEvent: (event: string, payload: unknown) => void;
+}
+
+export const useStore = create<ScreenState>((set) => ({
+  conn: 'idle',
+  locale: 'ar',
+  roomCode: '',
+  joinUrl: '',
+  status: 'LOBBY',
+  mode: 'INDIVIDUAL',
+  round: 0,
+  totalRounds: 0,
+  participants: [],
+  leaderboard: [],
+  roundId: null,
+  question: null,
+  endsAt: null,
+  roundTotalMs: 15000,
+  remainingMs: 0,
+  answeredCount: 0,
+  totalActive: 0,
+  phase: 'idle',
+  correctOptionId: null,
+  distribution: {},
+  eliminatedThisRound: [],
+  winner: null,
+  paused: false,
+  teams: [],
+  seenJeem: null,
+  sjResolved: null,
+
+  setConn: (conn) => set({ conn }),
+  setRoom: (roomCode, joinUrl) => set({ roomCode, joinUrl }),
+  setLocale: (locale) => set({ locale }),
+
+  applyServerEvent: (event, payload) =>
+    set((s) => {
+      switch (event) {
+        case ServerEvent.ROOM_STATE: {
+          const snap = payload as RoomSnapshot;
+          return {
+            status: snap.game.status,
+            mode: snap.game.mode,
+            round: snap.game.round,
+            totalRounds: snap.game.totalRounds,
+            participants: snap.participants,
+            leaderboard: snap.leaderboard,
+            roundId: snap.currentRound?.roundId ?? null,
+            question: snap.currentRound?.question ?? null,
+            endsAt: snap.currentRound?.endsAt ?? null,
+            phase: snap.currentRound
+              ? (snap.currentRound.phase.toLowerCase() as ScreenState['phase'])
+              : 'idle',
+            paused: snap.game.status === 'PAUSED',
+            teams: snap.teams ?? s.teams,
+            seenJeem: snap.seenJeem ?? s.seenJeem,
+          };
+        }
+        case ServerEvent.PLAYER_JOINED: {
+          const p = (payload as { participant: PublicParticipant }).participant;
+          return { participants: [...s.participants.filter((x) => x.id !== p.id), p] };
+        }
+        case ServerEvent.PLAYER_LEFT: {
+          const id = (payload as { participantId: string }).participantId;
+          return { participants: s.participants.filter((x) => x.id !== id) };
+        }
+        case ServerEvent.GAME_STARTED:
+          return { status: 'ACTIVE', paused: false };
+        case ServerEvent.QUESTION_SHOW: {
+          const p = payload as QuestionShowPayload;
+          return {
+            status: 'ACTIVE',
+            round: p.round,
+            roundId: p.roundId,
+            question: p.question,
+            endsAt: p.endsAt,
+            roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
+            remainingMs: Math.max(0, p.endsAt - Date.now()),
+            answeredCount: 0,
+            phase: 'collecting',
+            correctOptionId: null,
+            distribution: {},
+            eliminatedThisRound: [],
+            paused: false,
+          };
+        }
+        case ServerEvent.TIMER_TICK: {
+          const p = payload as TimerTickPayload;
+          if (p.roundId !== s.roundId) return {};
+          return { remainingMs: p.remainingMs };
+        }
+        case ServerEvent.ANSWER_RECEIVED: {
+          const p = payload as AnswerReceivedPayload;
+          return { answeredCount: p.answeredCount, totalActive: p.totalActive };
+        }
+        case ServerEvent.ANSWER_LOCKED:
+          return { phase: 'locked', remainingMs: 0 };
+        case ServerEvent.QUESTION_REVEAL: {
+          const p = payload as QuestionRevealPayload;
+          return { phase: 'reveal', correctOptionId: p.correctOptionId, distribution: p.distribution };
+        }
+        case ServerEvent.SCORE_UPDATE: {
+          const p = payload as ScoreUpdatePayload;
+          return { leaderboard: p.leaderboard };
+        }
+        case ServerEvent.PLAYER_ELIMINATED: {
+          const p = payload as PlayerEliminatedPayload;
+          return { eliminatedThisRound: p.participantIds };
+        }
+        case ServerEvent.ROUND_COMPLETED:
+          return { phase: 'intermission' };
+        case ServerEvent.GAME_PAUSED:
+          return { paused: true };
+        case ServerEvent.GAME_RESUMED:
+          return { paused: false };
+        case ServerEvent.GAME_COMPLETED: {
+          const p = payload as GameCompletedPayload;
+          return { status: 'COMPLETED', winner: p, leaderboard: p.finalLeaderboard, phase: 'idle' };
+        }
+        case ServerEvent.SJ_STATE:
+          return { status: 'ACTIVE', seenJeem: payload as SeenJeemSnapshot };
+        case ServerEvent.SJ_CELL_OPENED:
+          return { sjResolved: null };
+        case ServerEvent.SJ_CELL_RESOLVED:
+          return { sjResolved: payload as SjCellResolvedPayload };
+        default:
+          return {};
+      }
+    }),
+}));

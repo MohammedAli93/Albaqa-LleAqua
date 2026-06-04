@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.volumes
+.git
+.github
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+coverage
+docs
