@@ -35,6 +35,13 @@ const EnvSchema = z.object({
     .transform((v) => v === 'true'),
   S3_PUBLIC_URL: z.string().url(),
 
+  // When true, the OTP request endpoint returns the code in its response (for
+  // testing before an SMS provider is wired). MUST be false once SMS is live.
+  OTP_DEV_RETURN: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
   SEED_ADMIN_NAME: z.string().optional(),

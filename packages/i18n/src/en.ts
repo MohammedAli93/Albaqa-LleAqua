@@ -2,7 +2,7 @@
 import type ar from './ar.js';
 
 const en: typeof ar = {
-  appName: 'Survival of the Strongest',
+  appName: 'البقاء للأقوى',
   scanToJoin: 'Scan to join',
   roomCode: 'Room code',
   waitingForPlayers: 'Waiting for players…',

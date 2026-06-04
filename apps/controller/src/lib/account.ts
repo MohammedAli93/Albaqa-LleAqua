@@ -3,12 +3,15 @@
  *  is replaced by a verified Player + JWT. Shape mirrors the future Player. */
 
 export interface Account {
+  id: string;
   phone: string;
   displayName: string;
   avatarId: string;
   country: string | null;
   leagueWins: number;
   cupWins: number;
+  /** Player JWT for authenticated calls. */
+  token: string;
 }
 
 const KEY = 'albaqa.account';

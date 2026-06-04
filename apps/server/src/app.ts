@@ -11,6 +11,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { limiters } from './middleware/rateLimit.js';
 import { authRouter } from './http/routes/auth.routes.js';
 import { publicRouter } from './http/routes/public.routes.js';
+import { playerRouter } from './http/routes/player.routes.js';
 import { adminRouter } from './http/routes/admin.routes.js';
 import { adminExtraRouter } from './http/routes/adminExtra.routes.js';
 import { paymentsRouter } from './http/routes/payments.routes.js';
@@ -57,6 +58,7 @@ export function createApp(): Express {
 
   // Routers
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/player', playerRouter);
   app.use('/api/v1', publicRouter);
   app.use('/api/v1/admin', adminRouter);
   app.use('/api/v1/admin', adminExtraRouter);

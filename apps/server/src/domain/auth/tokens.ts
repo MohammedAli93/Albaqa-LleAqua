@@ -42,6 +42,25 @@ export function verifyRefreshToken(token: string): RefreshClaims {
   return jwt.verify(token, env.JWT_REFRESH_SECRET) as RefreshClaims;
 }
 
+// ── Player account tokens (phone-OTP login) ──────────────────────────────────
+
+export interface PlayerClaims {
+  sub: string; // player id
+  typ: 'player';
+}
+
+export function signPlayerToken(playerId: string): string {
+  return jwt.sign({ sub: playerId, typ: 'player' }, env.JWT_ACCESS_SECRET, {
+    expiresIn: '30d',
+  } as SignOptions);
+}
+
+export function verifyPlayerToken(token: string): PlayerClaims {
+  const claims = jwt.verify(token, env.JWT_ACCESS_SECRET) as PlayerClaims;
+  if (claims.typ !== 'player') throw new Error('not a player token');
+  return claims;
+}
+
 // ── Capability tokens (host / player session) ────────────────────────────────
 
 /** Generate a random capability secret (given to the client once, never stored raw). */

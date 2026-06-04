@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { AVATARS, GAME_LIMITS } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
-import { saveAccount } from '../../lib/account.js';
+import { api } from '../../lib/config.js';
+import { saveAccount, type Account } from '../../lib/account.js';
 import { COUNTRIES } from '../../lib/catalog.js';
 
 /** First-time profile completion: name + avatar + country. */
@@ -12,14 +13,27 @@ export function Profile() {
   const [name, setName] = useState(account?.displayName ?? '');
   const [avatarId, setAvatarId] = useState(account?.avatarId ?? AVATARS[0]!.id);
   const [country, setCountry] = useState<string | null>(account?.country ?? null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const ok = name.trim().length >= GAME_LIMITS.NICKNAME_MIN && !!country;
 
-  function finish() {
-    if (!ok || !account) return;
-    const full = { ...account, displayName: name.trim(), avatarId, country };
-    saveAccount(full);
-    set({ account: full, nickname: full.displayName, avatarId, appView: 'home' });
+  async function finish() {
+    if (!ok || !account || busy) return;
+    setBusy(true); setErr(null);
+    try {
+      const updated = await api<Omit<Account, 'token'>>('/api/v1/player/me', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${account.token}` },
+        body: JSON.stringify({ displayName: name.trim(), country, avatarId }),
+      });
+      const full: Account = { ...updated, token: account.token };
+      saveAccount(full);
+      set({ account: full, nickname: full.displayName, avatarId, appView: 'home' });
+    } catch {
+      setErr('تعذّر الحفظ، حاول مجدداً');
+      setBusy(false);
+    }
   }
 
   return (
@@ -69,13 +83,14 @@ export function Profile() {
       </div>
 
       <div className="sticky bottom-0 mt-8 bg-gradient-to-t from-bg-base to-transparent pb-2 pt-6">
+        {err && <p className="mb-3 text-center text-danger">{err}</p>}
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={finish}
-          disabled={!ok}
+          disabled={!ok || busy}
           className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold shadow-glow disabled:opacity-40"
         >
-          ابدأ
+          {busy ? '...' : 'ابدأ'}
         </motion.button>
       </div>
     </div>
