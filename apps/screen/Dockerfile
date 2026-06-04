@@ -1,7 +1,7 @@
 # ── Tahaddi Main Screen — static build (run from repo root) ──────────────────
 # docker build -f apps/screen/Dockerfile --build-arg VITE_API_URL=... -t tahaddi-screen .
 FROM node:20-alpine AS build
-RUN corepack enable
+RUN npm install -g pnpm@9.12.0
 WORKDIR /app
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages ./packages

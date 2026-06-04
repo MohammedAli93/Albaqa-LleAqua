@@ -1,7 +1,7 @@
 # ── Tahaddi server — multi-stage build (run from repo root) ──────────────────
 # Build: docker build -f apps/server/Dockerfile -t tahaddi-server .
 FROM node:20-alpine AS base
-RUN corepack enable
+RUN npm install -g pnpm@9.12.0
 WORKDIR /app
 
 # ── deps: install the whole workspace (needed for shared package) ─────────────
