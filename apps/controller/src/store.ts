@@ -15,6 +15,10 @@ import {
   type SjCellResolvedPayload,
 } from '@tahaddi/shared';
 import type { Locale } from '@tahaddi/i18n';
+import { loadAccount, type Account } from './lib/account.js';
+
+/** Top-level app surface, above the in-game flow. */
+export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game';
 
 export type Conn = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 export type Phase = 'join' | 'lobby' | 'question' | 'locked' | 'reveal' | 'result' | 'eliminated' | 'finished' | 'seenjeem';
@@ -49,6 +53,10 @@ export interface ControllerState {
   winner: GameCompletedPayload | null;
   paused: boolean;
 
+  // App shell (front door, above the in-game flow)
+  appView: AppView;
+  account: Account | null;
+
   // Seen-Jeem mode
   seenJeem: SeenJeemSnapshot | null;
   myTeamId: string | null;
@@ -82,6 +90,8 @@ export const useStore = create<ControllerState>((set, get) => ({
   lastResult: null,
   winner: null,
   paused: false,
+  appView: 'splash',
+  account: loadAccount(),
   seenJeem: null,
   myTeamId: null,
   sjResolved: null,
