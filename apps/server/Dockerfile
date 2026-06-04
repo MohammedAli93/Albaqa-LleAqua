@@ -1,7 +1,8 @@
 # ── Tahaddi server — multi-stage build (run from repo root) ──────────────────
 # Build: docker build -f apps/server/Dockerfile -t tahaddi-server .
 FROM node:20-alpine AS base
-RUN npm install -g pnpm@9.12.0
+# openssl: Prisma's query/migration engine needs it on Alpine (musl) at runtime.
+RUN apk add --no-cache openssl && npm install -g pnpm@9.12.0
 WORKDIR /app
 
 # ── deps: install the whole workspace (needed for shared package) ─────────────

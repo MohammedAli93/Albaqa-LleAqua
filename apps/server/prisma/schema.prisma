@@ -4,7 +4,9 @@
 // See docs/architecture/02-database-schema.md for the full rationale.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Alpine (musl) + openssl 3 engine for the Docker runtime, plus native for local.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
