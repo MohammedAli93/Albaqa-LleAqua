@@ -19,10 +19,13 @@ function botName(i: number): string {
   return i < NAMES.length ? NAMES[i]! : `لاعب ${i + 1}`;
 }
 
+type TeamLite = { id: string; capacity?: number; memberIds: string[] };
+
 export function startDemoBots(roomCode: string, count: number): Socket[] {
   const bots: Socket[] = [];
   for (let i = 0; i < count; i++) {
     const sock = io(`${API_URL}/play`, { transports: ['websocket'], auth: { roomCode } });
+    let pickedTeam = false;
 
     sock.on('connect', () => {
       sock.emit(
@@ -30,6 +33,25 @@ export function startDemoBots(roomCode: string, count: number): Socket[] {
         { nickname: botName(i), avatarId: AVATARS[i % AVATARS.length]!.id },
         () => {},
       );
+    });
+
+    // TEAMS lobby: each bot claims a seat, distributed across the teams. Tries the
+    // next team if its first pick is full, so all teams fill evenly.
+    sock.on('room:state', (snap: { game?: { type?: string }; teams?: TeamLite[] }) => {
+      if (pickedTeam) return;
+      if (snap.game?.type !== 'TEAMS' || !snap.teams?.length) return;
+      pickedTeam = true;
+      const teams = snap.teams;
+      const order = teams.map((_, k) => teams[(i + k) % teams.length]!);
+      const tryPick = (idx: number) => {
+        if (idx >= order.length) return;
+        sock.emit(
+          'player:pickTeam',
+          { teamId: order[idx]!.id },
+          (res: { ok: boolean }) => { if (!res?.ok) tryPick(idx + 1); },
+        );
+      };
+      tryPick(0);
     });
 
     // Answer each question after a human-ish random delay (staggered for nice viz).

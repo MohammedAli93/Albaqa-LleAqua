@@ -10,6 +10,8 @@ export interface SetupSelection {
   mode: GameMode;
   teamCount?: number;
   playersPerTeam?: number;
+  /** Fill the room with auto-playing bots and start (solo testing). */
+  demo?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
   const [type, setType] = useState<GameType | null>(null);
   const [teamCount, setTeamCount] = useState(DEFAULT_TEAM_COUNT);
   const [playersPerTeam, setPlayersPerTeam] = useState(DEFAULT_PLAYERS_PER_TEAM);
+  const [bots, setBots] = useState(false);
 
   const types: { key: GameType; icon: LucideIcon; title: string; desc: string }[] = [
     { key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), desc: t(locale, 'individualDesc') },
@@ -36,8 +39,8 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
   function confirm(mode: GameMode) {
     onConfirm(
       type === GameType.TEAMS
-        ? { type, mode, teamCount, playersPerTeam }
-        : { type: type!, mode },
+        ? { type, mode, teamCount, playersPerTeam, demo: bots }
+        : { type: type!, mode, demo: bots },
     );
   }
 
@@ -83,6 +86,35 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Solo testing: fill with auto-playing bots */}
+            <button
+              onClick={() => setBots((b) => !b)}
+              className={[
+                'flex w-full items-center justify-between rounded-xl3 p-6 text-start transition',
+                bots ? 'bg-gradient-brand text-white shadow-glow' : 'glass',
+              ].join(' ')}
+            >
+              <span>
+                <span className="block font-display text-2xl font-extrabold">🤖 اختبر مع بوتات</span>
+                <span className={`text-lg ${bots ? 'text-white/80' : 'text-ink-secondary'}`}>
+                  املأ الغرفة بلاعبين آليين وابدأ تلقائياً — للتجربة بدون أشخاص
+                </span>
+              </span>
+              <span
+                className={[
+                  'relative h-9 w-16 shrink-0 rounded-full transition',
+                  bots ? 'bg-white/40' : 'bg-ink-muted/30',
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'absolute top-1 h-7 w-7 rounded-full bg-white shadow transition-all',
+                    bots ? 'left-1' : 'left-8',
+                  ].join(' ')}
+                />
+              </span>
+            </button>
+
             {type === GameType.TEAMS && (
               <div className="glass flex items-center justify-around rounded-xl3 p-6">
                 <Stepper label={t(locale, 'teamCount')} value={teamCount} min={GAME_LIMITS.MIN_TEAMS} max={GAME_LIMITS.MAX_TEAMS} onChange={setTeamCount} />

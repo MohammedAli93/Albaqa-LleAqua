@@ -142,7 +142,7 @@ export default function App() {
       )}
 
       {!error && needSetup && (
-        <Setup onConfirm={(sel) => void createAndHost(buildSettings(sel))} />
+        <Setup onConfirm={(sel) => void createAndHost(buildSettings(sel), !!sel.demo)} />
       )}
 
       {!error && !needSetup && (
