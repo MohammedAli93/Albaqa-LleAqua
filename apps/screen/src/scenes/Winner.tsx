@@ -1,36 +1,31 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
+import { ConfettiRain } from '../components/Confetti.js';
 
-/** Confetti burst via simple DOM particles (GPU transform/opacity only). */
-function Confetti() {
-  const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced) return null;
-  const colors = ['#F5C518', '#7C3AED', '#22D3EE', '#C026D3', '#22C55E'];
-  return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden">
-      {Array.from({ length: 80 }).map((_, i) => (
-        <motion.span
-          key={i}
-          className="absolute top-0 h-3 w-3 rounded-sm"
-          style={{ left: `${(i / 80) * 100}%`, background: colors[i % colors.length] }}
-          initial={{ y: -40, rotate: 0, opacity: 1 }}
-          animate={{ y: '105vh', rotate: 720, opacity: [1, 1, 0] }}
-          transition={{ duration: 2.4 + (i % 5) * 0.4, repeat: Infinity, delay: (i % 10) * 0.15, ease: 'easeIn' }}
-        />
-      ))}
-    </div>
-  );
+/** Eased count-up number for the dramatic final score reveal. */
+function CountUp({ value, className }: { value: number; className?: string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const dur = 1200;
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / dur);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <span className={className}>{n}</span>;
 }
 
 export function Winner() {
   const { winner, locale } = useStore();
-  useEffect(() => {
-    // could trigger sound here
-  }, []);
 
   if (!winner) return null;
   const champ = winner.winner;
@@ -38,7 +33,7 @@ export function Winner() {
 
   return (
     <div className="relative grid h-full place-items-center bg-gradient-stage">
-      <Confetti />
+      <ConfettiRain />
       <motion.div
         initial={{ scale: 0.6, opacity: 0, y: 60 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -56,7 +51,7 @@ export function Winner() {
               <Avatar avatarId={champ.avatarId} size={120} />
             </div>
             <h1 className="font-display text-8xl font-black text-gold-gradient">{champ.nickname}</h1>
-            <p className="tnum font-display text-4xl font-bold">{champ.score} {t(locale, 'score')}</p>
+            <p className="tnum font-display text-4xl font-bold"><CountUp value={champ.score} /> {t(locale, 'score')}</p>
           </>
         )}
         {team && (
@@ -68,7 +63,7 @@ export function Winner() {
               <Crown color="white" size={56} />
             </div>
             <h1 className="font-display text-7xl font-black" style={{ color: team.color }}>{team.name}</h1>
-            <p className="tnum font-display text-4xl font-bold">{team.score} {t(locale, 'score')}</p>
+            <p className="tnum font-display text-4xl font-bold"><CountUp value={team.score} /> {t(locale, 'score')}</p>
           </>
         )}
 

@@ -24,8 +24,22 @@ import {
   type SjCellResolvedPayload,
 } from '@tahaddi/shared';
 import type { Locale } from '@tahaddi/i18n';
+import { sfx } from './lib/sfx.js';
 
 export type ConnState = 'idle' | 'connecting' | 'connected' | 'reconnecting';
+
+/** Map an incoming server event to a sound cue (best-effort; ignored if muted). */
+function playEventSound(event: string): void {
+  switch (event) {
+    case ServerEvent.QUESTION_SHOW: sfx.whoosh(); break;
+    case ServerEvent.ANSWER_LOCKED: sfx.lock(); break;
+    case ServerEvent.QUESTION_REVEAL: sfx.reveal(); break;
+    case ServerEvent.TEAM_SCORED: sfx.ding(); break;
+    case ServerEvent.PLAYER_ELIMINATED: sfx.eliminate(); break;
+    case ServerEvent.GAME_COMPLETED: sfx.win(); break;
+    default: break;
+  }
+}
 
 export interface ScreenState {
   conn: ConnState;
@@ -107,7 +121,8 @@ export const useStore = create<ScreenState>((set) => ({
   setRoom: (roomCode, joinUrl) => set({ roomCode, joinUrl }),
   setLocale: (locale) => set({ locale }),
 
-  applyServerEvent: (event, payload) =>
+  applyServerEvent: (event, payload) => {
+    playEventSound(event);
     set((s) => {
       switch (event) {
         case ServerEvent.ROOM_STATE: {
@@ -207,5 +222,6 @@ export const useStore = create<ScreenState>((set) => ({
         default:
           return {};
       }
-    }),
+    });
+  },
 }));

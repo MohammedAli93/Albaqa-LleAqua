@@ -17,6 +17,7 @@ import { api, CONTROLLER_URL } from './lib/config.js';
 import { useStore } from './store.js';
 import { connectHost } from './socket.js';
 import { startDemoBots } from './demo.js';
+import { initSfxGesture } from './lib/sfx.js';
 import { ParticleField } from './components/ParticleField.js';
 import { Setup } from './scenes/Setup.js';
 import { Lobby } from './scenes/Lobby.js';
@@ -89,6 +90,7 @@ export default function App() {
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
+    initSfxGesture();
 
     const params = new URLSearchParams(window.location.search);
     const demoParam = params.get('demo');

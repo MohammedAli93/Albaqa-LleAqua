@@ -3,6 +3,7 @@ import { Check, X, Users, Zap } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
+import { ConfettiBurst } from '../components/Confetti.js';
 import { useCountdown } from '../hooks/useCountdown.js';
 
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
@@ -24,6 +25,8 @@ export function Question() {
 
   return (
     <div className="safe relative flex h-full flex-col overflow-hidden">
+      {/* celebratory burst when the answer is revealed */}
+      {revealing && <ConfettiBurst key={`burst-${question.id}`} count={56} />}
       {/* drifting accent blobs for life behind the content */}
       <div aria-hidden className="pointer-events-none absolute -left-32 top-10 h-[40vh] w-[40vh] rounded-full bg-brand-violet/15 blur-[120px] animate-aurora" />
       <div aria-hidden className="pointer-events-none absolute -right-24 bottom-0 h-[36vh] w-[36vh] rounded-full bg-brand-cyan/15 blur-[120px] animate-aurora-slow" />
