@@ -27,18 +27,21 @@ export const COUNTRIES: Country[] = [
 export interface Category {
   id: string;
   nameAr: string;
+  /** Emoji used as a colorful watermark on the category tile. */
   icon: string;
+  /** Tile gradient [from, to]. */
+  gradient: [string, string];
 }
 
 export const CATEGORIES: Category[] = [
-  { id: 'sports', nameAr: 'رياضة', icon: '⚽' },
-  { id: 'culture', nameAr: 'ثقافة', icon: '🎭' },
-  { id: 'arts', nameAr: 'فنون', icon: '🎨' },
-  { id: 'history', nameAr: 'تاريخ', icon: '🏛️' },
-  { id: 'literature', nameAr: 'أدب', icon: '📚' },
-  { id: 'geography', nameAr: 'جغرافيا', icon: '🗺️' },
-  { id: 'arab', nameAr: 'الوطن العربي', icon: '🌙' },
-  { id: 'politics', nameAr: 'سياسة', icon: '🏛️' },
-  { id: 'science', nameAr: 'علوم', icon: '🔬' },
-  { id: 'worldcup', nameAr: 'كأس العالم', icon: '🏆' },
+  { id: 'sports', nameAr: 'رياضة', icon: '⚽', gradient: ['#10B981', '#0D9488'] },
+  { id: 'culture', nameAr: 'ثقافة', icon: '🎭', gradient: ['#7C3AED', '#6366F1'] },
+  { id: 'arts', nameAr: 'فنون', icon: '🎨', gradient: ['#FB7185', '#E11D48'] },
+  { id: 'history', nameAr: 'تاريخ', icon: '🏛️', gradient: ['#F59E0B', '#B45309'] },
+  { id: 'literature', nameAr: 'أدب', icon: '📚', gradient: ['#6366F1', '#4F46E5'] },
+  { id: 'geography', nameAr: 'جغرافيا', icon: '🗺️', gradient: ['#14B8A6', '#0EA5E9'] },
+  { id: 'arab', nameAr: 'الوطن العربي', icon: '🌙', gradient: ['#8B5CF6', '#4F46E5'] },
+  { id: 'politics', nameAr: 'سياسة', icon: '🏛️', gradient: ['#0EA5E9', '#2563EB'] },
+  { id: 'science', nameAr: 'علوم', icon: '🔬', gradient: ['#06B6D4', '#3B82F6'] },
+  { id: 'worldcup', nameAr: 'كأس العالم', icon: '🏆', gradient: ['#FACC15', '#F59E0B'] },
 ];

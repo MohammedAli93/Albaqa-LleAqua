@@ -24,12 +24,6 @@ const CAT_ICON: Record<string, LucideIcon> = {
   sports: Dumbbell, culture: Drama, arts: Palette, history: Landmark, literature: BookOpen,
   geography: Globe2, arab: Moon, politics: Scale, science: FlaskConical, worldcup: Trophy,
 };
-const CAT_TINT = [
-  'from-action/25 text-action', 'from-brand-cyan/25 text-brand-cyan',
-  'from-brand-magenta/25 text-brand-magenta', 'from-prize-gold/25 text-prize-gold',
-  'from-brand-indigo/25 text-brand-indigo',
-];
-
 export function Home() {
   const { account, set } = useStore();
   if (!account) return null;
@@ -118,7 +112,7 @@ export function Home() {
         <ScanLine size={18} /> انضمّ بكود لعبة
       </button>
 
-      {/* Categories */}
+      {/* Categories — vibrant gradient tiles */}
       <h2 className="mb-3 mt-8 font-display text-xl font-bold">الفئات</h2>
       <div className="grid grid-cols-2 gap-3 pb-6">
         {CATEGORIES.map((c, i) => {
@@ -129,10 +123,20 @@ export function Home() {
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.04 * i }}
               whileTap={{ scale: 0.95 }}
               onClick={() => set({ appView: 'play' })}
-              className={`relative overflow-hidden rounded-xl2 border border-ink-primary/5 bg-white bg-gradient-to-br ${CAT_TINT[i % CAT_TINT.length]} to-white p-4 text-start shadow-glass`}
+              className="group relative h-28 overflow-hidden rounded-xl3 p-4 text-start text-white shadow-card transition"
+              style={{ backgroundImage: `linear-gradient(145deg, ${c.gradient[0]} 0%, ${c.gradient[1]} 100%)` }}
             >
-              <Icon size={26} />
-              <span className="mt-3 block font-display text-lg font-bold text-ink-primary">{c.nameAr}</span>
+              {/* colorful emoji watermark + soft glow */}
+              <span className="pointer-events-none absolute -right-2 -top-3 text-6xl opacity-25 transition group-hover:scale-110">
+                {c.icon}
+              </span>
+              <span className="pointer-events-none absolute -bottom-8 -left-6 h-24 w-24 rounded-full bg-white/15 blur-2xl" />
+              <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                <Icon size={22} />
+              </span>
+              <span className="relative mt-3 block font-display text-lg font-extrabold drop-shadow-sm">
+                {c.nameAr}
+              </span>
             </motion.button>
           );
         })}
