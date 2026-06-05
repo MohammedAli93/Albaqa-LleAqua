@@ -42,12 +42,21 @@
     border: 1px solid rgba(79, 70, 229, 0.14);
     @apply shadow-card;
   }
-  /* Gradient text */
+  /* Gradient text — Arabic glyphs hang below the baseline, so give the clipped
+     text box breathing room (line-height + bottom padding) to avoid cropping. */
   .text-gradient {
     @apply bg-gradient-brand bg-clip-text text-transparent;
+    line-height: 1.25;
+    padding-block-end: 0.16em;
   }
   .text-gold-gradient {
     @apply bg-gradient-prize bg-clip-text text-transparent;
+    line-height: 1.25;
+    padding-block-end: 0.16em;
+  }
+  /* Arabic display headings clip easily with very tight leading; keep a floor. */
+  .font-display {
+    line-height: 1.2;
   }
   /* Soft brand emphasis (replaces the old neon glow on the light theme) */
   .text-glow {

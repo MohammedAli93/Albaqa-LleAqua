@@ -35,11 +35,16 @@
   .safe {
     padding: 4vmin 5vmin;
   }
+  /* Arabic glyphs hang below the baseline — give clipped gradient text room. */
   .text-gradient {
     @apply bg-gradient-brand bg-clip-text text-transparent;
+    line-height: 1.25;
+    padding-block-end: 0.16em;
   }
   .text-gold-gradient {
     @apply bg-gradient-prize bg-clip-text text-transparent;
+    line-height: 1.25;
+    padding-block-end: 0.16em;
   }
 }
 

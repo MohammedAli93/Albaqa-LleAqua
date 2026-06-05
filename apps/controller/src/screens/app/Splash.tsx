@@ -23,7 +23,7 @@ export function Splash() {
           className="relative"
         >
           <div className="absolute inset-0 -z-10 rounded-[40%] bg-brand-violet/30 blur-3xl animate-pulse-glow" />
-          <h1 className="font-display text-[5.5rem] font-black leading-[0.95] text-gradient text-glow">
+          <h1 className="font-display text-[5.5rem] font-black leading-[1.12] text-gradient text-glow pb-2">
             البقاء
             <br />
             للأقوى
