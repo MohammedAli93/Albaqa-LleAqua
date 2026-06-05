@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion';
-import { Check, X, Clock } from 'lucide-react';
+import { Check, X, Clock, Zap } from 'lucide-react';
+import { GameType } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 
 /** Shown after personal result arrives, or while waiting for results (locked). */
 export function Result() {
-  const { phase, lastResult, myScore, myLives, locale } = useStore();
+  const { phase, lastResult, myScore, myLives, locale, gameType, lastHeroes, myTeamId } = useStore();
+  const myHero = gameType === GameType.TEAMS ? lastHeroes.find((h) => h.teamId === myTeamId) : undefined;
 
   if (phase === 'locked') {
     return (
@@ -37,6 +39,14 @@ export function Result() {
         <p className="font-display text-4xl font-black">{correct ? t(locale, 'correct') : t(locale, 'wrong')}</p>
         {lastResult && lastResult.pointsAwarded > 0 && (
           <p className="tnum font-display text-3xl font-bold text-success">+{lastResult.pointsAwarded}</p>
+        )}
+        {myHero && (
+          <div className="glass flex items-center gap-2 rounded-xl2 px-4 py-3 text-start">
+            <Zap size={20} className="shrink-0 text-prize-gold" />
+            <span className="text-sm text-ink-secondary">
+              {t(locale, 'firstCorrectHero', { name: myHero.nickname, team: myHero.teamName })}
+            </span>
+          </div>
         )}
         <div className="flex gap-8 text-ink-secondary">
           <span>{t(locale, 'score')}: <b className="tnum text-ink-primary">{myScore}</b></span>

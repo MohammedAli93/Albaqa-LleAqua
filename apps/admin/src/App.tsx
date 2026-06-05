@@ -10,6 +10,7 @@ import { Questions } from './pages/Questions.js';
 import { Categories } from './pages/Categories.js';
 import { Packages } from './pages/Packages.js';
 import { Import } from './pages/Import.js';
+import { Players } from './pages/Players.js';
 import { Sessions } from './pages/Sessions.js';
 
 export default function App() {
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/categories" element={<Categories />} />
         <Route path="/packages" element={<Packages />} />
         <Route path="/import" element={<Import />} />
+        <Route path="/players" element={<Players />} />
         <Route path="/sessions" element={<Sessions />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

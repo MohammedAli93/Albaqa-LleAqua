@@ -1,8 +1,15 @@
-# 13. Player Accounts & Phone-OTP Auth (البقاء للأقوى)
+# 13. Player Accounts & Registration (البقاء للأقوى)
 
 Persistent player identity — separate from the admin `User` (RBAC) table. Unlocks
-both the **profile stats** the client wants (league/cup wins) and **monetization**
-(a wallet/entitlements need an identity; see [12](./12-entitlements.md)).
+both the **profile stats** the client wants (points/elimination wins) and
+**monetization** (a wallet/entitlements need an identity; see [12](./12-entitlements.md)).
+
+> **Revision 2026-06-05:** Phone-OTP login was replaced by a plain registration
+> form — **username + email + mobile** (all required & validated, all unique), no
+> OTP/password. The mobile number is the unique identity used to log back in.
+> Endpoints: `POST /player/auth/register`, `POST /player/auth/login` (by mobile),
+> `GET/PATCH /player/me`. The `PlayerOtp` model and OTP code paths were removed.
+> The OTP-specific prose below is retained only for historical context.
 
 ## Why phone-OTP
 Gulf market is phone-first; no passwords to forget, and a verified phone is the

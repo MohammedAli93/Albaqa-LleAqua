@@ -4,6 +4,7 @@ import {
   ClientEvent,
   ServerEvent,
   PlayerJoinSchema,
+  PickTeamSchema,
   PlayerAnswerSchema,
   EmptySchema,
   DraftPickSchema,
@@ -47,6 +48,12 @@ export function registerPlayNamespace(playNs: Namespace): void {
       ctx.participantId = participantId;
       socket.emit(ServerEvent.ROOM_STATE, engine.snapshotFor(state, participantId));
       return { participantId, sessionToken: token };
+    });
+
+    on(socket, ClientEvent.PLAYER_PICK_TEAM, PickTeamSchema, async (input) => {
+      if (!ctx.participantId) throw new Error('not joined');
+      await engine.pickTeam(ctx.gameId, ctx.participantId, input.teamId);
+      return { ok: true };
     });
 
     on(socket, ClientEvent.PLAYER_ANSWER, PlayerAnswerSchema, async (input) => {

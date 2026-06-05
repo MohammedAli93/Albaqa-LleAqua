@@ -1,4 +1,6 @@
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+/** Big-screen (host) app URL — when set, the phone can launch a configured game there. */
+export const SCREEN_URL = import.meta.env.VITE_SCREEN_URL ?? '';
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

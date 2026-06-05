@@ -14,17 +14,25 @@
 
 ## Global Rules
 
-### Color Palette
+### Color Palette — v3 (light · "Fresh Sky + Coral")
 
-| Role | Hex | CSS Variable |
+The product direction is a **bright, premium, friendly game-show** look: light
+surfaces, clean gradients, strong contrast. Token source of truth is
+`packages/config/tailwind-preset.cjs` (consumed by all apps).
+
+| Role | Hex | Tailwind token |
 |------|-----|--------------|
-| Primary | `#7C3AED` | `--color-primary` |
-| Secondary | `#A78BFA` | `--color-secondary` |
-| CTA/Accent | `#F43F5E` | `--color-cta` |
-| Background | `#0F0F23` | `--color-background` |
-| Text | `#E2E8F0` | `--color-text` |
+| Page background | `#F4F7FF` | `bg-bg-base` |
+| Card surface | `#FFFFFF` | `bg-bg-raised` / `.glass` |
+| Primary (brand) | `#4F46E5` indigo | `brand-deep` |
+| Secondary (pop) | `#7C3AED` violet | `brand-magenta` |
+| Accent | `#14B8A6` teal | `brand-cyan` |
+| CTA/Action | `#F43F5E` → `#FB7185` coral/rose | `action` / `.btn-cta` |
+| Prize | `#F59E0B` amber | `prize-gold` |
+| Text | `#0F172A` slate | `ink-primary` |
 
-**Color Notes:** Neon purple + rose action
+**Color Notes:** Light canvas, indigo brand, teal + coral accents, amber prizes.
+Avoid: dark/black backgrounds, neon-on-dark, aggressive gaming aesthetics.
 
 ### Typography
 

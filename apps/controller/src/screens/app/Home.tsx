@@ -40,7 +40,7 @@ export function Home() {
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-display text-2xl font-extrabold">{account.displayName}</span>
+              <span className="font-display text-2xl font-extrabold">{account.username}</span>
               {country && <span className="text-xl">{country.flag}</span>}
             </div>
             <span className="text-sm text-ink-muted">جاهز للتحدّي؟</span>
@@ -58,15 +58,15 @@ export function Home() {
           <div className="glass flex items-center gap-3 rounded-xl2 px-4 py-3">
             <Trophy size={22} className="text-prize-gold" />
             <div>
-              <div className="font-display text-2xl font-bold tnum leading-none">{account.leagueWins}</div>
-              <div className="text-xs text-ink-muted">فوز بالدوري</div>
+              <div className="font-display text-2xl font-bold tnum leading-none">{account.pointsWins}</div>
+              <div className="text-xs text-ink-muted">فوز بلعبة النقاط</div>
             </div>
           </div>
           <div className="glass flex items-center gap-3 rounded-xl2 px-4 py-3">
             <Medal size={22} className="text-brand-cyan" />
             <div>
-              <div className="font-display text-2xl font-bold tnum leading-none">{account.cupWins}</div>
-              <div className="text-xs text-ink-muted">فوز بالكأس</div>
+              <div className="font-display text-2xl font-bold tnum leading-none">{account.eliminationWins}</div>
+              <div className="text-xs text-ink-muted">فوز بلعبة التصفيات</div>
             </div>
           </div>
         </div>
@@ -99,7 +99,7 @@ export function Home() {
               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.04 * i }}
               whileTap={{ scale: 0.95 }}
               onClick={() => set({ appView: 'play' })}
-              className={`relative overflow-hidden rounded-xl2 border border-white/10 bg-gradient-to-br ${CAT_TINT[i % CAT_TINT.length]} to-transparent p-4 text-start`}
+              className={`relative overflow-hidden rounded-xl2 border border-ink-primary/5 bg-white bg-gradient-to-br ${CAT_TINT[i % CAT_TINT.length]} to-white p-4 text-start shadow-glass`}
             >
               <Icon size={26} />
               <span className="mt-3 block font-display text-lg font-bold text-ink-primary">{c.nameAr}</span>

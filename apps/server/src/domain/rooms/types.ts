@@ -4,12 +4,14 @@
  * bootstrap (Phase 3) creates it empty in LOBBY.
  */
 import type {
+  GameType,
   GameMode,
   GameStatus,
   RoundPhase,
   ParticipantStatus,
   GameSettings,
   PublicQuestion,
+  RoundHero,
   SeenJeemPhase,
   Lifeline,
 } from '@tahaddi/shared';
@@ -34,6 +36,10 @@ export interface LiveTeam {
   name: string;
   color: string;
   score: number;
+  /** ELIMINATION mode: team lives (0 = eliminated). */
+  lives: number;
+  /** Max players this team may hold. */
+  capacity: number;
 }
 
 export interface LiveRound {
@@ -112,6 +118,9 @@ export interface LiveSeenJeem {
 export interface RoomState {
   gameId: string;
   roomCode: string;
+  /** Who competes (chosen first). */
+  type: GameType;
+  /** How scoring works (chosen second). */
   mode: GameMode;
   status: GameStatus;
   settings: GameSettings;
@@ -123,6 +132,8 @@ export interface RoomState {
   totalRounds: number;
   participants: Record<string, LiveParticipant>;
   teams: Record<string, LiveTeam>;
+  /** TEAMS mode: per-team first-correct winners of the last resolved round. */
+  lastHeroes?: RoundHero[];
   currentRound: LiveRound | null;
   /** Present only when mode === SEEN_JEEM. */
   seenJeem?: LiveSeenJeem;

@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { get } from '../api/client.js';
+import { modeLabel, typeLabel } from '../lib/labels.js';
 
 interface Session {
   id: string;
   roomCode: string;
+  type: string;
   mode: string;
   status: string;
   createdAt: string;
@@ -22,7 +24,7 @@ export function Sessions() {
         <table className="w-full text-left">
           <thead className="bg-slate-50 text-sm text-slate-500">
             <tr>
-              <th className="p-3">Code</th><th className="p-3">Mode</th><th className="p-3">Package</th>
+              <th className="p-3">Code</th><th className="p-3">Type</th><th className="p-3">Mode</th><th className="p-3">Package</th>
               <th className="p-3">Players</th><th className="p-3">Rounds</th><th className="p-3">Duration</th><th className="p-3">Status</th>
             </tr>
           </thead>
@@ -30,7 +32,8 @@ export function Sessions() {
             {data?.items.map((s) => (
               <tr key={s.id} className="border-t border-slate-100">
                 <td className="p-3 font-mono font-bold">{s.roomCode}</td>
-                <td className="p-3 text-sm">{s.mode}</td>
+                <td className="p-3 text-sm">{typeLabel(s.type)}</td>
+                <td className="p-3 text-sm">{modeLabel(s.mode)}</td>
                 <td className="p-3" dir="rtl">{s.package?.titleAr}</td>
                 <td className="p-3 tnum">{s.result?.totalPlayers ?? s._count?.participants ?? 0}</td>
                 <td className="p-3 tnum">{s.result?.totalRounds ?? '—'}</td>

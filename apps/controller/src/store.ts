@@ -2,6 +2,8 @@
 import { create } from 'zustand';
 import {
   ServerEvent,
+  GameType,
+  GameMode,
   type RoomSnapshot,
   type PublicQuestion,
   type QuestionShowPayload,
@@ -11,6 +13,9 @@ import {
   type ScoreUpdatePayload,
   type GameCompletedPayload,
   type TimerTickPayload,
+  type TeamPublic,
+  type RoundHero,
+  type TeamScoredPayload,
   type SeenJeemSnapshot,
   type SjCellResolvedPayload,
 } from '@tahaddi/shared';
@@ -35,6 +40,10 @@ export interface ControllerState {
 
   phase: Phase;
   status: RoomSnapshot['game']['status'];
+  gameType: GameType;
+  gameMode: GameMode;
+  teams: TeamPublic[];
+  lastHeroes: RoundHero[];
 
   question: PublicQuestion | null;
   roundId: string | null;
@@ -76,6 +85,10 @@ export const useStore = create<ControllerState>((set, get) => ({
   avatarId: '',
   phase: 'join',
   status: 'LOBBY',
+  gameType: GameType.INDIVIDUAL,
+  gameMode: GameMode.POINTS,
+  teams: [],
+  lastHeroes: [],
   question: null,
   roundId: null,
   endsAt: null,
@@ -110,6 +123,10 @@ export const useStore = create<ControllerState>((set, get) => ({
           const phase = snap.seenJeem ? 'seenjeem' : derivePhase(snap, self?.status);
           return {
             status: snap.game.status,
+            gameType: snap.game.type,
+            gameMode: snap.game.mode,
+            teams: snap.teams ?? s.teams,
+            lastHeroes: snap.heroes ?? s.lastHeroes,
             paused: snap.game.status === 'PAUSED',
             question: snap.currentRound?.question ?? null,
             roundId: snap.currentRound?.roundId ?? null,
@@ -138,8 +155,13 @@ export const useStore = create<ControllerState>((set, get) => ({
             hasAnswered: false,
             correctOptionId: null,
             lastResult: null,
+            lastHeroes: [],
             paused: false,
           };
+        }
+        case ServerEvent.TEAM_SCORED: {
+          const p = payload as TeamScoredPayload;
+          return { lastHeroes: p.heroes };
         }
         case ServerEvent.TIMER_TICK: {
           const p = payload as TimerTickPayload;

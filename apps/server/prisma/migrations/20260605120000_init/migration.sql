@@ -14,7 +14,13 @@ CREATE TYPE "MediaType" AS ENUM ('IMAGE', 'AUDIO', 'VIDEO');
 CREATE TYPE "MediaStatus" AS ENUM ('PENDING', 'READY', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "GameMode" AS ENUM ('INDIVIDUAL', 'TEAMS', 'SUDDEN_DEATH', 'TOURNAMENT');
+CREATE TYPE "GameType" AS ENUM ('INDIVIDUAL', 'TEAMS');
+
+-- CreateEnum
+CREATE TYPE "GameMode" AS ENUM ('POINTS', 'ELIMINATION', 'SEEN_JEEM');
+
+-- CreateEnum
+CREATE TYPE "Lifeline" AS ENUM ('CALL_FRIEND', 'DISCARD', 'DOUBLE');
 
 -- CreateEnum
 CREATE TYPE "GameStatus" AS ENUM ('LOBBY', 'ACTIVE', 'PAUSED', 'COMPLETED', 'ABANDONED');
@@ -27,6 +33,9 @@ CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CAN
 
 -- CreateEnum
 CREATE TYPE "PaymentProvider" AS ENUM ('STRIPE', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY');
+
+-- CreateEnum
+CREATE TYPE "ProductKind" AS ENUM ('CREDITS', 'TIME_PASS');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -156,7 +165,8 @@ CREATE TABLE "MediaAsset" (
 CREATE TABLE "Game" (
     "id" TEXT NOT NULL,
     "roomCode" TEXT NOT NULL,
-    "mode" "GameMode" NOT NULL DEFAULT 'INDIVIDUAL',
+    "type" "GameType" NOT NULL DEFAULT 'INDIVIDUAL',
+    "mode" "GameMode" NOT NULL DEFAULT 'POINTS',
     "status" "GameStatus" NOT NULL DEFAULT 'LOBBY',
     "packageId" TEXT NOT NULL,
     "tournamentId" TEXT,
@@ -167,6 +177,18 @@ CREATE TABLE "Game" (
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Game_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LifelineUsage" (
+    "id" TEXT NOT NULL,
+    "gameId" TEXT NOT NULL,
+    "teamId" TEXT NOT NULL,
+    "lifeline" "Lifeline" NOT NULL,
+    "cellId" TEXT,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "LifelineUsage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -181,6 +203,7 @@ CREATE TABLE "Participant" (
     "lives" INTEGER NOT NULL DEFAULT 1,
     "joinOrder" INTEGER NOT NULL,
     "eliminatedRound" INTEGER,
+    "playerId" TEXT,
     "sessionToken" TEXT NOT NULL,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -194,6 +217,8 @@ CREATE TABLE "Team" (
     "name" TEXT NOT NULL,
     "color" TEXT NOT NULL,
     "score" INTEGER NOT NULL DEFAULT 0,
+    "lives" INTEGER NOT NULL DEFAULT 1,
+    "capacity" INTEGER,
 
     CONSTRAINT "Team_pkey" PRIMARY KEY ("id")
 );
@@ -257,7 +282,9 @@ CREATE TABLE "Tournament" (
 CREATE TABLE "Order" (
     "id" TEXT NOT NULL,
     "userId" TEXT,
-    "packageId" TEXT NOT NULL,
+    "ownerId" TEXT,
+    "packageId" TEXT,
+    "productId" TEXT,
     "amountMinor" INTEGER NOT NULL,
     "currency" TEXT NOT NULL,
     "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
@@ -265,6 +292,66 @@ CREATE TABLE "Order" (
     "updatedAt" TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Product" (
+    "id" TEXT NOT NULL,
+    "sku" TEXT NOT NULL,
+    "nameAr" TEXT NOT NULL,
+    "nameEn" TEXT,
+    "kind" "ProductKind" NOT NULL,
+    "credits" INTEGER,
+    "durationMinutes" INTEGER,
+    "priceMinor" INTEGER NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'SAR',
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Wallet" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "credits" INTEGER NOT NULL DEFAULT 0,
+    "freeGameUsed" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "Wallet_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "GamePass" (
+    "id" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "productId" TEXT,
+    "startedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMPTZ NOT NULL,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "GamePass_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Player" (
+    "id" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "mobile" TEXT NOT NULL,
+    "country" TEXT,
+    "avatarId" TEXT NOT NULL DEFAULT 'falcon',
+    "pointsWins" INTEGER NOT NULL DEFAULT 0,
+    "eliminationWins" INTEGER NOT NULL DEFAULT 0,
+    "gamesPlayed" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT "Player_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -341,10 +428,19 @@ CREATE INDEX "Game_status_createdAt_idx" ON "Game"("status", "createdAt");
 CREATE INDEX "Game_tournamentId_idx" ON "Game"("tournamentId");
 
 -- CreateIndex
+CREATE INDEX "LifelineUsage_gameId_teamId_idx" ON "LifelineUsage"("gameId", "teamId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LifelineUsage_gameId_teamId_lifeline_key" ON "LifelineUsage"("gameId", "teamId", "lifeline");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Participant_sessionToken_key" ON "Participant"("sessionToken");
 
 -- CreateIndex
 CREATE INDEX "Participant_gameId_status_idx" ON "Participant"("gameId", "status");
+
+-- CreateIndex
+CREATE INDEX "Participant_playerId_idx" ON "Participant"("playerId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Participant_gameId_nickname_key" ON "Participant"("gameId", "nickname");
@@ -366,6 +462,33 @@ CREATE UNIQUE INDEX "GameResult_gameId_key" ON "GameResult"("gameId");
 
 -- CreateIndex
 CREATE INDEX "Order_userId_status_idx" ON "Order"("userId", "status");
+
+-- CreateIndex
+CREATE INDEX "Order_ownerId_status_idx" ON "Order"("ownerId", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Product_sku_key" ON "Product"("sku");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Wallet_ownerId_key" ON "Wallet"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "GamePass_ownerId_expiresAt_idx" ON "GamePass"("ownerId", "expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Player_username_key" ON "Player"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Player_email_key" ON "Player"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Player_mobile_key" ON "Player"("mobile");
+
+-- CreateIndex
+CREATE INDEX "Player_country_pointsWins_idx" ON "Player"("country", "pointsWins");
+
+-- CreateIndex
+CREATE INDEX "Player_country_eliminationWins_idx" ON "Player"("country", "eliminationWins");
 
 -- CreateIndex
 CREATE INDEX "Payment_orderId_idx" ON "Payment"("orderId");
@@ -407,10 +530,16 @@ ALTER TABLE "Game" ADD CONSTRAINT "Game_packageId_fkey" FOREIGN KEY ("packageId"
 ALTER TABLE "Game" ADD CONSTRAINT "Game_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "LifelineUsage" ADD CONSTRAINT "LifelineUsage_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Participant" ADD CONSTRAINT "Participant_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Participant" ADD CONSTRAINT "Participant_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Participant" ADD CONSTRAINT "Participant_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Team" ADD CONSTRAINT "Team_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -437,7 +566,23 @@ ALTER TABLE "Answer" ADD CONSTRAINT "Answer_questionId_fkey" FOREIGN KEY ("quest
 ALTER TABLE "GameResult" ADD CONSTRAINT "GameResult_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "Package"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Order" ADD CONSTRAINT "Order_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Player"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Order" ADD CONSTRAINT "Order_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "Package"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Order" ADD CONSTRAINT "Order_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Wallet" ADD CONSTRAINT "Wallet_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Player"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "GamePass" ADD CONSTRAINT "GamePass_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Player"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "GamePass" ADD CONSTRAINT "GamePass_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+

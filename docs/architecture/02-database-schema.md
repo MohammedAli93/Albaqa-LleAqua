@@ -4,6 +4,18 @@ PostgreSQL via Prisma. This document defines the durable schema. Ephemeral live
 game state lives in Redis (doc 06) and only the **final, reconciled** results are
 written to Postgres.
 
+> **Revision 2026-06-05 (client UI/UX + game-flow change):**
+> - Game modes split into two orthogonal axes: `GameType { INDIVIDUAL, TEAMS }`
+>   (chosen first) and `GameMode { POINTS, ELIMINATION, SEEN_JEEM }` (chosen
+>   second). `LEAGUE→POINTS`, `CUP→ELIMINATION`, `SUDDEN_DEATH→ELIMINATION`;
+>   `TOURNAMENT` dropped from the mode enum. `Game` now has both `type` + `mode`.
+> - `Team` gains `lives` (ELIMINATION) and `capacity` (players per team); teams are
+>   created in the lobby so players join a specific team.
+> - `Player` registration is now **username + email + mobile** (all unique, all
+>   required), no OTP. Renamed `leagueWins→pointsWins`, `cupWins→eliminationWins`;
+>   removed `displayName`/`phone`/`phoneVerified` and the `PlayerOtp` model.
+> The prose below predates this revision; `schema.prisma` is authoritative.
+
 ## 1. Design principles
 
 - **UUID v7-style** ids (`@default(uuid())` for MVP; ordered ULIDs noted as an

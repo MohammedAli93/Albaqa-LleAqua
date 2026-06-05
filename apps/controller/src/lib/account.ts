@@ -1,15 +1,17 @@
-/** Local player account for the app shell. Placeholder persistence until the
- *  phone-OTP backend (docs/architecture/13-accounts-auth.md) is wired — then this
- *  is replaced by a verified Player + JWT. Shape mirrors the future Player. */
+/** Local player account for the app shell. Mirrors the server PlayerProfile.
+ *  Players register with username + email + mobile (no OTP); the JWT + profile
+ *  are persisted here for authenticated calls and the home screen. */
 
 export interface Account {
   id: string;
-  phone: string;
-  displayName: string;
-  avatarId: string;
+  username: string;
+  email: string;
+  mobile: string;
   country: string | null;
-  leagueWins: number;
-  cupWins: number;
+  avatarId: string;
+  pointsWins: number;
+  eliminationWins: number;
+  gamesPlayed: number;
   /** Player JWT for authenticated calls. */
   token: string;
 }

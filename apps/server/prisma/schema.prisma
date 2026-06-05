@@ -211,14 +211,17 @@ model MediaAsset {
 
 // ─────────────────────── Live game (durable summary) ────────────────────────
 
-enum GameMode {
+/// Who competes — chosen first when creating a game.
+enum GameType {
   INDIVIDUAL
   TEAMS
-  SUDDEN_DEATH
-  TOURNAMENT
-  SEEN_JEEM
-  LEAGUE
-  CUP
+}
+
+/// How scoring works — chosen second. Orthogonal to GameType.
+enum GameMode {
+  POINTS // لعبة النقاط — placement scoring, no elimination (was LEAGUE)
+  ELIMINATION // لعبة التصفيات — lives, last standing wins (was CUP / SUDDEN_DEATH)
+  SEEN_JEEM // سين جيم — turn-based board (always teams)
 }
 
 enum Lifeline {
@@ -238,7 +241,8 @@ enum GameStatus {
 model Game {
   id       String     @id @default(uuid())
   roomCode String     @unique
-  mode     GameMode   @default(INDIVIDUAL)
+  type     GameType   @default(INDIVIDUAL)
+  mode     GameMode   @default(POINTS)
   status   GameStatus @default(LOBBY)
 
   packageId    String
@@ -316,13 +320,17 @@ model Participant {
 }
 
 model Team {
-  id      String        @id @default(uuid())
-  gameId  String
-  game    Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  name    String
-  color   String
-  score   Int           @default(0)
-  members Participant[]
+  id       String        @id @default(uuid())
+  gameId   String
+  game     Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  name     String
+  color    String
+  score    Int           @default(0)
+  /// ELIMINATION mode: team lives (0 = eliminated).
+  lives    Int           @default(1)
+  /// Max players this team may hold (TEAMS games).
+  capacity Int?
+  members  Participant[]
 
   @@unique([gameId, name])
 }
@@ -483,19 +491,21 @@ model GamePass {
 // Holds the profile stats the client wants (league / cup wins) and is the owner
 // of wallets/passes/orders. See docs/architecture/13-accounts-auth.md.
 
+// Players register with username + email + mobile (all required & validated).
+// No OTP/password — the mobile number is the unique identity used to log back in.
 model Player {
-  id            String  @id @default(uuid())
-  phone         String  @unique
-  phoneVerified Boolean @default(false)
-  displayName   String
+  id       String @id @default(uuid())
+  username String @unique
+  email    String @unique
+  mobile   String @unique
   /// Country code (one of the launch countries — KSA, KW, BH, …).
-  country       String?
-  avatarId      String  @default("falcon")
+  country  String?
+  avatarId String  @default("falcon")
 
   // Profile stats
-  leagueWins  Int @default(0)
-  cupWins     Int @default(0)
-  gamesPlayed Int @default(0)
+  pointsWins      Int @default(0)
+  eliminationWins Int @default(0)
+  gamesPlayed     Int @default(0)
 
   wallet         Wallet?
   passes         GamePass[]
@@ -505,21 +515,8 @@ model Player {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  @@index([country, leagueWins])
-  @@index([country, cupWins])
-}
-
-/// One-time passcode for phone verification (hashed; never store the raw code).
-model PlayerOtp {
-  id         String    @id @default(uuid())
-  phone      String
-  codeHash   String
-  expiresAt  DateTime  @db.Timestamptz
-  attempts   Int       @default(0)
-  consumedAt DateTime? @db.Timestamptz
-  createdAt  DateTime  @default(now()) @db.Timestamptz
-
-  @@index([phone, createdAt])
+  @@index([country, pointsWins])
+  @@index([country, eliminationWins])
 }
 
 model Payment {

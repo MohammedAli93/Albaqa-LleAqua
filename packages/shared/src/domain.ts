@@ -4,17 +4,31 @@
  * disagree.
  */
 
-export const GameMode = {
+/**
+ * Game **type** — chosen FIRST when creating a game (who is competing).
+ * This is the orthogonal axis to {@link GameMode}.
+ */
+export const GameType = {
+  /** Every player competes for themselves. */
   INDIVIDUAL: 'INDIVIDUAL',
+  /** Team vs team — players join a specific team; the team scores, not the player. */
   TEAMS: 'TEAMS',
-  SUDDEN_DEATH: 'SUDDEN_DEATH',
-  TOURNAMENT: 'TOURNAMENT',
-  /** Turn-based board format: category draft + lifelines (سين جيم). */
+} as const;
+export type GameType = (typeof GameType)[keyof typeof GameType];
+
+/**
+ * Gameplay **mode** — chosen SECOND when creating a game (how scoring works).
+ * Orthogonal to {@link GameType}: any type can run any mode.
+ */
+export const GameMode = {
+  /** لعبة النقاط — accumulate points across a fixed number of rounds, placement
+   *  scoring, no elimination. Highest score wins. (was: LEAGUE) */
+  POINTS: 'POINTS',
+  /** لعبة التصفيات — lives-based: a wrong answer costs a life, last one (or last
+   *  team) standing wins. (was: CUP / SUDDEN_DEATH) */
+  ELIMINATION: 'ELIMINATION',
+  /** سين جيم — turn-based board format: category draft + lifelines. Always teams. */
   SEEN_JEEM: 'SEEN_JEEM',
-  /** Points league (الدوري): 20–30 rounds, placement scoring, no elimination. */
-  LEAGUE: 'LEAGUE',
-  /** Knockout cup (الكأس): 3 lives, wrong answer loses a life, last one standing. */
-  CUP: 'CUP',
 } as const;
 export type GameMode = (typeof GameMode)[keyof typeof GameMode];
 
@@ -106,6 +120,9 @@ export type PaymentProviderId =
 
 /** Settings frozen onto a Game at start. Tunable per room within these bounds. */
 export interface GameSettings {
+  /** Who competes — chosen first. */
+  type: GameType;
+  /** How scoring works — chosen second. */
   mode: GameMode;
   maxPlayers: number; // 2..100
   minPlayers: number; // >= 2
@@ -115,11 +132,13 @@ export interface GameSettings {
   intermissionSec: number; // pause between rounds
   autoAdvance: boolean; // advance rounds without host input
   totalRounds: number | null; // null = use whole package
-  /** Teams mode only. */
+  /** TEAMS type only: how many teams compete (2..8). */
   teamCount?: number;
+  /** TEAMS type only: max players each team may hold. */
+  playersPerTeam?: number;
   /** SEEN_JEEM only: which team drafts first (null = lower joinOrder). */
   firstTeamId?: string | null;
-  /** How points are awarded each round (default SPEED). */
+  /** How points are awarded each round (default derived from mode). */
   scoringMode?: ScoringMode;
   /** Optional display name for the tournament/session (البطولة). */
   tournamentName?: string;
@@ -132,39 +151,53 @@ export const GAME_LIMITS = {
   MAX_TIMER_SEC: 120,
   MIN_LIVES: 1,
   MAX_LIVES: 5,
+  MIN_TEAMS: 2,
   MAX_TEAMS: 8,
+  MIN_PLAYERS_PER_TEAM: 1,
+  MAX_PLAYERS_PER_TEAM: 20,
   NICKNAME_MIN: 2,
   NICKNAME_MAX: 20,
   ROOM_CODE_LENGTH: 6,
 } as const;
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
-  mode: GameMode.INDIVIDUAL,
+  type: GameType.INDIVIDUAL,
+  mode: GameMode.POINTS,
   maxPlayers: 100,
   minPlayers: 2,
   questionTimerSec: 15,
   livesPerPlayer: 1,
-  speedBonus: true,
+  speedBonus: false,
   intermissionSec: 5,
   autoAdvance: true,
-  totalRounds: null,
+  totalRounds: 25,
+  scoringMode: ScoringMode.PLACEMENT,
 };
 
-/** الدوري — accumulate points over 25 rounds, placement scoring, no elimination. */
-export const LEAGUE_SETTINGS: GameSettings = {
+/** Resolve the effective scoring mode for a game (mode-driven default). */
+export function defaultScoringMode(mode: GameMode): ScoringMode {
+  return mode === GameMode.POINTS ? ScoringMode.PLACEMENT : ScoringMode.SPEED;
+}
+
+/** Default team config when a TEAMS game omits explicit values. */
+export const DEFAULT_TEAM_COUNT = 2;
+export const DEFAULT_PLAYERS_PER_TEAM = 4;
+
+/** لعبة النقاط — accumulate points over 25 rounds, placement scoring, no elimination. */
+export const POINTS_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
-  mode: GameMode.LEAGUE,
-  livesPerPlayer: 1, // unused in league (no elimination)
+  mode: GameMode.POINTS,
+  livesPerPlayer: 1, // unused in points mode (no elimination)
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
   totalRounds: 25,
   intermissionSec: 5,
 };
 
-/** الكأس — knockout: 3 lives, wrong answer loses a life, last one standing wins. */
-export const CUP_SETTINGS: GameSettings = {
+/** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins. */
+export const ELIMINATION_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
-  mode: GameMode.CUP,
+  mode: GameMode.ELIMINATION,
   livesPerPlayer: 3,
   speedBonus: true,
   scoringMode: ScoringMode.SPEED, // points only matter for tie-breaks

@@ -5,7 +5,7 @@
  * → lifeline → answer → resolve → finish), not just the pure core.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DEFAULT_GAME_SETTINGS, GameMode, ServerEvent, Lifeline } from '@tahaddi/shared';
+import { DEFAULT_GAME_SETTINGS, GameType, GameMode, ServerEvent, Lifeline } from '@tahaddi/shared';
 
 // ── Hoisted fakes (shared between vi.mock factories and the test body) ──
 const h = vi.hoisted(() => {
@@ -103,9 +103,10 @@ function seedRoom() {
   h.store.set(GAME, {
     gameId: GAME,
     roomCode: 'ABC123',
+    type: GameType.TEAMS,
     mode: GameMode.SEEN_JEEM,
     status: 'LOBBY',
-    settings: { ...DEFAULT_GAME_SETTINGS, mode: GameMode.SEEN_JEEM },
+    settings: { ...DEFAULT_GAME_SETTINGS, type: GameType.TEAMS, mode: GameMode.SEEN_JEEM },
     hostTokenHash: 'host',
     packageId: 'pkg',
     questionOrder: [],

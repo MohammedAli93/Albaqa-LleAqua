@@ -34,8 +34,10 @@ export function publicTeams(state: RoomState): TeamPublic[] {
     name: t.name,
     color: t.color,
     score: t.score,
+    lives: t.lives,
+    capacity: t.capacity,
     memberIds: Object.values(state.participants)
-      .filter((p) => p.teamId === t.id)
+      .filter((p) => p.teamId === t.id && p.status !== ParticipantStatus.LEFT)
       .map((p) => p.id),
   }));
 }
@@ -113,6 +115,7 @@ export function buildSnapshot(state: RoomState, selfId?: string): RoomSnapshot {
     game: {
       id: state.gameId,
       roomCode: state.roomCode,
+      type: state.type,
       mode: state.mode,
       status: state.status,
       round: state.roundIndex + 1,
@@ -120,6 +123,7 @@ export function buildSnapshot(state: RoomState, selfId?: string): RoomSnapshot {
     },
     participants: visibleParticipants(state).map(toPublicParticipant),
     teams: Object.keys(state.teams).length ? publicTeams(state) : undefined,
+    heroes: state.lastHeroes,
     currentRound: cr
       ? {
           roundId: cr.roundId,

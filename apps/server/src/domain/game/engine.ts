@@ -9,13 +9,14 @@ import {
   AppError,
   ErrorCode,
   GameStatus,
+  GameType,
   GameMode,
   RoundPhase,
   ParticipantStatus,
   ServerEvent,
-  GAME_LIMITS,
   type PlayerJoinInput,
   type GameCompletedPayload,
+  type RoundHero,
 } from '@tahaddi/shared';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
@@ -23,12 +24,12 @@ import { withRoomLock, acquireRoomLock } from './lock.js';
 import { setEmitter } from './emitterRef.js';
 import { startSeenJeem } from './seenJeemEngine.js';
 import { getRoom, saveRoom, deleteRoom } from '../rooms/roomStore.js';
-import type { RoomState, LiveParticipant } from '../rooms/types.js';
+import type { RoomState, LiveParticipant, LiveTeam } from '../rooms/types.js';
 import { hashCapabilityToken, generateCapabilityToken } from '../auth/tokens.js';
 import { loadQuestion } from '../content/questionLoader.js';
 import { isValidAvatarId } from '@tahaddi/shared';
 import {
-  resolveAnswers,
+  scoreRound,
   applyResolution,
   evaluateWinCondition,
   activeParticipants,
@@ -52,9 +53,6 @@ export function initEngine(e: GameEmitter): void {
   emitter = e;
   setEmitter(e); // shared with the Seen-Jeem orchestrator
 }
-
-const TEAM_PALETTE = ['#7C3AED', '#22D3EE', '#F59E0B', '#EF4444', '#22C55E', '#C026D3', '#0EA5E9', '#F5C518'];
-const TEAM_NAMES = ['الفريق الأحمر', 'الفريق الأزرق', 'الفريق الأخضر', 'الفريق الذهبي', 'الفريق البنفسجي', 'الفريق السماوي', 'الفريق البرتقالي', 'الفريق الوردي'];
 
 // ─────────────────────────────── Join / leave ───────────────────────────────
 
@@ -126,6 +124,54 @@ export async function join(
   });
 
   return { participantId: participant.id, sessionToken, state };
+}
+
+/** Count active+disconnected members currently on a team (excludes LEFT). */
+function teamMemberCount(state: RoomState, teamId: string): number {
+  return Object.values(state.participants).filter(
+    (p) => p.teamId === teamId && p.status !== ParticipantStatus.LEFT,
+  ).length;
+}
+
+/** The team with the fewest members that still has free capacity. */
+function leastFullTeam(state: RoomState): LiveTeam | undefined {
+  return Object.values(state.teams)
+    .filter((t) => teamMemberCount(state, t.id) < t.capacity)
+    .sort((a, b) => teamMemberCount(state, a.id) - teamMemberCount(state, b.id))[0];
+}
+
+/**
+ * TEAMS lobby: a player claims a seat on a specific team. Enforces capacity and
+ * lets a player switch teams before the game starts. Broadcasts a fresh snapshot.
+ */
+export async function pickTeam(
+  gameId: string,
+  participantId: string,
+  teamId: string,
+): Promise<RoomState> {
+  const state = await withRoomLock(gameId, async () => {
+    const state = await mustGetRoom(gameId);
+    if (state.type !== GameType.TEAMS) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'هذه اللعبة ليست جماعية');
+    }
+    if (state.status !== GameStatus.LOBBY) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'لا يمكن تغيير الفريق بعد بدء اللعبة');
+    }
+    const participant = state.participants[participantId];
+    if (!participant) throw new AppError(ErrorCode.NOT_AUTHORIZED, 'لست لاعباً في هذه الغرفة');
+    const team = state.teams[teamId];
+    if (!team) throw new AppError(ErrorCode.NOT_FOUND, 'الفريق غير موجود');
+
+    if (participant.teamId !== teamId && teamMemberCount(state, teamId) >= team.capacity) {
+      throw new AppError(ErrorCode.CONFLICT, 'الفريق مكتمل');
+    }
+    participant.teamId = teamId;
+    await prisma.participant.update({ where: { id: participantId }, data: { teamId } });
+    await saveRoom(state);
+    return state;
+  });
+  emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(state));
+  return state;
 }
 
 /** Rebind a reconnecting socket to its participant by session token hash. */
@@ -201,27 +247,22 @@ export async function startGame(gameId: string): Promise<void> {
     return;
   }
 
-  // Teams mode: create teams and assign players round-robin by join order.
-  if (state.mode === GameMode.TEAMS) {
-    const teamCount = Math.min(state.settings.teamCount ?? 2, GAME_LIMITS.MAX_TEAMS);
-    const players = Object.values(state.participants)
-      .filter((p) => p.status === ParticipantStatus.ACTIVE)
-      .sort((a, b) => a.joinOrder - b.joinOrder);
-    for (let i = 0; i < teamCount; i++) {
-      const team = await prisma.team.create({
-        data: { gameId, name: TEAM_NAMES[i] ?? `Team ${i + 1}`, color: TEAM_PALETTE[i] ?? '#7C3AED' },
-      });
-      state.teams[team.id] = { id: team.id, name: team.name, color: team.color, score: 0 };
-    }
+  // Teams were created in the lobby and players picked their teams. Auto-fill any
+  // who never picked into the least-full team so nobody is left out, then persist.
+  if (state.type === GameType.TEAMS) {
     const teamIds = Object.keys(state.teams);
-    players.forEach((p, idx) => {
-      const teamId = teamIds[idx % teamIds.length]!;
-      p.teamId = teamId;
-    });
+    if (teamIds.length === 0) throw new AppError(ErrorCode.CONFLICT, 'لا توجد فرق في هذه اللعبة');
+    const unassigned = Object.values(state.participants)
+      .filter((p) => p.status === ParticipantStatus.ACTIVE && !p.teamId)
+      .sort((a, b) => a.joinOrder - b.joinOrder);
+    for (const p of unassigned) {
+      const target = leastFullTeam(state);
+      if (target) p.teamId = target.id;
+    }
     await prisma.$transaction(
-      players.map((p) =>
-        prisma.participant.update({ where: { id: p.id }, data: { teamId: p.teamId } }),
-      ),
+      Object.values(state.participants)
+        .filter((p) => p.teamId)
+        .map((p) => prisma.participant.update({ where: { id: p.id }, data: { teamId: p.teamId } })),
     );
   }
 
@@ -236,6 +277,7 @@ export async function startGame(gameId: string): Promise<void> {
 
   emitter.toRoom(gameId, ServerEvent.GAME_STARTED, {
     totalRounds: state.totalRounds,
+    type: state.type,
     mode: state.mode,
     settings: state.settings,
   });
@@ -275,6 +317,7 @@ export async function startNextRound(gameId: string): Promise<void> {
   });
 
   state.roundIndex = nextIndex;
+  state.lastHeroes = undefined; // cleared each round; set again on resolution
   state.currentRound = {
     roundId,
     index: nextIndex,
@@ -382,10 +425,26 @@ export async function resolveRound(gameId: string): Promise<void> {
     emitter.toRoom(gameId, ServerEvent.ANSWER_LOCKED, { roundId: round.roundId });
 
     // Pure scoring.
-    const outcomes = resolveAnswers(state, round);
+    const scored = scoreRound(state, round);
+    const { outcomes, heroes } = scored;
     const deltas: Record<string, number> = {};
     for (const o of outcomes) deltas[o.participantId] = o.pointsAwarded;
-    const { eliminatedIds } = applyResolution(state, round, outcomes);
+    const { eliminatedIds } = applyResolution(state, round, scored);
+
+    // TEAMS mode: surface who earned each team's point this round.
+    const richHeroes: RoundHero[] = heroes.map((h) => {
+      const p = state.participants[h.participantId]!;
+      const team = state.teams[h.teamId]!;
+      return {
+        teamId: h.teamId,
+        teamName: team.name,
+        participantId: h.participantId,
+        nickname: p.nickname,
+        avatarId: p.avatarId,
+        pointsAwarded: h.pointsAwarded,
+      };
+    });
+    state.lastHeroes = richHeroes.length ? richHeroes : undefined;
 
     round.phase = RoundPhase.RESOLVING;
 
@@ -434,6 +493,14 @@ export async function resolveRound(gameId: string): Promise<void> {
           livesLeft: p.lives,
         });
       }
+    }
+
+    // TEAMS: announce the per-team first-correct heroes before the leaderboard.
+    if (richHeroes.length) {
+      emitter.toRoom(gameId, ServerEvent.TEAM_SCORED, {
+        roundIndex: round.index + 1,
+        heroes: richHeroes,
+      });
     }
 
     // Leaderboard with deltas.

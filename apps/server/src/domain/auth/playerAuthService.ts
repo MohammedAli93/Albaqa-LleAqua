@@ -1,92 +1,101 @@
 /**
- * Player phone-OTP auth (البقاء للأقوى). Uses the pure OTP rules (otp.ts) + the
- * PlayerOtp/Player models. SMS sending is not wired yet: the code is logged, and
- * (when OTP_DEV_RETURN=true) returned in the request response for testing.
+ * Player accounts (البقاء للأقوى). Players register with username + email +
+ * mobile (all required & validated). There is no OTP/password: the mobile number
+ * is the unique identity used to log back in.
  */
-import crypto from 'node:crypto';
-import { AppError, ErrorCode } from '@tahaddi/shared';
+import {
+  AppError,
+  ErrorCode,
+  type PlayerProfile,
+  type PlayerRegisterInput,
+  type PlayerUpdateInput,
+} from '@tahaddi/shared';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
-import { logger } from '../../lib/logger.js';
-import { env } from '../../config/env.js';
-import { hashCapabilityToken, signPlayerToken } from './tokens.js';
-import { normalizePhone, canResend, verifyOtp, OTP } from './otp.js';
+import { signPlayerToken } from './tokens.js';
 
-export interface PublicPlayer {
+type PlayerRow = {
   id: string;
-  phone: string;
-  displayName: string;
+  username: string;
+  email: string;
+  mobile: string;
   country: string | null;
   avatarId: string;
-  leagueWins: number;
-  cupWins: number;
+  pointsWins: number;
+  eliminationWins: number;
   gamesPlayed: number;
-}
+};
 
-function toPublic(p: {
-  id: string; phone: string; displayName: string; country: string | null;
-  avatarId: string; leagueWins: number; cupWins: number; gamesPlayed: number;
-}): PublicPlayer {
+function toPublic(p: PlayerRow): PlayerProfile {
   return {
-    id: p.id, phone: p.phone, displayName: p.displayName, country: p.country,
-    avatarId: p.avatarId, leagueWins: p.leagueWins, cupWins: p.cupWins, gamesPlayed: p.gamesPlayed,
+    id: p.id,
+    username: p.username,
+    email: p.email,
+    mobile: p.mobile,
+    country: p.country,
+    avatarId: p.avatarId,
+    pointsWins: p.pointsWins,
+    eliminationWins: p.eliminationWins,
+    gamesPlayed: p.gamesPlayed,
   };
 }
 
-const sixDigits = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-
-export async function requestOtp(rawPhone: string): Promise<{ sent: boolean; devCode?: string }> {
-  const phone = normalizePhone(rawPhone);
-  const last = await prisma.playerOtp.findFirst({ where: { phone }, orderBy: { createdAt: 'desc' } });
-  if (last && !canResend(last.createdAt.getTime(), Date.now())) {
-    throw new AppError(ErrorCode.RATE_LIMITED, 'الرجاء الانتظار قبل طلب رمز جديد');
-  }
-
-  const code = sixDigits();
-  await prisma.playerOtp.deleteMany({ where: { phone, consumedAt: null } });
-  await prisma.playerOtp.create({
-    data: { phone, codeHash: hashCapabilityToken(code), expiresAt: new Date(Date.now() + OTP.TTL_MS) },
-  });
-
-  // TODO: send `code` via an SMS provider (Unifonic / Taqnyat). For now: log it.
-  logger.info({ phone }, 'player OTP issued');
-  return env.OTP_DEV_RETURN ? { sent: true, devCode: code } : { sent: true };
+/** Canonical mobile form: strip spaces/dashes, keep an optional leading '+'. */
+export function normalizeMobile(raw: string): string {
+  const trimmed = raw.trim();
+  const plus = trimmed.startsWith('+') ? '+' : '';
+  return plus + trimmed.replace(/[^0-9]/g, '');
 }
 
-export async function verifyOtpAndLogin(
-  rawPhone: string,
-  code: string,
-): Promise<{ token: string; player: PublicPlayer; isNew: boolean }> {
-  const phone = normalizePhone(rawPhone);
-  const rec = await prisma.playerOtp.findFirst({ where: { phone }, orderBy: { createdAt: 'desc' } });
-  if (!rec) throw new AppError(ErrorCode.NOT_AUTHORIZED, 'اطلب رمزاً أولاً');
-
-  const result = verifyOtp(
-    { codeHash: rec.codeHash, expiresAt: rec.expiresAt.getTime(), attempts: rec.attempts, consumedAt: rec.consumedAt?.getTime() ?? null },
-    hashCapabilityToken(code),
-    Date.now(),
-  );
-  if (!result.ok) {
-    if (result.reason === 'MISMATCH') {
-      await prisma.playerOtp.update({ where: { id: rec.id }, data: { attempts: { increment: 1 } } });
-    }
-    throw new AppError(ErrorCode.NOT_AUTHORIZED, 'رمز غير صحيح أو منتهي');
+/** Map a Prisma unique-constraint violation to a friendly Arabic message. */
+function uniqueFieldError(e: unknown): AppError | null {
+  if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+    const target = (e.meta?.target as string[] | undefined)?.[0] ?? '';
+    if (target.includes('username'))
+      return new AppError(ErrorCode.CONFLICT, 'اسم المستخدم مستخدم بالفعل');
+    if (target.includes('email'))
+      return new AppError(ErrorCode.CONFLICT, 'البريد الإلكتروني مسجّل بالفعل');
+    if (target.includes('mobile'))
+      return new AppError(ErrorCode.CONFLICT, 'رقم الجوال مسجّل بالفعل');
+    return new AppError(ErrorCode.CONFLICT, 'الحساب موجود بالفعل');
   }
-
-  await prisma.playerOtp.update({ where: { id: rec.id }, data: { consumedAt: new Date() } });
-
-  let player = await prisma.player.findUnique({ where: { phone } });
-  let isNew = false;
-  if (!player) {
-    player = await prisma.player.create({ data: { phone, phoneVerified: true, displayName: '' } });
-    isNew = true;
-  } else if (!player.phoneVerified) {
-    player = await prisma.player.update({ where: { id: player.id }, data: { phoneVerified: true } });
-  }
-
-  return { token: signPlayerToken(player.id), player: toPublic(player), isNew: isNew || !player.displayName };
+  return null;
 }
 
-export async function getPlayer(playerId: string): Promise<PublicPlayer> {
+export async function registerPlayer(
+  input: PlayerRegisterInput,
+): Promise<{ token: string; player: PlayerProfile; isNew: boolean }> {
+  const mobile = normalizeMobile(input.mobile);
+  try {
+    const player = await prisma.player.create({
+      data: {
+        username: input.username.trim(),
+        email: input.email.trim().toLowerCase(),
+        mobile,
+        country: input.country ?? null,
+        ...(input.avatarId ? { avatarId: input.avatarId } : {}),
+      },
+    });
+    return { token: signPlayerToken(player.id), player: toPublic(player), isNew: true };
+  } catch (e) {
+    const conflict = uniqueFieldError(e);
+    if (conflict) throw conflict;
+    throw e;
+  }
+}
+
+/** Returning players log in by their registered mobile number. */
+export async function loginPlayer(
+  rawMobile: string,
+): Promise<{ token: string; player: PlayerProfile; isNew: boolean }> {
+  const mobile = normalizeMobile(rawMobile);
+  const player = await prisma.player.findUnique({ where: { mobile } });
+  if (!player)
+    throw new AppError(ErrorCode.NOT_FOUND, 'لا يوجد حساب بهذا الرقم — أنشئ حساباً جديداً');
+  return { token: signPlayerToken(player.id), player: toPublic(player), isNew: false };
+}
+
+export async function getPlayer(playerId: string): Promise<PlayerProfile> {
   const player = await prisma.player.findUnique({ where: { id: playerId } });
   if (!player) throw new AppError(ErrorCode.NOT_FOUND, 'الحساب غير موجود');
   return toPublic(player);
@@ -94,11 +103,22 @@ export async function getPlayer(playerId: string): Promise<PublicPlayer> {
 
 export async function updatePlayer(
   playerId: string,
-  data: { displayName: string; country: string; avatarId: string },
-): Promise<PublicPlayer> {
-  const player = await prisma.player.update({
-    where: { id: playerId },
-    data: { displayName: data.displayName, country: data.country, avatarId: data.avatarId },
-  });
-  return toPublic(player);
+  data: PlayerUpdateInput,
+): Promise<PlayerProfile> {
+  try {
+    const player = await prisma.player.update({
+      where: { id: playerId },
+      data: {
+        ...(data.username ? { username: data.username.trim() } : {}),
+        ...(data.email ? { email: data.email.trim().toLowerCase() } : {}),
+        ...(data.country ? { country: data.country } : {}),
+        ...(data.avatarId ? { avatarId: data.avatarId } : {}),
+      },
+    });
+    return toPublic(player);
+  } catch (e) {
+    const conflict = uniqueFieldError(e);
+    if (conflict) throw conflict;
+    throw e;
+  }
 }

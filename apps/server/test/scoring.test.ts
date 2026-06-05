@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { GameMode, ParticipantStatus } from '@tahaddi/shared';
+import { GameType, GameMode, ParticipantStatus, ScoringMode } from '@tahaddi/shared';
 import {
   computePoints,
-  resolveAnswers,
+  scoreRound,
   applyResolution,
   evaluateWinCondition,
   activeParticipants,
 } from '../src/domain/game/scoring.js';
+import type { LiveTeam } from '../src/domain/rooms/types.js';
 import { makeParticipant, makeRound, makeRoom } from './fixtures.js';
 
 describe('computePoints', () => {
@@ -20,13 +21,12 @@ describe('computePoints', () => {
     expect(computePoints(100, true, 15000, 15000)).toBe(100);
   });
   it('scales linearly with remaining time', () => {
-    // halfway through the window → +25%
     expect(computePoints(100, true, 7500, 15000)).toBe(125);
   });
 });
 
-describe('resolveAnswers', () => {
-  it('marks correct, incorrect and timeout answers', () => {
+describe('scoreRound — individual', () => {
+  it('marks correct, incorrect and timeout answers (speed scoring)', () => {
     const p1 = makeParticipant('p1');
     const p2 = makeParticipant('p2');
     const p3 = makeParticipant('p3'); // no answer → timeout
@@ -38,9 +38,13 @@ describe('resolveAnswers', () => {
         p2: { optionId: 'b', serverTs: 1_003_000 }, // wrong
       },
     });
-    const state = makeRoom([p1, p2, p3], { currentRound: round });
+    const state = makeRoom(
+      [p1, p2, p3],
+      { mode: GameMode.ELIMINATION, currentRound: round },
+      { scoringMode: ScoringMode.SPEED },
+    );
 
-    const outcomes = resolveAnswers(state, round);
+    const { outcomes } = scoreRound(state, round);
     const byId = Object.fromEntries(outcomes.map((o) => [o.participantId, o]));
 
     expect(byId.p1!.isCorrect).toBe(true);
@@ -50,66 +54,152 @@ describe('resolveAnswers', () => {
     expect(byId.p3!.isCorrect).toBe(false);
     expect(byId.p3!.responseMs).toBe(15000); // full window for a timeout
   });
+
+  it('placement (points mode): ranks correct answers 3 / 2 / 1', () => {
+    const p1 = makeParticipant('p1');
+    const p2 = makeParticipant('p2');
+    const p3 = makeParticipant('p3');
+    const round = makeRound({
+      answers: {
+        p2: { optionId: 'a', serverTs: 1_001_000 }, // 1st
+        p1: { optionId: 'a', serverTs: 1_002_000 }, // 2nd
+        p3: { optionId: 'a', serverTs: 1_003_000 }, // 3rd
+      },
+    });
+    const state = makeRoom([p1, p2, p3], { mode: GameMode.POINTS, currentRound: round });
+    const { outcomes } = scoreRound(state, round);
+    const byId = Object.fromEntries(outcomes.map((o) => [o.participantId, o]));
+    expect(byId.p2!.pointsAwarded).toBe(3);
+    expect(byId.p1!.pointsAwarded).toBe(2);
+    expect(byId.p3!.pointsAwarded).toBe(1);
+  });
 });
 
-describe('applyResolution — individual mode', () => {
+describe('applyResolution — individual elimination', () => {
   it('eliminates a player who runs out of lives', () => {
     const p1 = makeParticipant('p1', { lives: 1 });
     const p2 = makeParticipant('p2', { lives: 1 });
     const round = makeRound({ answers: { p1: { optionId: 'a', serverTs: 1_001_000 } } });
-    const state = makeRoom([p1, p2], { currentRound: round });
+    const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION, currentRound: round });
 
-    const outcomes = resolveAnswers(state, round);
-    const { eliminatedIds } = applyResolution(state, round, outcomes);
+    const scored = scoreRound(state, round);
+    const { eliminatedIds } = applyResolution(state, round, scored);
 
     expect(state.participants.p1!.status).toBe(ParticipantStatus.ACTIVE);
     expect(state.participants.p2!.status).toBe(ParticipantStatus.ELIMINATED);
     expect(eliminatedIds).toEqual(['p2']);
   });
 
-  it('only decrements a life when multiple lives are configured', () => {
+  it('decrements exactly one life per wrong answer', () => {
     const p1 = makeParticipant('p1', { lives: 2 });
     const round = makeRound({ answers: {} }); // p1 times out → wrong
-    const state = makeRoom([p1], { currentRound: round });
-    const outcomes = resolveAnswers(state, round);
-    const { eliminatedIds } = applyResolution(state, round, outcomes);
+    const state = makeRoom([p1], { mode: GameMode.ELIMINATION, currentRound: round });
+    const scored = scoreRound(state, round);
+    const { eliminatedIds } = applyResolution(state, round, scored);
     expect(state.participants.p1!.lives).toBe(1);
+    expect(eliminatedIds).toHaveLength(0);
+  });
+
+  it('points mode never eliminates', () => {
+    const p1 = makeParticipant('p1', { lives: 1 });
+    const round = makeRound({ answers: {} }); // wrong/timeout
+    const state = makeRoom([p1], { mode: GameMode.POINTS, currentRound: round });
+    const scored = scoreRound(state, round);
+    const { eliminatedIds } = applyResolution(state, round, scored);
+    expect(state.participants.p1!.status).toBe(ParticipantStatus.ACTIVE);
     expect(eliminatedIds).toHaveLength(0);
   });
 });
 
-describe('applyResolution — sudden death', () => {
-  it('eliminates on a single wrong answer regardless of lives', () => {
-    const p1 = makeParticipant('p1', { lives: 3 });
-    const round = makeRound({ answers: { p1: { optionId: 'b', serverTs: 1_001_000 } } });
-    const state = makeRoom([p1], { currentRound: round }, {});
-    state.mode = GameMode.SUDDEN_DEATH;
-    const outcomes = resolveAnswers(state, round);
-    const { eliminatedIds } = applyResolution(state, round, outcomes);
-    expect(state.participants.p1!.status).toBe(ParticipantStatus.ELIMINATED);
-    expect(eliminatedIds).toEqual(['p1']);
+describe('scoreRound — teams (first correct earns the point)', () => {
+  function teamRoom() {
+    // Team A: a1, a2 — Team B: b1
+    const a1 = makeParticipant('a1', { teamId: 'A', joinOrder: 0 });
+    const a2 = makeParticipant('a2', { teamId: 'A', joinOrder: 1 });
+    const b1 = makeParticipant('b1', { teamId: 'B', joinOrder: 2 });
+    const teamA: LiveTeam = { id: 'A', name: 'A', color: '#1', score: 0, lives: 1, capacity: 4 };
+    const teamB: LiveTeam = { id: 'B', name: 'B', color: '#2', score: 0, lives: 1, capacity: 4 };
+    return { a1, a2, b1, teams: { A: teamA, B: teamB } };
+  }
+
+  it('awards the team point to the first correct member only', () => {
+    const { a1, a2, b1, teams } = teamRoom();
+    const round = makeRound({
+      answers: {
+        a2: { optionId: 'a', serverTs: 1_004_000 }, // correct, slower
+        a1: { optionId: 'a', serverTs: 1_002_000 }, // correct, FIRST for team A
+        b1: { optionId: 'a', serverTs: 1_003_000 }, // correct, team B
+      },
+    });
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teams,
+      currentRound: round,
+    });
+
+    const scored = scoreRound(state, round);
+    const byId = Object.fromEntries(scored.outcomes.map((o) => [o.participantId, o]));
+
+    // a1 was first for team A → hero; a2 earns nothing (no double-score).
+    expect(byId.a1!.isTeamHero).toBe(true);
+    expect(byId.a2!.pointsAwarded).toBe(0);
+    expect(byId.a2!.isTeamHero).toBeUndefined();
+    // Heroes: team A (1st overall) and team B (2nd overall).
+    expect(scored.heroes.map((h) => h.teamId).sort()).toEqual(['A', 'B']);
+    const heroA = scored.heroes.find((h) => h.teamId === 'A')!;
+    expect(heroA.participantId).toBe('a1');
+
+    applyResolution(state, round, scored);
+    // Placement: team A first (3) → its hero a1 has 3; team B second (2).
+    expect(state.teams.A!.score).toBe(3);
+    expect(state.teams.B!.score).toBe(2);
+  });
+
+  it('a team with no correct answer loses a life in elimination mode', () => {
+    const { a1, a2, b1, teams } = teamRoom();
+    teams.A.lives = 2;
+    teams.B.lives = 2;
+    const round = makeRound({
+      answers: {
+        a1: { optionId: 'a', serverTs: 1_002_000 }, // team A correct
+        b1: { optionId: 'b', serverTs: 1_003_000 }, // team B wrong
+      },
+    });
+    const state = makeRoom(
+      [a1, a2, b1],
+      { type: GameType.TEAMS, mode: GameMode.ELIMINATION, teams, currentRound: round },
+      { scoringMode: ScoringMode.SPEED },
+    );
+    const scored = scoreRound(state, round);
+    applyResolution(state, round, scored);
+    expect(state.teams.A!.lives).toBe(2); // had a correct answer
+    expect(state.teams.B!.lives).toBe(1); // none correct → -1 life
   });
 });
 
 describe('evaluateWinCondition', () => {
-  it('declares a winner when one player remains', () => {
+  it('elimination: declares a winner when one player remains', () => {
     const p1 = makeParticipant('p1', { status: ParticipantStatus.ACTIVE, score: 200 });
     const p2 = makeParticipant('p2', { status: ParticipantStatus.ELIMINATED });
-    const state = makeRoom([p1, p2]);
+    const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION });
     const win = evaluateWinCondition(state, false);
     expect(win.isOver).toBe(true);
     expect(win.winnerId).toBe('p1');
   });
 
-  it('is not over while multiple players remain and questions are left', () => {
-    const state = makeRoom([makeParticipant('p1'), makeParticipant('p2')]);
+  it('elimination: not over while multiple players remain and questions are left', () => {
+    const state = makeRoom([makeParticipant('p1'), makeParticipant('p2')], {
+      mode: GameMode.ELIMINATION,
+    });
     expect(evaluateWinCondition(state, false).isOver).toBe(false);
   });
 
-  it('on question exhaustion, the highest score wins', () => {
+  it('points: only ends on question exhaustion, highest score wins', () => {
     const p1 = makeParticipant('p1', { score: 100 });
     const p2 = makeParticipant('p2', { score: 300 });
-    const state = makeRoom([p1, p2]);
+    const state = makeRoom([p1, p2], { mode: GameMode.POINTS });
+    expect(evaluateWinCondition(state, false).isOver).toBe(false);
     const win = evaluateWinCondition(state, true);
     expect(win.isOver).toBe(true);
     expect(win.winnerId).toBe('p2');

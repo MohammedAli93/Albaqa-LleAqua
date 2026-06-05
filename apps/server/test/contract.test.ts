@@ -36,7 +36,7 @@ describe('QuestionInputSchema', () => {
 
 describe('GameSettingsSchema', () => {
   const valid = {
-    mode: 'INDIVIDUAL', maxPlayers: 50, minPlayers: 2, questionTimerSec: 15,
+    type: 'INDIVIDUAL', mode: 'POINTS', maxPlayers: 50, minPlayers: 2, questionTimerSec: 15,
     livesPerPlayer: 1, speedBonus: true, intermissionSec: 5, autoAdvance: true, totalRounds: null,
   };
   it('accepts valid settings', () => {
@@ -47,6 +47,13 @@ describe('GameSettingsSchema', () => {
   });
   it('rejects out-of-range player counts', () => {
     expect(GameSettingsSchema.safeParse({ ...valid, maxPlayers: 500 }).success).toBe(false);
+  });
+  it('requires teamCount + playersPerTeam for TEAMS games', () => {
+    expect(GameSettingsSchema.safeParse({ ...valid, type: 'TEAMS' }).success).toBe(false);
+    expect(
+      GameSettingsSchema.safeParse({ ...valid, type: 'TEAMS', teamCount: 2, playersPerTeam: 3 })
+        .success,
+    ).toBe(true);
   });
 });
 

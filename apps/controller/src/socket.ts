@@ -77,6 +77,20 @@ export function submitAnswer(roundId: string, optionId: string): Promise<PlayerA
   });
 }
 
+/** TEAMS lobby: claim a seat on a specific team. */
+export function pickTeam(teamId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    socket?.emit(
+      ClientEvent.PLAYER_PICK_TEAM,
+      { teamId },
+      (res: { ok: boolean; error?: { code: string } }) => {
+        if (res?.ok) resolve();
+        else reject(new Error(res?.error?.code ?? 'PICK_TEAM_FAILED'));
+      },
+    );
+  });
+}
+
 export function getSocket(): Socket | null {
   return socket;
 }

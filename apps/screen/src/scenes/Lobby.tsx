@@ -7,7 +7,8 @@ import { host } from '../socket.js';
 import { Avatar } from '../components/Avatar.js';
 
 export function Lobby() {
-  const { roomCode, joinUrl, participants, locale } = useStore();
+  const { roomCode, joinUrl, participants, teams, locale } = useStore();
+  const isTeams = teams.length > 0;
 
   return (
     <div className="safe flex h-full flex-col">
@@ -42,11 +43,42 @@ export function Lobby() {
         {/* Players */}
         <div className="flex h-full flex-col">
           <p className="mb-6 font-display text-3xl font-bold text-ink-secondary">
-            {t(locale, 'players')}
+            {isTeams ? t(locale, 'teamVsTeam') : t(locale, 'players')}
           </p>
-          {participants.length === 0 ? (
+          {participants.length === 0 && !isTeams ? (
             <div className="grid flex-1 place-items-center text-2xl text-ink-muted animate-pulse-glow">
               {t(locale, 'waitingForPlayers')}
+            </div>
+          ) : isTeams ? (
+            <div className="grid auto-cols-fr grid-flow-col gap-4 overflow-hidden">
+              {teams.map((team) => {
+                const members = participants.filter((p) => team.memberIds.includes(p.id));
+                return (
+                  <div key={team.id} className="glass flex flex-col gap-3 rounded-xl3 p-5" style={{ borderTop: `4px solid ${team.color}` }}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-display text-2xl font-extrabold" style={{ color: team.color }}>{team.name}</span>
+                      <span className="tnum text-xl text-ink-secondary">{members.length}/{team.capacity ?? '∞'}</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <AnimatePresence>
+                        {members.map((p) => (
+                          <motion.div
+                            key={p.id}
+                            layout
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center gap-3 rounded-xl2 bg-white px-3 py-2 shadow-glass"
+                          >
+                            <Avatar avatarId={p.avatarId} size={36} />
+                            <span className="truncate text-lg font-semibold">{p.nickname}</span>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="grid grid-cols-3 content-start gap-4 overflow-hidden">
@@ -75,7 +107,7 @@ export function Lobby() {
         <button
           onClick={() => host.start().catch(() => {})}
           disabled={participants.length < 2}
-          className="flex items-center gap-3 rounded-full bg-gradient-brand px-12 py-5 font-display text-3xl font-bold shadow-glow transition enabled:hover:scale-[1.03] disabled:opacity-40"
+          className="flex items-center gap-3 rounded-full bg-gradient-brand px-12 py-5 font-display text-3xl font-bold text-white shadow-glow transition enabled:hover:scale-[1.03] disabled:opacity-40"
         >
           <Play fill="white" /> {t(locale, 'startGame')}
         </button>

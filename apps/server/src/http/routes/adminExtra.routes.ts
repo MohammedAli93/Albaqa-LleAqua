@@ -132,6 +132,16 @@ adminExtraRouter.get(
 );
 
 adminExtraRouter.get(
+  '/players',
+  requireRole(UserRole.VIEWER),
+  validate(PaginationSchema, 'query'),
+  asyncHandler(async (req, res) => {
+    const { cursor, limit } = valid<typeof PaginationSchema>(req, 'query');
+    ok(res, await analytics.listPlayers(cursor, limit));
+  }),
+);
+
+adminExtraRouter.get(
   '/sessions/:id',
   requireRole(UserRole.VIEWER),
   validate(z.object({ id: z.string().uuid() }), 'params'),

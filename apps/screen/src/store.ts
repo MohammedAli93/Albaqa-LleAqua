@@ -18,6 +18,8 @@ import {
   type TimerTickPayload,
   type AnswerReceivedPayload,
   type TeamPublic,
+  type RoundHero,
+  type TeamScoredPayload,
   type SeenJeemSnapshot,
   type SjCellResolvedPayload,
 } from '@tahaddi/shared';
@@ -33,6 +35,7 @@ export interface ScreenState {
   joinUrl: string;
 
   status: RoomSnapshot['game']['status'];
+  type: RoomSnapshot['game']['type'];
   mode: RoomSnapshot['game']['mode'];
   round: number;
   totalRounds: number;
@@ -57,8 +60,10 @@ export interface ScreenState {
   winner: GameCompletedPayload | null;
   paused: boolean;
 
-  // Seen-Jeem mode
+  // Teams
   teams: TeamPublic[];
+  /** TEAMS mode: first-correct winners of the last resolved round. */
+  heroes: RoundHero[];
   seenJeem: SeenJeemSnapshot | null;
   sjResolved: SjCellResolvedPayload | null;
 
@@ -74,7 +79,8 @@ export const useStore = create<ScreenState>((set) => ({
   roomCode: '',
   joinUrl: '',
   status: 'LOBBY',
-  mode: 'INDIVIDUAL',
+  type: 'INDIVIDUAL',
+  mode: 'POINTS',
   round: 0,
   totalRounds: 0,
   participants: [],
@@ -93,6 +99,7 @@ export const useStore = create<ScreenState>((set) => ({
   winner: null,
   paused: false,
   teams: [],
+  heroes: [],
   seenJeem: null,
   sjResolved: null,
 
@@ -107,6 +114,7 @@ export const useStore = create<ScreenState>((set) => ({
           const snap = payload as RoomSnapshot;
           return {
             status: snap.game.status,
+            type: snap.game.type,
             mode: snap.game.mode,
             round: snap.game.round,
             totalRounds: snap.game.totalRounds,
@@ -120,6 +128,7 @@ export const useStore = create<ScreenState>((set) => ({
               : 'idle',
             paused: snap.game.status === 'PAUSED',
             teams: snap.teams ?? s.teams,
+            heroes: snap.heroes ?? s.heroes,
             seenJeem: snap.seenJeem ?? s.seenJeem,
           };
         }
@@ -148,8 +157,13 @@ export const useStore = create<ScreenState>((set) => ({
             correctOptionId: null,
             distribution: {},
             eliminatedThisRound: [],
+            heroes: [],
             paused: false,
           };
+        }
+        case ServerEvent.TEAM_SCORED: {
+          const p = payload as TeamScoredPayload;
+          return { heroes: p.heroes };
         }
         case ServerEvent.TIMER_TICK: {
           const p = payload as TimerTickPayload;

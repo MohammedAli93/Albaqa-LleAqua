@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, HelpCircle, FolderTree, Package, Upload, History, LogOut,
+  LayoutDashboard, HelpCircle, FolderTree, Package, Upload, History, Users, LogOut,
 } from 'lucide-react';
 import { API_URL } from '../api/client.js';
 import { useAuth } from '../store/auth.js';
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/categories', label: 'Categories', icon: FolderTree },
   { to: '/packages', label: 'Packages', icon: Package },
   { to: '/import', label: 'Bulk Import', icon: Upload },
+  { to: '/players', label: 'Players', icon: Users },
   { to: '/sessions', label: 'Sessions', icon: History },
 ];
 

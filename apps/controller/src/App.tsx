@@ -49,7 +49,7 @@ export default function App() {
     }
 
     // Otherwise open the app shell: home if signed in, else the splash.
-    const signedIn = !!(account && account.displayName && account.country);
+    const signedIn = !!(account && account.username);
     set({ appView: signedIn ? 'home' : 'splash' });
   }, [set, account]);
 

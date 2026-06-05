@@ -1,5 +1,6 @@
 /** Test fixtures for the pure game logic (no DB/Redis). */
 import {
+  GameType,
   GameMode,
   GameStatus,
   RoundPhase,
@@ -59,7 +60,8 @@ export function makeRoom(
   return {
     gameId: 'g1',
     roomCode: 'ABC123',
-    mode: GameMode.INDIVIDUAL,
+    type: GameType.INDIVIDUAL,
+    mode: GameMode.POINTS,
     status: GameStatus.ACTIVE,
     settings: { ...DEFAULT_GAME_SETTINGS, ...settings },
     hostTokenHash: 'host',

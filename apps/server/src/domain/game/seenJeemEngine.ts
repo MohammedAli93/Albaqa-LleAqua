@@ -125,7 +125,14 @@ export async function startSeenJeem(gameId: string): Promise<void> {
     const team = await prisma.team.create({
       data: { gameId, name: TEAM_NAMES[i]!, color: TEAM_PALETTE[i]! },
     });
-    state.teams[team.id] = { id: team.id, name: team.name, color: team.color, score: 0 };
+    state.teams[team.id] = {
+      id: team.id,
+      name: team.name,
+      color: team.color,
+      score: 0,
+      lives: 1,
+      capacity: state.settings.playersPerTeam ?? players.length,
+    };
     teamIds.push(team.id);
   }
   players.forEach((p, idx) => {

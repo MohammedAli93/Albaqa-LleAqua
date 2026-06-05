@@ -1,107 +1,173 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { ChevronLeft } from 'lucide-react';
+import { MOBILE_REGEX, type PlayerProfile } from '@tahaddi/shared';
+import { t } from '@tahaddi/i18n';
 import { useStore } from '../../store.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
 
-/** Phone-OTP login wired to the server (/api/v1/player/auth/*). SMS isn't live yet,
- *  so the server returns the code (OTP_DEV_RETURN) and we show it for testing. */
+type AuthResponse = { token: string; player: PlayerProfile; isNew: boolean };
+
+/**
+ * Account screen — register (username + email + mobile, all required & validated)
+ * or log back in by mobile. No OTP/password.
+ */
 export function Login() {
-  const { set } = useStore();
-  const [step, setStep] = useState<'phone' | 'code'>('phone');
-  const [phone, setPhone] = useState('+966');
-  const [code, setCode] = useState('');
+  const { locale, set } = useStore();
+  const [tab, setTab] = useState<'register' | 'login'>('register');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('+966');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [devCode, setDevCode] = useState<string | null>(null);
 
-  const phoneOk = phone.replace(/[^0-9]/g, '').length >= 9;
-  const codeOk = code.trim().length >= 4;
+  const usernameOk = username.trim().length >= 2 && username.trim().length <= 24;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const mobileOk = MOBILE_REGEX.test(mobile.trim());
+  const canSubmit = tab === 'login' ? mobileOk : usernameOk && emailOk && mobileOk;
 
-  async function sendCode() {
-    if (!phoneOk || busy) return;
-    setBusy(true); setErr(null);
-    try {
-      const r = await api<{ sent: boolean; devCode?: string }>('/api/v1/player/auth/request', {
-        method: 'POST', body: JSON.stringify({ phone }),
-      });
-      setDevCode(r.devCode ?? null);
-      setStep('code');
-    } catch (e) {
-      setErr(mapErr(e));
-    } finally { setBusy(false); }
+  function finish(r: AuthResponse) {
+    const account: Account = { ...r.player, token: r.token };
+    saveAccount(account);
+    const complete = !!account.country;
+    set({
+      account,
+      nickname: account.username,
+      avatarId: account.avatarId,
+      appView: complete ? 'home' : 'profile',
+    });
   }
 
-  async function verify() {
-    if (!codeOk || busy) return;
-    setBusy(true); setErr(null);
+  async function submit() {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    setErr(null);
     try {
-      const r = await api<{ token: string; player: Omit<Account, 'token'>; isNew: boolean }>(
-        '/api/v1/player/auth/verify',
-        { method: 'POST', body: JSON.stringify({ phone, code }) },
-      );
-      const account: Account = { ...r.player, token: r.token };
-      saveAccount(account);
-      const complete = !!account.displayName && !!account.country;
-      set({ account, nickname: account.displayName, avatarId: account.avatarId, appView: complete ? 'home' : 'profile' });
+      if (tab === 'login') {
+        finish(
+          await api<AuthResponse>('/api/v1/player/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ mobile: mobile.trim() }),
+          }),
+        );
+      } else {
+        finish(
+          await api<AuthResponse>('/api/v1/player/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              username: username.trim(),
+              email: email.trim(),
+              mobile: mobile.trim(),
+            }),
+          }),
+        );
+      }
     } catch (e) {
-      setErr(mapErr(e));
-    } finally { setBusy(false); }
+      setErr(mapErr(e instanceof Error ? e.message : 'ERROR', locale));
+      setBusy(false);
+    }
   }
 
   return (
     <div className="flex min-h-screen flex-col px-6 py-10">
-      <button onClick={() => set({ appView: 'splash' })} className="self-start text-ink-secondary">← رجوع</button>
+      <button onClick={() => set({ appView: 'splash' })} className="flex items-center gap-1 self-start text-ink-secondary">
+        <ChevronLeft size={20} /> {t(locale, 'back')}
+      </button>
 
-      <h1 className="mt-6 font-display text-4xl font-bold">تسجيل الدخول</h1>
-      <p className="mt-2 text-ink-secondary">
-        {step === 'phone' ? 'أدخل رقم جوالك لإرسال رمز التحقق' : `أدخل الرمز المُرسل إلى ${phone}`}
-      </p>
+      <h1 className="mt-6 font-display text-4xl font-bold text-gradient">
+        {tab === 'register' ? t(locale, 'createAccount') : t(locale, 'login')}
+      </h1>
 
-      <div className="mt-8 space-y-5">
-        {step === 'phone' ? (
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            inputMode="tel" dir="ltr"
-            className="w-full rounded-2xl glass px-5 py-4 text-center font-display text-3xl outline-none focus:ring-2 focus:ring-brand-violet"
-            placeholder="+9665XXXXXXXX"
-          />
-        ) : (
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-            inputMode="numeric" dir="ltr"
-            className="tnum w-full rounded-2xl glass px-5 py-4 text-center font-display text-4xl font-bold tracking-[0.4em] outline-none focus:ring-2 focus:ring-brand-violet"
-            placeholder="••••••"
-          />
-        )}
+      {/* Tabs */}
+      <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl glass p-1">
+        {(['register', 'login'] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => { setTab(k); setErr(null); }}
+            className={[
+              'rounded-xl2 py-2.5 font-display font-bold transition',
+              tab === k ? 'bg-gradient-brand text-white shadow-glow' : 'text-ink-secondary',
+            ].join(' ')}
+          >
+            {t(locale, k === 'register' ? 'register' : 'login')}
+          </button>
+        ))}
       </div>
 
-      {devCode && step === 'code' && (
-        <p className="mt-4 rounded-xl2 bg-brand-gold/15 p-3 text-center text-brand-gold">
-          رمز التجربة: <span className="font-display text-2xl font-bold tnum">{devCode}</span>
-        </p>
-      )}
+      <div className="mt-7 space-y-4">
+        {tab === 'register' && (
+          <>
+            <Field label={t(locale, 'username')}>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value.slice(0, 24))}
+                dir="auto"
+                className={inputCls}
+                placeholder={t(locale, 'username')}
+              />
+            </Field>
+            <Field label={t(locale, 'email')}>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                inputMode="email"
+                dir="ltr"
+                className={inputCls}
+                placeholder="name@example.com"
+              />
+            </Field>
+          </>
+        )}
+        <Field label={t(locale, 'mobile')}>
+          <input
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            inputMode="tel"
+            dir="ltr"
+            className={inputCls}
+            placeholder="+9665XXXXXXXX"
+          />
+        </Field>
+      </div>
+
       {err && <p className="mt-4 text-center text-danger">{err}</p>}
 
       <div className="mt-auto pt-8">
         <motion.button
           whileTap={{ scale: 0.96 }}
-          onClick={step === 'phone' ? sendCode : verify}
-          disabled={busy || (step === 'phone' ? !phoneOk : !codeOk)}
-          className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold shadow-glow disabled:opacity-40"
+          onClick={submit}
+          disabled={busy || !canSubmit}
+          className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow disabled:opacity-40"
         >
-          {busy ? '...' : step === 'phone' ? 'إرسال الرمز' : 'تأكيد'}
+          {busy ? '…' : t(locale, tab === 'register' ? 'register' : 'login')}
         </motion.button>
+        <button
+          onClick={() => { setTab(tab === 'register' ? 'login' : 'register'); setErr(null); }}
+          className="mt-4 w-full text-center text-ink-secondary"
+        >
+          {t(locale, tab === 'register' ? 'haveAccount' : 'noAccount')}
+        </button>
       </div>
     </div>
   );
 }
 
-function mapErr(e: unknown): string {
-  const code = e instanceof Error ? e.message : 'ERROR';
-  if (code === 'RATE_LIMITED') return 'الرجاء الانتظار قبل طلب رمز جديد';
-  if (code === 'NOT_AUTHORIZED') return 'رمز غير صحيح أو منتهي';
-  return 'حدث خطأ، حاول مجدداً';
+const inputCls =
+  'w-full rounded-2xl glass px-5 py-4 text-xl text-ink-primary outline-none focus:ring-2 focus:ring-brand-deep';
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="mb-2 block text-ink-secondary">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function mapErr(code: string, locale: 'ar' | 'en'): string {
+  if (code === 'CONFLICT') return locale === 'ar' ? 'الحساب موجود بالفعل (اسم/بريد/جوال مستخدم)' : 'Account already exists';
+  if (code === 'NOT_FOUND') return locale === 'ar' ? 'لا يوجد حساب بهذا الرقم — أنشئ حساباً' : 'No account for this number';
+  if (code === 'VALIDATION_ERROR') return locale === 'ar' ? 'تحقّق من البيانات المُدخلة' : 'Check your details';
+  return t(locale, 'error');
 }

@@ -1,17 +1,17 @@
 import { motion } from 'framer-motion';
-import { Check, X, Users } from 'lucide-react';
+import { Check, X, Users, Zap } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
 import { useCountdown } from '../hooks/useCountdown.js';
 
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
-const OPTION_TINTS = ['#7C3AED', '#22D3EE', '#F59E0B', '#EF4444', '#22C55E', '#C026D3'];
+const OPTION_TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 export function Question() {
   const {
     question, phase, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
-    correctOptionId, distribution, locale,
+    correctOptionId, distribution, heroes, teams, locale,
   } = useStore();
 
   const collecting = phase === 'collecting';
@@ -99,6 +99,30 @@ export function Question() {
           );
         })}
       </div>
+
+      {/* TEAMS: who answered first and earned each team's point */}
+      {revealing && heroes.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-4 pt-5">
+          {heroes.map((h) => {
+            const color = teams.find((tm) => tm.id === h.teamId)?.color ?? '#4F46E5';
+            return (
+              <motion.div
+                key={h.teamId}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-strong flex items-center gap-3 rounded-2xl px-6 py-3"
+                style={{ borderInlineStart: `5px solid ${color}` }}
+              >
+                <Zap className="text-prize-gold" />
+                <span className="text-2xl font-semibold">
+                  {t(locale, 'firstCorrectHero', { name: h.nickname, team: h.teamName })}
+                </span>
+                <span className="tnum font-display text-2xl font-bold text-success">+{h.pointsAwarded}</span>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       {phase === 'locked' && (
         <p className="pt-4 text-center text-2xl text-ink-secondary animate-pulse-glow">

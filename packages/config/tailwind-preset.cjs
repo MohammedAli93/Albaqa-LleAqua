@@ -1,8 +1,12 @@
 /**
- * Shared Tailwind preset — "البقاء للأقوى" design system v2.
- * Direction: premium retro-futurist game-show. Deep-space canvas, electric-violet
- * → magenta brand, neon accents, rose action, gold prize. Arabic-first (Cairo
- * display / Tajawal body). Consumed by apps/screen, apps/controller, apps/admin.
+ * Shared Tailwind preset — "البقاء للأقوى" design system v3 (light).
+ * Direction: bright, premium, friendly game-show. Light sky/lavender canvas,
+ * indigo brand, teal + coral accents, amber prizes, strong contrast. Arabic-first
+ * (Cairo display / Tajawal body). Consumed by apps/screen, apps/controller, apps/admin.
+ *
+ * Token names are kept stable across the dark→light redesign so existing utility
+ * classes (bg-base, text-ink-primary, bg-brand-deep, shadow-glow, bg-gradient-brand…)
+ * automatically adopt the new palette.
  */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -10,22 +14,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Canvas — deep violet-black with layered surfaces
-        bg: { base: '#0A0712', raised: '#150E29', sunken: '#050309', overlay: '#1E1340' },
-        // Brand spectrum
-        brand: { violet: '#8B5CF6', deep: '#6D28D9', indigo: '#6366F1', magenta: '#D946EF', cyan: '#22D3EE' },
-        // Action (CTA) — electric rose
+        // Canvas — light sky/lavender page with white raised surfaces
+        bg: { base: '#F4F7FF', raised: '#FFFFFF', sunken: '#E8EEFC', overlay: '#FFFFFF' },
+        // Brand spectrum — indigo led, violet pop, teal accent
+        brand: { violet: '#6366F1', deep: '#4F46E5', indigo: '#4F46E5', magenta: '#7C3AED', cyan: '#14B8A6' },
+        // Action (CTA) — coral → rose
         action: { DEFAULT: '#F43F5E', hot: '#FB7185' },
-        // Neon accents
-        neon: { pink: '#F472B6', lime: '#A3E635', cyan: '#22D3EE' },
-        // Prize / winner
-        prize: { gold: '#FACC15', deep: '#CA8A04' },
-        // Text
-        ink: { primary: '#F8F6FF', secondary: '#BCB6DC', muted: '#7C7699' },
+        // Accents (kept under the old "neon" key for class compatibility)
+        neon: { pink: '#F472B6', lime: '#10B981', cyan: '#14B8A6' },
+        // Prize / winner — warm amber
+        prize: { gold: '#F59E0B', deep: '#B45309' },
+        // Text — dark slate on light surfaces
+        ink: { primary: '#0F172A', secondary: '#475569', muted: '#94A3B8' },
         // States
-        success: '#34D399', danger: '#FB7185', warning: '#FBBF24', info: '#38BDF8',
-        // Answer-option palette (game-show 4-up)
-        opt: { a: '#F43F5E', b: '#22D3EE', c: '#A855F7', d: '#FACC15' },
+        success: '#10B981', danger: '#EF4444', warning: '#F59E0B', info: '#0EA5E9',
+        // Answer-option palette (game-show 4-up) — distinct & accessible on light
+        opt: { a: '#4F46E5', b: '#14B8A6', c: '#F59E0B', d: '#FB7185' },
       },
       fontFamily: {
         display: ['Cairo', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
@@ -33,20 +37,22 @@ module.exports = {
       },
       borderRadius: { xl2: '1.25rem', xl3: '1.75rem', xl4: '2.25rem' },
       boxShadow: {
-        glass: '0 10px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
-        glow: '0 0 50px -8px rgba(139,92,246,0.7)',
-        'glow-cyan': '0 0 50px -8px rgba(34,211,238,0.65)',
-        'glow-rose': '0 0 50px -6px rgba(244,63,94,0.65)',
-        gold: '0 0 55px -6px rgba(250,204,21,0.65)',
-        card: '0 24px 70px -24px rgba(0,0,0,0.75)',
+        // Soft, light-theme elevation + subtle colored glows
+        glass: '0 8px 30px -8px rgba(79,70,229,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
+        glow: '0 16px 40px -14px rgba(79,70,229,0.40)',
+        'glow-cyan': '0 16px 40px -14px rgba(20,184,166,0.40)',
+        'glow-rose': '0 16px 40px -14px rgba(251,113,133,0.45)',
+        gold: '0 16px 40px -14px rgba(245,158,11,0.45)',
+        card: '0 24px 60px -32px rgba(15,23,42,0.28)',
       },
       backgroundImage: {
-        'gradient-brand': 'linear-gradient(135deg, #8B5CF6 0%, #D946EF 100%)',
+        'gradient-brand': 'linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)',
         'gradient-action': 'linear-gradient(135deg, #FB7185 0%, #F43F5E 55%, #E11D48 100%)',
-        'gradient-prize': 'linear-gradient(135deg, #FDE047 0%, #FACC15 50%, #CA8A04 100%)',
-        'gradient-cyber': 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 45%, #22D3EE 100%)',
-        'gradient-stage': 'radial-gradient(ellipse 80% 55% at 50% -8%, rgba(139,92,246,0.45) 0%, rgba(10,7,18,0) 62%)',
-        'gradient-card': 'linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 100%)',
+        'gradient-prize': 'linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
+        'gradient-cyber': 'linear-gradient(135deg, #4F46E5 0%, #6366F1 45%, #14B8A6 100%)',
+        'gradient-stage': 'radial-gradient(ellipse 80% 55% at 50% -8%, rgba(99,102,241,0.18) 0%, rgba(244,247,255,0) 62%)',
+        'gradient-card': 'linear-gradient(160deg, #FFFFFF 0%, #F4F7FF 100%)',
+        'gradient-page': 'linear-gradient(180deg, #F8FAFF 0%, #EEF2FE 100%)',
       },
       keyframes: {
         'gradient-pan': { '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
@@ -59,7 +65,7 @@ module.exports = {
         },
         shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
         pop: { '0%': { transform: 'scale(0.85)', opacity: '0' }, '60%': { transform: 'scale(1.04)' }, '100%': { transform: 'scale(1)', opacity: '1' } },
-        'glow-pulse': { '0%,100%': { boxShadow: '0 0 30px -10px rgba(139,92,246,0.6)' }, '50%': { boxShadow: '0 0 55px -6px rgba(139,92,246,0.9)' } },
+        'glow-pulse': { '0%,100%': { boxShadow: '0 0 30px -14px rgba(79,70,229,0.5)' }, '50%': { boxShadow: '0 0 50px -10px rgba(79,70,229,0.7)' } },
       },
       animation: {
         'gradient-pan': 'gradient-pan 8s ease infinite',

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   html,
   body,
@@ -14,6 +14,8 @@
   }
   body {
     @apply bg-bg-base text-ink-primary font-body antialiased;
+    background-image: theme('backgroundImage.gradient-page');
+    background-attachment: fixed;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
@@ -29,17 +31,15 @@
 }
 
 @layer components {
-  /* Premium glass — gradient fill + hairline highlight */
+  /* Premium card — clean white surface, hairline indigo border, soft shadow */
   .glass {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(18px);
+    background: theme('backgroundImage.gradient-card');
+    border: 1px solid rgba(79, 70, 229, 0.10);
     @apply shadow-glass;
   }
   .glass-strong {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    backdrop-filter: blur(24px);
+    background: #ffffff;
+    border: 1px solid rgba(79, 70, 229, 0.14);
     @apply shadow-card;
   }
   /* Gradient text */
@@ -49,11 +49,11 @@
   .text-gold-gradient {
     @apply bg-gradient-prize bg-clip-text text-transparent;
   }
-  /* Neon text glow */
+  /* Soft brand emphasis (replaces the old neon glow on the light theme) */
   .text-glow {
-    text-shadow: 0 0 24px rgba(139, 92, 246, 0.55), 0 0 8px rgba(217, 70, 239, 0.4);
+    text-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
   }
-  /* Primary CTA — rose, glowing, pressable */
+  /* Primary CTA — coral→rose gradient, soft glow, pressable */
   .btn-cta {
     @apply bg-gradient-action font-display font-bold text-white shadow-glow-rose transition active:scale-[0.97];
   }

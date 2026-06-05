@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import {
+  GameType,
   GameMode,
   GameStatus,
   RoundPhase,
@@ -31,6 +32,7 @@ import {
 /** Client → Server intents. */
 export const ClientEvent = {
   PLAYER_JOIN: 'player:join',
+  PLAYER_PICK_TEAM: 'player:pickTeam',
   PLAYER_ANSWER: 'player:answer',
   PLAYER_HEARTBEAT: 'player:heartbeat',
   PLAYER_LEAVE: 'player:leave',
@@ -67,6 +69,8 @@ export const ServerEvent = {
   SCORE_UPDATE: 'score:update',
   PLAYER_ELIMINATED: 'player:eliminated',
   YOU_ELIMINATED: 'you:eliminated',
+  /** TEAMS mode: the first player to answer correctly earned the team a point. */
+  TEAM_SCORED: 'team:scored',
   ROUND_COMPLETED: 'round:completed',
   GAME_PAUSED: 'game:paused',
   GAME_RESUMED: 'game:resumed',
@@ -130,9 +134,28 @@ export const TeamPublicSchema = z.object({
   name: z.string(),
   color: z.string(),
   score: z.number().int(),
+  /** Team lives — ELIMINATION mode only (0 = eliminated). */
+  lives: z.number().int().optional(),
+  /** Max players this team may hold (TEAMS games). */
+  capacity: z.number().int().optional(),
   memberIds: z.array(z.string()),
 });
 export type TeamPublic = z.infer<typeof TeamPublicSchema>;
+
+/**
+ * The player who answered first-correct and earned the point for their team in
+ * the most recently resolved round (TEAMS mode). Surfaced so clients can show
+ * "أحمد أجاب أولاً وأحرز نقطة لفريق أ".
+ */
+export const RoundHeroSchema = z.object({
+  teamId: z.string(),
+  teamName: z.string(),
+  participantId: z.string(),
+  nickname: z.string(),
+  avatarId: z.string(),
+  pointsAwarded: z.number().int(),
+});
+export type RoundHero = z.infer<typeof RoundHeroSchema>;
 
 export const RankedEntrySchema = z.object({
   participantId: z.string(),
@@ -197,6 +220,7 @@ export const RoomSnapshotSchema = z.object({
   game: z.object({
     id: z.string(),
     roomCode: z.string(),
+    type: zEnum(GameType),
     mode: zEnum(GameMode),
     status: zEnum(GameStatus),
     round: z.number().int(),
@@ -204,6 +228,8 @@ export const RoomSnapshotSchema = z.object({
   }),
   participants: z.array(PublicParticipantSchema),
   teams: z.array(TeamPublicSchema).optional(),
+  /** TEAMS mode: who earned each team's point in the last resolved round. */
+  heroes: z.array(RoundHeroSchema).optional(),
   currentRound: z
     .object({
       roundId: z.string(),
@@ -249,6 +275,10 @@ export const PlayerAnswerSchema = z.object({
 });
 export type PlayerAnswerInput = z.infer<typeof PlayerAnswerSchema>;
 
+/** TEAMS mode: a player claims a seat on a specific team in the lobby. */
+export const PickTeamSchema = z.object({ teamId: z.string().min(1) });
+export type PickTeamInput = z.infer<typeof PickTeamSchema>;
+
 export const PlayerKickSchema = z.object({ participantId: z.string().min(1) });
 export const RoomTerminateSchema = z.object({ gameId: z.string().min(1) });
 export const EmptySchema = z.object({}).strict();
@@ -256,6 +286,7 @@ export const EmptySchema = z.object({}).strict();
 /** Lookup table the server uses to validate inbound events generically. */
 export const CLIENT_EVENT_SCHEMAS = {
   [ClientEvent.PLAYER_JOIN]: PlayerJoinSchema,
+  [ClientEvent.PLAYER_PICK_TEAM]: PickTeamSchema,
   [ClientEvent.PLAYER_ANSWER]: PlayerAnswerSchema,
   [ClientEvent.PLAYER_HEARTBEAT]: EmptySchema,
   [ClientEvent.PLAYER_LEAVE]: EmptySchema,
@@ -328,6 +359,12 @@ export interface ScoreUpdatePayload {
 export interface PlayerEliminatedPayload {
   participantIds: string[];
   round: number;
+}
+
+/** TEAMS mode: broadcast when a round's per-team winners are resolved. */
+export interface TeamScoredPayload {
+  roundIndex: number;
+  heroes: RoundHero[];
 }
 
 export interface YouEliminatedPayload {

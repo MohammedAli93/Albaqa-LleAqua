@@ -49,6 +49,30 @@ export async function listSessions(cursor: string | undefined, limit: number): P
   return { items: page, nextCursor: hasMore ? page[page.length - 1]!.id : null };
 }
 
+/** Registered players (most recent first) for the admin Players view. */
+export async function listPlayers(cursor: string | undefined, limit: number): Promise<Page<unknown>> {
+  const items = await prisma.player.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: limit + 1,
+    ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      mobile: true,
+      country: true,
+      avatarId: true,
+      pointsWins: true,
+      eliminationWins: true,
+      gamesPlayed: true,
+      createdAt: true,
+    },
+  });
+  const hasMore = items.length > limit;
+  const page = hasMore ? items.slice(0, limit) : items;
+  return { items: page, nextCursor: hasMore ? page[page.length - 1]!.id : null };
+}
+
 export async function sessionDetail(gameId: string) {
   return prisma.game.findUnique({
     where: { id: gameId },

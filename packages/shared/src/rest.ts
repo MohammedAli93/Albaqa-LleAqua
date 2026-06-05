@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import {
+  GameType,
   GameMode,
   QuestionType,
   Difficulty,
@@ -27,10 +28,73 @@ export const ChangePasswordSchema = z.object({
   newPassword: z.string().min(8).max(200),
 });
 
+// ────────────────────────── Player accounts (registration) ──────────────────
+// Players register with username + email + mobile (all required & validated).
+// No OTP/password — mobile is the unique identity used to log back in.
+
+/** International mobile number: optional leading +, 8–15 digits. */
+export const MOBILE_REGEX = /^\+?[0-9]{8,15}$/;
+export const USERNAME_REGEX = /^[\p{L}\p{N}_ .-]{2,24}$/u;
+
+const usernameField = z
+  .string()
+  .trim()
+  .min(2)
+  .max(24)
+  .regex(USERNAME_REGEX, 'اسم مستخدم غير صالح');
+const emailField = z.string().trim().toLowerCase().email('بريد إلكتروني غير صالح');
+const mobileField = z
+  .string()
+  .trim()
+  .regex(MOBILE_REGEX, 'رقم جوال غير صالح');
+
+export const PlayerRegisterSchema = z.object({
+  username: usernameField,
+  email: emailField,
+  mobile: mobileField,
+  country: z.string().trim().min(2).max(3).optional(),
+  avatarId: z.string().min(1).optional(),
+});
+export type PlayerRegisterInput = z.infer<typeof PlayerRegisterSchema>;
+
+/** Returning players log in by their registered mobile number. */
+export const PlayerLoginSchema = z.object({
+  mobile: mobileField,
+});
+export type PlayerLoginInput = z.infer<typeof PlayerLoginSchema>;
+
+export const PlayerUpdateSchema = z.object({
+  username: usernameField.optional(),
+  email: emailField.optional(),
+  country: z.string().trim().min(2).max(3).optional(),
+  avatarId: z.string().min(1).optional(),
+});
+export type PlayerUpdateInput = z.infer<typeof PlayerUpdateSchema>;
+
+/** Player profile as returned by the API (never includes internal fields). */
+export interface PlayerProfile {
+  id: string;
+  username: string;
+  email: string;
+  mobile: string;
+  country: string | null;
+  avatarId: string;
+  pointsWins: number;
+  eliminationWins: number;
+  gamesPlayed: number;
+}
+
+export interface PlayerAuthResponse {
+  token: string;
+  player: PlayerProfile;
+  isNew: boolean;
+}
+
 // ─────────────────────────────── Game settings ──────────────────────────────
 
 export const GameSettingsSchema = z
   .object({
+    type: zEnum(GameType),
     mode: zEnum(GameMode),
     maxPlayers: z
       .number()
@@ -52,12 +116,34 @@ export const GameSettingsSchema = z
     intermissionSec: z.number().int().min(0).max(30),
     autoAdvance: z.boolean(),
     totalRounds: z.number().int().min(1).max(100).nullable(),
-    teamCount: z.number().int().min(2).max(GAME_LIMITS.MAX_TEAMS).optional(),
+    teamCount: z
+      .number()
+      .int()
+      .min(GAME_LIMITS.MIN_TEAMS)
+      .max(GAME_LIMITS.MAX_TEAMS)
+      .optional(),
+    playersPerTeam: z
+      .number()
+      .int()
+      .min(GAME_LIMITS.MIN_PLAYERS_PER_TEAM)
+      .max(GAME_LIMITS.MAX_PLAYERS_PER_TEAM)
+      .optional(),
+    firstTeamId: z.string().nullable().optional(),
+    scoringMode: z.enum(['SPEED', 'PLACEMENT']).optional(),
+    tournamentName: z.string().max(120).optional(),
   })
   .refine((s) => s.minPlayers <= s.maxPlayers, {
     message: 'minPlayers must be <= maxPlayers',
     path: ['minPlayers'],
-  });
+  })
+  .refine((s) => s.type !== GameType.TEAMS || (s.teamCount ?? 0) >= GAME_LIMITS.MIN_TEAMS, {
+    message: 'teamCount is required for TEAMS games',
+    path: ['teamCount'],
+  })
+  .refine(
+    (s) => s.type !== GameType.TEAMS || (s.playersPerTeam ?? 0) >= GAME_LIMITS.MIN_PLAYERS_PER_TEAM,
+    { message: 'playersPerTeam is required for TEAMS games', path: ['playersPerTeam'] },
+  );
 
 export const CreateRoomSchema = z.object({
   packageId: z.string().uuid(),
@@ -75,6 +161,7 @@ export interface CreateRoomResponse {
 export interface RoomLobbyInfo {
   exists: boolean;
   status: string;
+  type: GameType;
   mode: GameMode;
   playerCount: number;
   maxPlayers: number;
