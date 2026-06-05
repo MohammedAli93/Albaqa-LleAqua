@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import {
-  Trophy, Medal, LogOut, Play as PlayIcon, ScanLine,
+  Trophy, Medal, LogOut, Play as PlayIcon, ScanLine, Tv, QrCode, Users, Coins, Swords,
   Dumbbell, Drama, Palette, Landmark, BookOpen, Globe2, Moon, Scale, FlaskConical,
   type LucideIcon,
 } from 'lucide-react';
@@ -8,6 +8,17 @@ import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
 import { COUNTRIES, CATEGORIES } from '../../lib/catalog.js';
+
+function Step({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-deep/10 text-brand-deep">
+        <Icon size={16} />
+      </span>
+      <span className="leading-relaxed text-ink-secondary">{text}</span>
+    </div>
+  );
+}
 
 const CAT_ICON: Record<string, LucideIcon> = {
   sports: Dumbbell, culture: Drama, arts: Palette, history: Landmark, literature: BookOpen,
@@ -71,6 +82,25 @@ export function Home() {
           </div>
         </div>
       </motion.div>
+
+      {/* What is this game / how it works */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
+        className="glass mt-5 rounded-xl3 p-5"
+      >
+        <h2 className="font-display text-xl font-extrabold">ما هي «البقاء للأقوى»؟</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
+          لعبة أسئلة ثقافية على شاشة كبيرة (تلفاز أو لابتوب)، واللاعبون يجيبون من جوّالاتهم.
+          افتح الشاشة الكبيرة، ويمسح الجميع رمز <span className="font-semibold text-ink-primary">QR</span> للانضمام.
+        </p>
+        <div className="mt-4 space-y-2.5 text-sm">
+          <Step icon={Tv} text="١) افتح اللعبة على الشاشة الكبيرة واختر النوع ثم الطريقة." />
+          <Step icon={QrCode} text="٢) يمسح اللاعبون رمز الـQR من جوّالاتهم للانضمام." />
+          <Step icon={Users} text="فردي: كل لاعب يلعب لنفسه (من لاعبَين حتى ١٠٠) — الأعلى نقاطاً يفوز." />
+          <Step icon={Swords} text="فرق: فريق ضد فريق، وأول من يجيب صحيحاً يحرز النقطة لفريقه." />
+          <Step icon={Coins} text="لعبة النقاط: اجمع أكثر النقاط. لعبة التصفيات: محاولات محدودة والبقاء للأقوى." />
+        </div>
+      </motion.section>
 
       {/* Primary play */}
       <motion.button

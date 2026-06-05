@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft } from 'lucide-react';
+import { ScanLine } from 'lucide-react';
 import { MOBILE_REGEX, type PlayerProfile } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../../store.js';
@@ -71,13 +71,15 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen flex-col px-6 py-10">
-      <button onClick={() => set({ appView: 'splash' })} className="flex items-center gap-1 self-start text-ink-secondary">
-        <ChevronLeft size={20} /> {t(locale, 'back')}
-      </button>
+      {/* Brand wordmark */}
+      <div className="mt-2 text-center">
+        <h1 className="font-display text-5xl font-black text-gradient">{t(locale, 'appName')}</h1>
+        <p className="mt-1 text-ink-secondary">برنامج المسابقات الأول</p>
+      </div>
 
-      <h1 className="mt-6 font-display text-4xl font-bold text-gradient">
+      <h2 className="mt-8 font-display text-3xl font-bold">
         {tab === 'register' ? t(locale, 'createAccount') : t(locale, 'login')}
-      </h1>
+      </h2>
 
       {/* Tabs */}
       <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl glass p-1">
@@ -147,6 +149,12 @@ export function Login() {
           className="mt-4 w-full text-center text-ink-secondary"
         >
           {t(locale, tab === 'register' ? 'haveAccount' : 'noAccount')}
+        </button>
+        <button
+          onClick={() => set({ appView: 'game', phase: 'join' })}
+          className="glass mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-ink-secondary"
+        >
+          <ScanLine size={18} /> عندك كود؟ انضمّ مباشرة
         </button>
       </div>
     </div>

@@ -103,7 +103,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   lastResult: null,
   winner: null,
   paused: false,
-  appView: 'splash',
+  appView: 'login',
   account: loadAccount(),
   seenJeem: null,
   myTeamId: null,

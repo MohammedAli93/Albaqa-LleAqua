@@ -48,12 +48,13 @@ export default function App() {
       return;
     }
 
-    // Otherwise open the app shell: home if signed in, else the splash.
+    // Otherwise open the app shell: home if signed in, else straight to login.
     const signedIn = !!(account && account.username);
-    set({ appView: signedIn ? 'home' : 'splash' });
+    set({ appView: signedIn ? 'home' : 'login' });
   }, [set, account]);
 
   // ── App shell (front door) ──
+  // Phone-first: on desktop the UI is a centered phone-width column, not stretched.
   if (appView !== 'game') {
     return (
       <div className="relative min-h-full">
@@ -65,6 +66,7 @@ export default function App() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -16 }}
             transition={{ duration: 0.22 }}
+            className="mx-auto w-full max-w-md"
           >
             {appView === 'splash' && <Splash />}
             {appView === 'login' && <Login />}
@@ -88,7 +90,7 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.25 }}
-          className="min-h-screen"
+          className="mx-auto min-h-screen w-full max-w-md"
         >
           {phase === 'join' && <Join />}
           {phase === 'lobby' && <Lobby />}
