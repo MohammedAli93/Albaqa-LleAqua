@@ -34,8 +34,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=20s --timeout=5s --retries=5 \
   CMD wget -qO- http://localhost:8080/healthz || exit 1
 
-# ONE-TIME REBASELINE: the live DB still holds the pre-revision schema, so
-# `migrate deploy` fails on the squashed init (P3009). Reset drops the schema,
-# applies the new init, and reseeds, then boots. REVERT to `migrate deploy` after
-# the DB is rebaselined (next commit).
-CMD ["sh", "-c", "pnpm exec prisma migrate reset --force --skip-generate && node dist/index.js"]
+# Apply migrations, then boot. Migrations are backward-compatible (expand/contract)
+# so rolling deploys are safe (doc 07 §6).
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/index.js"]
