@@ -15,7 +15,7 @@ import {
 import { t } from '@tahaddi/i18n';
 import { api, CONTROLLER_URL } from './lib/config.js';
 import { useStore } from './store.js';
-import { connectHost, host } from './socket.js';
+import { connectHost } from './socket.js';
 import { startDemoBots } from './demo.js';
 import { ParticleField } from './components/ParticleField.js';
 import { Setup } from './scenes/Setup.js';
@@ -76,8 +76,9 @@ export default function App() {
       useStore.getState().setConn('connecting');
       connectHost(room.hostToken, room.roomCode);
       if (demo) {
+        // Fill the lobby with bots; the host presses Start when ready (so there's
+        // time to join from a phone and pick a team in TEAMS games).
         window.setTimeout(() => startDemoBots(room.roomCode, demoCount), 1200);
-        window.setTimeout(() => void host.start().catch(() => {}), 6500);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start');

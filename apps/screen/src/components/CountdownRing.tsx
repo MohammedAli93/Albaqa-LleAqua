@@ -16,12 +16,18 @@ export function CountdownRing({
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const seconds = Math.ceil(remainingMs / 1000);
-  const color = pct > 0.5 ? '#22D3EE' : pct > 0.25 ? '#F59E0B' : '#EF4444';
+  const color = pct > 0.5 ? '#14B8A6' : pct > 0.25 ? '#F59E0B' : '#EF4444';
+  const low = pct <= 0.25;
 
   return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+    <motion.div
+      className="relative grid place-items-center"
+      style={{ width: size, height: size }}
+      animate={low ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+      transition={low ? { duration: 0.7, repeat: Infinity } : { duration: 0.2 }}
+    >
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(15,23,42,0.10)" strokeWidth={stroke} fill="none" />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
@@ -33,12 +39,12 @@ export function CountdownRing({
           strokeDasharray={circ}
           animate={{ strokeDashoffset: circ * (1 - pct) }}
           transition={{ ease: 'linear', duration: 0.25 }}
-          style={{ filter: `drop-shadow(0 0 10px ${color})` }}
+          style={{ filter: `drop-shadow(0 0 14px ${color})` }}
         />
       </svg>
-      <span className="tnum absolute font-display text-5xl font-bold" style={{ color }}>
+      <span className="tnum absolute font-display text-5xl font-black" style={{ color }}>
         {seconds}
       </span>
-    </div>
+    </motion.div>
   );
 }
