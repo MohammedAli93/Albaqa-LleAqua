@@ -156,7 +156,7 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     expect(state.teams.B!.score).toBe(2);
   });
 
-  it('a team with no correct answer loses a life in elimination mode', () => {
+  it('team mode is points-only: no team ever loses a life or gets eliminated', () => {
     const { a1, a2, b1, teams } = teamRoom();
     teams.A.lives = 2;
     teams.B.lives = 2;
@@ -168,13 +168,16 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     });
     const state = makeRoom(
       [a1, a2, b1],
-      { type: GameType.TEAMS, mode: GameMode.ELIMINATION, teams, currentRound: round },
-      { scoringMode: ScoringMode.SPEED },
+      { type: GameType.TEAMS, mode: GameMode.POINTS, teams, currentRound: round },
+      { scoringMode: ScoringMode.PLACEMENT },
     );
     const scored = scoreRound(state, round);
-    applyResolution(state, round, scored);
-    expect(state.teams.A!.lives).toBe(2); // had a correct answer
-    expect(state.teams.B!.lives).toBe(1); // none correct → -1 life
+    const { eliminatedIds } = applyResolution(state, round, scored);
+    // Lives are untouched and nobody is eliminated — teams just accumulate points.
+    expect(state.teams.A!.lives).toBe(2);
+    expect(state.teams.B!.lives).toBe(2);
+    expect(eliminatedIds).toHaveLength(0);
+    expect([a1, a2, b1].every((p) => state.participants[p.id]!.status === 'ACTIVE')).toBe(true);
   });
 });
 

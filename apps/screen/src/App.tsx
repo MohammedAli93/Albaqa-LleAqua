@@ -6,7 +6,6 @@ import {
   POINTS_SETTINGS,
   ELIMINATION_SETTINGS,
   DEFAULT_TEAM_COUNT,
-  DEFAULT_PLAYERS_PER_TEAM,
   GameType,
   GameMode,
   type GameSettings,
@@ -29,29 +28,28 @@ import { SeenJeem } from './scenes/SeenJeem.js';
 
 type Pkg = { id: string };
 
-/** Build frozen game settings from a chosen type + mode (+ team config). */
+/** Build frozen game settings from a chosen type + mode (+ team names). */
 function buildSettings(opts: {
   type: GameType;
   mode: GameMode;
-  teamCount?: number;
-  playersPerTeam?: number;
+  teamNames?: string[];
   demo?: boolean;
   name?: string;
 }): GameSettings {
-  const { type, mode, teamCount, playersPerTeam, demo, name } = opts;
+  const { type, mode, teamNames, demo, name } = opts;
+  // Team mode is always points (never elimination). Seen Jeem is its own mode.
+  const effectiveMode = type === GameType.TEAMS && mode === GameMode.ELIMINATION ? GameMode.POINTS : mode;
   let base: GameSettings =
-    mode === GameMode.ELIMINATION
+    effectiveMode === GameMode.ELIMINATION
       ? ELIMINATION_SETTINGS
-      : mode === GameMode.SEEN_JEEM
+      : effectiveMode === GameMode.SEEN_JEEM
         ? { ...DEFAULT_GAME_SETTINGS, mode: GameMode.SEEN_JEEM }
         : POINTS_SETTINGS;
   base = { ...base, type };
   if (type === GameType.TEAMS) {
-    base = {
-      ...base,
-      teamCount: teamCount ?? DEFAULT_TEAM_COUNT,
-      playersPerTeam: playersPerTeam ?? DEFAULT_PLAYERS_PER_TEAM,
-    };
+    const names = teamNames && teamNames.length >= 2 ? teamNames : Array.from({ length: DEFAULT_TEAM_COUNT }, (_, i) => `الفريق ${i + 1}`);
+    // Points-only, unlimited team size (players choose freely).
+    base = { ...base, teamNames: names, teamCount: names.length, playersPerTeam: undefined };
   }
   if (demo) base = { ...base, intermissionSec: 4, totalRounds: base.totalRounds ?? 8 };
   if (name) base = { ...base, tournamentName: name };
@@ -62,6 +60,7 @@ export default function App() {
   const { status, phase, mode, paused, roomCode, conn, locale, setRoom } = useStore();
   const [error, setError] = useState<string | null>(null);
   const [needSetup, setNeedSetup] = useState(false);
+  const [setupType, setSetupType] = useState<GameType | null>(null);
   const booted = useRef(false);
 
   // Hold a screen wake-lock once a room exists so the host display never sleeps
@@ -103,7 +102,7 @@ export default function App() {
     const demoCount = Math.min(Math.max(parseInt(demoParam ?? '8', 10) || 8, 2), 24);
 
     // Two-step launch via params: ?type=INDIVIDUAL|TEAMS&mode=points|elimination|seenjeem
-    // (+ &teams= &perTeam= &name=). Demo uses elimination by default.
+    // (+ &names=Falcons,Lions &name=). Demo uses elimination by default.
     const typeParam = (params.get('type') ?? '').toUpperCase();
     const modeParam = (params.get('mode') ?? '').toLowerCase();
     const hasConfig = !!typeParam || !!modeParam || demo;
@@ -122,11 +121,23 @@ export default function App() {
           : modeParam === 'seenjeem'
             ? GameMode.SEEN_JEEM
             : GameMode.ELIMINATION; // demo default
+    const namesParam = params.get('names');
+    const teamNames = namesParam
+      ? namesParam.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
+    // Team games (other than Seen Jeem) must have the host name the teams first —
+    // open Setup at the name-entry step instead of auto-creating the room.
+    if (type === GameType.TEAMS && gameMode !== GameMode.SEEN_JEEM && !teamNames) {
+      setSetupType(GameType.TEAMS);
+      setNeedSetup(true);
+      return;
+    }
+
     const settings = buildSettings({
       type: gameMode === GameMode.SEEN_JEEM ? GameType.TEAMS : type,
       mode: gameMode,
-      teamCount: params.get('teams') ? Number(params.get('teams')) : undefined,
-      playersPerTeam: params.get('perTeam') ? Number(params.get('perTeam')) : undefined,
+      teamNames,
       demo,
       name: params.get('name') ?? undefined,
     });
@@ -150,7 +161,10 @@ export default function App() {
       )}
 
       {!error && needSetup && (
-        <Setup onConfirm={(sel) => void createAndHost(buildSettings(sel), !!sel.demo)} />
+        <Setup
+          initialType={setupType}
+          onConfirm={(sel) => void createAndHost(buildSettings(sel), !!sel.demo)}
+        />
       )}
 
       {!error && !needSetup && (

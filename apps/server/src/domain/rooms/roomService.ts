@@ -6,7 +6,6 @@ import {
   GameType,
   GameMode,
   DEFAULT_TEAM_COUNT,
-  DEFAULT_PLAYERS_PER_TEAM,
   type GameSettings,
   type CreateRoomResponse,
   type RoomLobbyInfo,
@@ -16,7 +15,7 @@ import { env } from '../../config/env.js';
 import { generateCapabilityToken, hashCapabilityToken } from '../auth/tokens.js';
 import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
-import type { RoomState, LiveTeam } from './types.js';
+import type { RoomState } from './types.js';
 
 /** Default team names/colors, indexed by team number. */
 export const TEAM_PALETTE = ['#4F46E5', '#14B8A6', '#FB7185', '#F59E0B', '#22C55E', '#A855F7', '#0EA5E9', '#EF4444'];
@@ -84,31 +83,33 @@ export async function createRoom(
     createdAt: Date.now(),
   };
 
-  // TEAMS games create their teams up front so players can pick a team in the
-  // lobby (team vs team). Each team starts with a life per the elimination rule.
+  // TEAMS games create their teams up front so players can pick one in the lobby.
+  // Team mode is points-only (no elimination), so teams have no lives to lose and
+  // no capacity cap — players join any team freely. Names come from the host.
   if (settings.type === GameType.TEAMS) {
-    const teamCount = settings.teamCount ?? DEFAULT_TEAM_COUNT;
-    const capacity = settings.playersPerTeam ?? DEFAULT_PLAYERS_PER_TEAM;
-    const startingLives = settings.mode === GameMode.ELIMINATION ? settings.livesPerPlayer : 1;
-    for (let i = 0; i < teamCount; i++) {
+    const names =
+      settings.teamNames && settings.teamNames.length >= 2
+        ? settings.teamNames
+        : Array.from({ length: settings.teamCount ?? DEFAULT_TEAM_COUNT }, (_, i) => TEAM_NAMES[i] ?? `الفريق ${i + 1}`);
+    const capacity = settings.playersPerTeam; // undefined = unlimited
+    for (let i = 0; i < names.length; i++) {
       const team = await prisma.team.create({
         data: {
           gameId: game.id,
-          name: TEAM_NAMES[i] ?? `الفريق ${i + 1}`,
+          name: names[i]!.trim() || TEAM_NAMES[i] || `الفريق ${i + 1}`,
           color: TEAM_PALETTE[i] ?? '#4F46E5',
-          lives: startingLives,
-          capacity,
+          lives: 1, // unused in points mode; kept for the schema default
+          capacity: capacity ?? null,
         },
       });
-      const liveTeam: LiveTeam = {
+      state.teams[team.id] = {
         id: team.id,
         name: team.name,
         color: team.color,
         score: 0,
-        lives: startingLives,
-        capacity,
+        lives: 1,
+        capacity: capacity ?? null,
       };
-      state.teams[team.id] = liveTeam;
     }
   }
 

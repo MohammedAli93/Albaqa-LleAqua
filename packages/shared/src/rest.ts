@@ -122,6 +122,13 @@ export const GameSettingsSchema = z
       .min(GAME_LIMITS.MIN_TEAMS)
       .max(GAME_LIMITS.MAX_TEAMS)
       .optional(),
+    /** Host-entered team names (TEAMS). The count of names = number of teams. */
+    teamNames: z
+      .array(z.string().trim().min(1).max(24))
+      .min(GAME_LIMITS.MIN_TEAMS)
+      .max(GAME_LIMITS.MAX_TEAMS)
+      .optional(),
+    /** Optional per-team cap; omitted = unlimited (players choose freely). */
     playersPerTeam: z
       .number()
       .int()
@@ -136,13 +143,15 @@ export const GameSettingsSchema = z
     message: 'minPlayers must be <= maxPlayers',
     path: ['minPlayers'],
   })
-  .refine((s) => s.type !== GameType.TEAMS || (s.teamCount ?? 0) >= GAME_LIMITS.MIN_TEAMS, {
-    message: 'teamCount is required for TEAMS games',
-    path: ['teamCount'],
+  // Team mode is points-based only — never elimination (Seen Jeem is its own mode).
+  .refine((s) => !(s.type === GameType.TEAMS && s.mode === GameMode.ELIMINATION), {
+    message: 'Team games cannot be elimination',
+    path: ['mode'],
   })
+  // A TEAMS game needs at least 2 teams, defined by names (preferred) or a count.
   .refine(
-    (s) => s.type !== GameType.TEAMS || (s.playersPerTeam ?? 0) >= GAME_LIMITS.MIN_PLAYERS_PER_TEAM,
-    { message: 'playersPerTeam is required for TEAMS games', path: ['playersPerTeam'] },
+    (s) => s.type !== GameType.TEAMS || (s.teamNames?.length ?? s.teamCount ?? 0) >= GAME_LIMITS.MIN_TEAMS,
+    { message: 'TEAMS games need at least two teams', path: ['teamNames'] },
   );
 
 export const CreateRoomSchema = z.object({

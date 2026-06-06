@@ -154,7 +154,7 @@ export function Login() {
           onClick={() => set({ appView: 'game', phase: 'join' })}
           className="glass mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-ink-secondary"
         >
-          <ScanLine size={18} /> عندك كود؟ انضمّ مباشرة
+          <ScanLine size={18} /> عندك كود؟ ادخل به
         </button>
       </div>
     </div>

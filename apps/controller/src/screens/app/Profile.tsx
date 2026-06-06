@@ -44,7 +44,7 @@ export function Profile() {
 
       <div className="mt-6 space-y-6">
         <div>
-          <p className="mb-3 text-ink-secondary">الصورة الرمزية</p>
+          <p className="mb-3 text-ink-secondary">صورتك</p>
           <div className="grid grid-cols-4 gap-3">
             {AVATARS.map((a) => (
               <button key={a.id} onClick={() => setAvatarId(a.id)} className="grid place-items-center p-1" aria-label={a.labelAr}>

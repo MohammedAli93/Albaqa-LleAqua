@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Skull, Heart } from 'lucide-react';
+import { Crown, Skull } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
@@ -59,12 +59,11 @@ export function Scoreboard() {
   );
 }
 
-/** Team-vs-team scoreboard: one card per team with total score, lives, members. */
+/** Team-vs-team scoreboard: one card per team with total score + members. */
 function TeamBoard() {
-  const { teams, leaderboard, mode, locale } = useStore();
+  const { teams, leaderboard, locale } = useStore();
   const ranked = [...teams].sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, ...ranked.map((t) => t.score));
-  const isElim = mode === 'ELIMINATION';
 
   return (
     <div className="safe flex min-h-dvh flex-col lg:h-full">
@@ -75,35 +74,26 @@ function TeamBoard() {
         {ranked.map((team, idx) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);
           const isLeader = idx === 0;
-          const dead = isElim && (team.lives ?? 1) <= 0;
           return (
             <motion.div
               key={team.id}
               layout
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: dead ? 0.4 : 1, filter: dead ? 'grayscale(1)' : 'none' }}
+              animate={{ opacity: 1 }}
               transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-              className={`glass-strong flex flex-col rounded-xl3 p-4 lg:p-6 ${isLeader && !dead ? 'shadow-gold' : ''}`}
+              className={`glass-strong flex flex-col rounded-xl3 p-4 lg:p-6 ${isLeader ? 'shadow-gold' : ''}`}
               style={{ borderTop: `6px solid ${team.color}` }}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-display text-2xl font-black lg:text-3xl" style={{ color: team.color }}>
                   {team.name}
                 </span>
-                {isLeader && !dead && <Crown className="shrink-0 text-prize-gold" />}
-                {dead && <Skull className="shrink-0 text-danger" />}
+                {isLeader && <Crown className="shrink-0 text-prize-gold" />}
               </div>
 
-              {/* big score + lives */}
+              {/* big score */}
               <div className="mt-2 flex items-end gap-3">
                 <span className="tnum font-display text-4xl font-black lg:text-6xl">{team.score}</span>
-                {isElim && (
-                  <span className="mb-2 flex gap-1">
-                    {Array.from({ length: Math.max(0, team.lives ?? 0) }).map((_, k) => (
-                      <Heart key={k} size={22} className="fill-action text-action" />
-                    ))}
-                  </span>
-                )}
               </div>
 
               {/* score bar */}

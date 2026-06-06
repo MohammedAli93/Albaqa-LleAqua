@@ -132,9 +132,12 @@ export interface GameSettings {
   intermissionSec: number; // pause between rounds
   autoAdvance: boolean; // advance rounds without host input
   totalRounds: number | null; // null = use whole package
-  /** TEAMS type only: how many teams compete (2..8). */
+  /** TEAMS type only: how many teams compete (2..8). Derived from teamNames. */
   teamCount?: number;
-  /** TEAMS type only: max players each team may hold. */
+  /** TEAMS type only: the host-entered team names (≥2). The number of names
+   *  decides how many teams there are. */
+  teamNames?: string[];
+  /** TEAMS type only: optional max players per team. Omitted = unlimited. */
   playersPerTeam?: number;
   /** SEEN_JEEM only: which team drafts first (null = lower joinOrder). */
   firstTeamId?: string | null;

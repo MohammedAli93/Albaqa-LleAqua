@@ -82,17 +82,16 @@ export function Home() {
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
         className="glass mt-5 rounded-xl3 p-5"
       >
-        <h2 className="font-display text-xl font-extrabold">ما هي «البقاء للأقوى»؟</h2>
+        <h2 className="font-display text-xl font-extrabold">كيف نلعب؟</h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
-          لعبة أسئلة ثقافية على شاشة كبيرة (تلفاز أو لابتوب)، واللاعبون يجيبون من جوّالاتهم.
-          افتح الشاشة الكبيرة، ويمسح الجميع رمز <span className="font-semibold text-ink-primary">QR</span> للانضمام.
+          لعبة أسئلة على شاشة كبيرة، وكل واحد يجاوب من جواله.
         </p>
         <div className="mt-4 space-y-2.5 text-sm">
-          <Step icon={Tv} text="١) افتح اللعبة على الشاشة الكبيرة واختر النوع ثم الطريقة." />
-          <Step icon={QrCode} text="٢) يمسح اللاعبون رمز الـQR من جوّالاتهم للانضمام." />
-          <Step icon={Users} text="فردي: كل لاعب يلعب لنفسه (من لاعبَين حتى ١٠٠) — الأعلى نقاطاً يفوز." />
-          <Step icon={Swords} text="فرق: فريق ضد فريق، وأول من يجيب صحيحاً يحرز النقطة لفريقه." />
-          <Step icon={Coins} text="لعبة النقاط: اجمع أكثر النقاط. لعبة التصفيات: محاولات محدودة والبقاء للأقوى." />
+          <Step icon={Tv} text="افتح اللعبة على شاشة كبيرة (تلفاز أو لابتوب)." />
+          <Step icon={QrCode} text="كل واحد يمسح الكود من جواله ويدخل." />
+          <Step icon={Users} text="فردي: كل واحد يلعب لنفسه، والأعلى نقاطًا يفوز." />
+          <Step icon={Swords} text="فرق: تنقسمون فِرَق، والنقاط للفريق." />
+          <Step icon={Coins} text="اجمعوا أكثر نقاط وتفوزون 🎉" />
         </div>
       </motion.section>
 
@@ -109,7 +108,7 @@ export function Home() {
         onClick={() => set({ appView: 'game', phase: 'join' })}
         className="glass mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-ink-secondary"
       >
-        <ScanLine size={18} /> انضمّ بكود لعبة
+        <ScanLine size={18} /> عندك كود؟ ادخل به
       </button>
 
       {/* Categories — vibrant gradient tiles */}

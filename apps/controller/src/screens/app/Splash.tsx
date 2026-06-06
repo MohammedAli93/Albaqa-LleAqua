@@ -35,7 +35,7 @@ export function Splash() {
           transition={{ delay: 0.35 }}
           className="mt-6 max-w-xs text-lg leading-relaxed text-ink-secondary"
         >
-          تحدَّ أصحابك في أقوى لعبة أسئلة ثقافية — والبقاء للأقوى.
+          العب مع أصحابك أسئلة ممتعة، والبقاء للأقوى.
         </motion.p>
       </div>
 
@@ -57,7 +57,7 @@ export function Splash() {
           onClick={() => set({ appView: 'game', phase: 'join' })}
           className="glass flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-semibold text-ink-secondary"
         >
-          <ScanLine size={18} /> عندك كود؟ انضمّ مباشرة
+          <ScanLine size={18} /> عندك كود؟ ادخل به
         </button>
       </motion.div>
     </div>

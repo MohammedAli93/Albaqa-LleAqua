@@ -36,10 +36,10 @@ export interface LiveTeam {
   name: string;
   color: string;
   score: number;
-  /** ELIMINATION mode: team lives (0 = eliminated). */
+  /** Legacy/unused in team mode (points-only). Kept for the schema default. */
   lives: number;
-  /** Max players this team may hold. */
-  capacity: number;
+  /** Optional max players per team; null = unlimited (players choose freely). */
+  capacity: number | null;
 }
 
 export interface LiveRound {

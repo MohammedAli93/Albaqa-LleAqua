@@ -191,17 +191,9 @@ export function applyResolution(
     if (p) p.score += o.pointsAwarded;
   }
 
-  if (elimination && state.type === GameType.TEAMS) {
-    // A team loses a life if NO member answered correctly this round.
-    const scoringTeamIds = new Set(scored.heroes.map((h) => h.teamId));
-    for (const team of Object.values(state.teams)) {
-      if (!teamHasActiveMembers(state, team.id)) continue;
-      if (!scoringTeamIds.has(team.id)) {
-        team.lives = Math.max(0, team.lives - 1);
-        if (team.lives <= 0) eliminatedIds.push(...eliminateTeam(state, team, round.index));
-      }
-    }
-  } else if (elimination) {
+  // Elimination only applies to INDIVIDUAL games. Team mode is points-only — teams
+  // never lose lives or get eliminated; they just accumulate points.
+  if (elimination && state.type === GameType.INDIVIDUAL) {
     // INDIVIDUAL elimination: a wrong (or missing) answer costs a life.
     for (const o of scored.outcomes) {
       const p = state.participants[o.participantId];
@@ -217,25 +209,6 @@ export function applyResolution(
 
   if (state.type === GameType.TEAMS) recomputeTeamScores(state);
   return { eliminatedIds };
-}
-
-function teamHasActiveMembers(state: RoomState, teamId: string): boolean {
-  return Object.values(state.participants).some(
-    (p) => p.teamId === teamId && p.status === ParticipantStatus.ACTIVE,
-  );
-}
-
-/** Mark all of a team's active members eliminated; return their ids. */
-function eliminateTeam(state: RoomState, team: LiveTeam, roundIndex: number): string[] {
-  const ids: string[] = [];
-  for (const p of Object.values(state.participants)) {
-    if (p.teamId === team.id && p.status === ParticipantStatus.ACTIVE) {
-      p.status = ParticipantStatus.ELIMINATED;
-      p.eliminatedRound = roundIndex;
-      ids.push(p.id);
-    }
-  }
-  return ids;
 }
 
 /** Players still in the running. */
@@ -256,23 +229,15 @@ export interface WinCondition {
 /**
  * Determine whether the game is over and who won.
  *  - POINTS: never eliminates — ends when the rounds run out; highest total wins.
- *  - ELIMINATION (INDIVIDUAL): ends at ≤1 active player, or when rounds run out.
- *  - ELIMINATION (TEAMS): ends at ≤1 team with lives, or when rounds run out.
+ *  - ELIMINATION (INDIVIDUAL only): ends at ≤1 active player, or when rounds run out.
+ *  - TEAMS: always points-based — ends when rounds run out; highest team score wins.
  *  Ties break by score, then earliest joinOrder / team order.
  */
 export function evaluateWinCondition(state: RoomState, questionsExhausted: boolean): WinCondition {
   if (state.type === GameType.TEAMS) {
-    const teams = Object.values(state.teams);
-    if (state.mode === GameMode.ELIMINATION) {
-      const alive = teams.filter((t) => t.lives > 0);
-      if (alive.length <= 1 || questionsExhausted) {
-        return { isOver: true, winnerTeamId: pickTopTeam(alive.length ? alive : teams)?.id };
-      }
-      return { isOver: false };
-    }
-    // POINTS teams: play out all rounds, highest team score wins.
+    // Team mode is points-only: play out all rounds, highest team score wins.
     if (!questionsExhausted) return { isOver: false };
-    return { isOver: true, winnerTeamId: pickTopTeam(teams)?.id };
+    return { isOver: true, winnerTeamId: pickTopTeam(Object.values(state.teams))?.id };
   }
 
   // INDIVIDUAL

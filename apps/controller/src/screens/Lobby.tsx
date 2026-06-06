@@ -21,7 +21,7 @@ export function Lobby() {
         <p className="max-w-full break-words font-display text-4xl font-bold" dir="auto">{nickname}</p>
         <div className="flex items-center gap-3 text-xl text-ink-secondary">
           <Loader2 className="animate-spin" />
-          {t(locale, 'waitingForPlayers')}
+          {t(locale, 'waitingHostStart')}
         </div>
       </motion.div>
     </div>
@@ -29,9 +29,10 @@ export function Lobby() {
 }
 
 function TeamPicker() {
-  const { locale, teams, myTeamId, participantId } = useStore();
+  const { locale, teams, myTeamId } = useStore();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const myTeam = teams.find((tm) => tm.id === myTeamId);
 
   async function choose(teamId: string) {
     if (busy) return;
@@ -39,8 +40,8 @@ function TeamPicker() {
     setErr(null);
     try {
       await pickTeam(teamId);
-    } catch (e) {
-      setErr(e instanceof Error && e.message === 'CONFLICT' ? t(locale, 'teamFull') : t(locale, 'error'));
+    } catch {
+      setErr(t(locale, 'error'));
     } finally {
       setBusy(null);
     }
@@ -49,25 +50,21 @@ function TeamPicker() {
   return (
     <div className="flex min-h-dvh flex-col px-5 py-8">
       <h1 className="font-display text-3xl font-black">{t(locale, 'chooseTeam')}</h1>
-      <p className="mt-2 text-ink-secondary">{t(locale, 'teamVsTeam')}</p>
 
       <div className="mt-6 space-y-3">
         {teams.map((team, i) => {
           const count = team.memberIds.length;
-          const cap = team.capacity ?? count;
-          const full = count >= cap && !team.memberIds.includes(participantId ?? '');
           const mine = team.id === myTeamId;
           return (
             <motion.button
               key={team.id}
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
-              whileTap={{ scale: full ? 1 : 0.97 }}
-              onClick={() => !full && choose(team.id)}
-              disabled={full || busy === team.id}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => choose(team.id)}
+              disabled={busy === team.id}
               className={[
                 'glass relative flex w-full items-center gap-4 rounded-xl3 p-5 text-start transition',
                 mine ? 'ring-2 ring-offset-2 ring-offset-bg-base' : '',
-                full ? 'opacity-50' : '',
               ].join(' ')}
               style={mine ? { ['--tw-ring-color' as string]: team.color } : undefined}
             >
@@ -77,15 +74,14 @@ function TeamPicker() {
               >
                 {mine ? <Check size={26} /> : <Users size={24} />}
               </span>
-              <span className="flex-1">
-                <span className="block font-display text-xl font-extrabold" style={{ color: team.color }}>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-display text-xl font-extrabold" style={{ color: team.color }}>
                   {team.name}
                 </span>
-                <span className="block text-sm text-ink-secondary tnum">
-                  {count} / {cap}
+                <span className="block text-sm text-ink-secondary">
+                  {t(locale, 'playerCount', { count })}
                 </span>
               </span>
-              {full && <span className="text-sm font-semibold text-ink-muted">{t(locale, 'teamFull')}</span>}
             </motion.button>
           );
         })}
@@ -93,13 +89,18 @@ function TeamPicker() {
 
       {err && <p className="mt-4 text-center text-danger">{err}</p>}
 
-      <div className="mt-auto pt-8 text-center text-ink-secondary">
-        {myTeamId ? (
-          <div className="flex items-center justify-center gap-3">
-            <Loader2 className="animate-spin" /> {t(locale, 'waitingForPlayers')}
+      <div className="mt-auto pt-8 text-center">
+        {myTeam ? (
+          <div className="flex flex-col items-center gap-2">
+            <p className="font-display text-lg font-bold" style={{ color: myTeam.color }}>
+              {t(locale, 'youAreInTeam', { team: myTeam.name })}
+            </p>
+            <div className="flex items-center gap-3 text-ink-secondary">
+              <Loader2 className="animate-spin" /> {t(locale, 'waitingHostStart')}
+            </div>
           </div>
         ) : (
-          <p>{t(locale, 'chooseTeam')}</p>
+          <p className="text-ink-secondary">{t(locale, 'chooseTeam')}</p>
         )}
       </div>
     </div>

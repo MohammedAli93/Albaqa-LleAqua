@@ -35,7 +35,7 @@ export function publicTeams(state: RoomState): TeamPublic[] {
     color: t.color,
     score: t.score,
     lives: t.lives,
-    capacity: t.capacity,
+    capacity: t.capacity ?? undefined,
     memberIds: Object.values(state.participants)
       .filter((p) => p.teamId === t.id && p.status !== ParticipantStatus.LEFT)
       .map((p) => p.id),

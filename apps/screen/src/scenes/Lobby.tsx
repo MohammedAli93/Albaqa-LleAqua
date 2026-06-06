@@ -57,7 +57,7 @@ export function Lobby() {
                   <div key={team.id} className="glass flex flex-col gap-3 rounded-xl3 p-5" style={{ borderTop: `4px solid ${team.color}` }}>
                     <div className="flex items-center justify-between">
                       <span className="font-display text-2xl font-extrabold" style={{ color: team.color }}>{team.name}</span>
-                      <span className="tnum text-xl text-ink-secondary">{members.length}/{team.capacity ?? '∞'}</span>
+                      <span className="tnum text-xl text-ink-secondary">{t(locale, 'playerCount', { count: members.length })}</span>
                     </div>
                     <div className="flex flex-col gap-2">
                       <AnimatePresence>

@@ -136,7 +136,7 @@ function teamMemberCount(state: RoomState, teamId: string): number {
 /** The team with the fewest members that still has free capacity. */
 function leastFullTeam(state: RoomState): LiveTeam | undefined {
   return Object.values(state.teams)
-    .filter((t) => teamMemberCount(state, t.id) < t.capacity)
+    .filter((t) => teamMemberCount(state, t.id) < (t.capacity ?? Infinity))
     .sort((a, b) => teamMemberCount(state, a.id) - teamMemberCount(state, b.id))[0];
 }
 
@@ -162,8 +162,12 @@ export async function pickTeam(
     const team = state.teams[teamId];
     if (!team) throw new AppError(ErrorCode.NOT_FOUND, 'الفريق غير موجود');
 
-    if (participant.teamId !== teamId && teamMemberCount(state, teamId) >= team.capacity) {
-      throw new AppError(ErrorCode.CONFLICT, 'الفريق مكتمل');
+    if (
+      participant.teamId !== teamId &&
+      team.capacity != null &&
+      teamMemberCount(state, teamId) >= team.capacity
+    ) {
+      throw new AppError(ErrorCode.CONFLICT, 'الفريق ممتلئ');
     }
     participant.teamId = teamId;
     await prisma.participant.update({ where: { id: participantId }, data: { teamId } });

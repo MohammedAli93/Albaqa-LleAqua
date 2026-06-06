@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Users, Zap, Crown, Heart } from 'lucide-react';
+import { Check, X, Users, Zap, Crown } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
@@ -189,13 +189,6 @@ export function Question() {
                 >
                   <span className="tnum w-6 text-center font-display text-2xl font-black text-ink-muted">{i + 1}</span>
                   <span className="flex-1 truncate font-display text-xl font-extrabold" style={{ color: tm.color }}>{tm.name}</span>
-                  {tm.lives != null && (
-                    <span className="flex gap-0.5">
-                      {Array.from({ length: Math.max(0, tm.lives) }).map((_, k) => (
-                        <Heart key={k} size={14} className="fill-action text-action" />
-                      ))}
-                    </span>
-                  )}
                   <span className="tnum font-display text-2xl font-bold">{tm.score}</span>
                 </motion.div>
               ))}
