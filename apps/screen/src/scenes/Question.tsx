@@ -25,7 +25,7 @@ export function Question() {
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="safe relative flex h-full gap-6 overflow-hidden" dir="rtl">
+    <div className="safe relative flex min-h-dvh flex-col gap-6 overflow-hidden lg:h-full lg:flex-row" dir="rtl">
       {revealing && <ConfettiBurst key={`burst-${question.id}`} count={56} />}
 
       {/* Spotlight + drifting glows */}
@@ -36,10 +36,10 @@ export function Question() {
       <div className="relative flex flex-1 flex-col">
         {/* meta bar */}
         <div className="flex items-center justify-between">
-          <span className="glass rounded-xl2 px-6 py-2 font-display text-2xl font-bold text-ink-secondary">
+          <span className="glass rounded-xl2 px-3 py-1.5 font-display text-base font-bold text-ink-secondary lg:px-6 lg:py-2 lg:text-2xl">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
           </span>
-          <span className="glass flex items-center gap-2 rounded-xl2 px-6 py-2 font-display text-2xl font-bold">
+          <span className="glass flex items-center gap-2 rounded-xl2 px-3 py-1.5 font-display text-base font-bold lg:px-6 lg:py-2 lg:text-2xl">
             <Users className="text-brand-cyan" />
             <span className="tnum">{answeredCount}</span>
             <span className="text-ink-muted">/ {totalActive || '—'}</span>
@@ -62,7 +62,7 @@ export function Question() {
                   initial={{ opacity: 0, scale: 0.6, rotate: -4 }}
                   animate={{ opacity: 1, scale: 1, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
-                  className="flex items-center gap-2 rounded-full px-7 py-2.5 font-display text-2xl font-bold text-white shadow-glow"
+                  className="flex items-center gap-2 rounded-full px-5 py-2 font-display text-lg font-bold text-white shadow-glow lg:px-7 lg:py-2.5 lg:text-2xl"
                   style={{ background: question.category.color }}
                 >
                   {question.category.nameAr}
@@ -70,9 +70,9 @@ export function Question() {
               )}
 
               {/* gradient-bordered raised card */}
-              <div className="rounded-[2rem] bg-gradient-cyber p-[3px] shadow-card">
-                <div className="rounded-[1.9rem] bg-white px-12 py-10">
-                  <h2 className="max-w-4xl text-center font-display text-6xl font-black leading-tight text-ink-primary">
+              <div className="w-full rounded-[2rem] bg-gradient-cyber p-[3px] shadow-card">
+                <div className="rounded-[1.9rem] bg-white px-5 py-6 lg:px-12 lg:py-10">
+                  <h2 className="mx-auto max-w-4xl text-center font-display text-3xl font-black leading-tight text-ink-primary lg:text-6xl">
                     {question.promptAr}
                   </h2>
                   {question.promptMediaUrl && (
@@ -117,8 +117,8 @@ export function Question() {
         {/* ───────── Answer podiums ───────── */}
         <div className="relative pb-2">
           {/* stage floor */}
-          <div aria-hidden className="absolute inset-x-0 bottom-0 h-24 rounded-3xl bg-gradient-to-t from-bg-sunken to-transparent" />
-          <div className="relative flex items-end gap-4">
+          <div aria-hidden className="absolute inset-x-0 bottom-0 hidden h-24 rounded-3xl bg-gradient-to-t from-bg-sunken to-transparent lg:block" />
+          <div className="relative grid grid-cols-2 gap-2 lg:flex lg:items-end lg:gap-4">
             {question.options.map((opt, i) => {
               const tint = TINTS[i % TINTS.length];
               const isCorrect = revealing && opt.id === correctOptionId;
@@ -139,21 +139,21 @@ export function Question() {
                 >
                   {/* colored cap with letter */}
                   <div
-                    className={`flex items-center gap-3 rounded-t-2xl px-4 py-3 text-white ${isCorrect ? 'shadow-[0_0_40px_rgba(16,185,129,0.6)]' : ''}`}
+                    className={`flex items-center gap-2 rounded-t-2xl px-2 py-2 text-white lg:gap-3 lg:px-4 lg:py-3 ${isCorrect ? 'shadow-[0_0_40px_rgba(16,185,129,0.6)]' : ''}`}
                     style={{ background: isCorrect ? '#10B981' : tint }}
                   >
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/25 font-display text-2xl font-black backdrop-blur-sm">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/25 font-display text-lg font-black backdrop-blur-sm lg:h-11 lg:w-11 lg:text-2xl">
                       {LETTERS[i]}
                     </span>
                     {revealing && (
-                      <span className="ms-auto flex items-center gap-1 font-display text-xl font-bold tnum">
+                      <span className="ms-auto flex items-center gap-1 font-display text-base font-bold tnum lg:text-xl">
                         {isCorrect ? <Check size={22} /> : count > 0 ? <X size={22} /> : null}
                         {sharePct}%
                       </span>
                     )}
                   </div>
                   {/* body */}
-                  <div className={`relative flex min-h-[7rem] items-center justify-center overflow-hidden rounded-b-2xl bg-white p-4 text-center shadow-card ${isCorrect ? 'ring-4 ring-success' : ''}`}>
+                  <div className={`relative flex min-h-[4.5rem] items-center justify-center overflow-hidden rounded-b-2xl bg-white p-3 text-center shadow-card lg:min-h-[7rem] lg:p-4 ${isCorrect ? 'ring-4 ring-success' : ''}`}>
                     {revealing && (
                       <motion.div
                         aria-hidden className="absolute inset-x-0 bottom-0"
@@ -161,7 +161,7 @@ export function Question() {
                         initial={{ height: 0 }} animate={{ height: `${sharePct}%` }} transition={{ duration: 0.6 }}
                       />
                     )}
-                    <span className="relative font-display text-3xl font-bold text-ink-primary">{opt.textAr}</span>
+                    <span className="relative font-display text-base font-bold text-ink-primary lg:text-3xl">{opt.textAr}</span>
                   </div>
                 </motion.div>
               );
@@ -171,11 +171,11 @@ export function Question() {
       </div>
 
       {/* ───────── Leaderboard rail ───────── */}
-      <aside className="relative flex w-80 shrink-0 flex-col">
-        <h3 className="mb-3 flex items-center gap-2 font-display text-2xl font-black text-ink-secondary">
+      <aside className="relative flex w-full shrink-0 flex-col lg:w-80">
+        <h3 className="mb-3 flex items-center gap-2 font-display text-xl font-black text-ink-secondary lg:text-2xl">
           <Crown className="text-prize-gold" /> {t(locale, 'leaderboard')}
         </h3>
-        <div className="flex flex-1 flex-col gap-2 overflow-hidden">
+        <div className="flex flex-1 flex-col gap-2 lg:overflow-hidden">
           {isTeams ? (
             <AnimatePresence>
               {[...teams].sort((a, b) => b.score - a.score).map((tm, i) => (

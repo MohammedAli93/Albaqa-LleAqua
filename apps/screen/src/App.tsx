@@ -132,12 +132,12 @@ export default function App() {
   const scene = pickScene(status, phase, mode, roomCode, conn);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-gradient-stage">
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-gradient-stage lg:h-full lg:overflow-hidden">
       <ParticleField />
 
       {error && (
-        <div className="grid h-full place-items-center text-center">
-          <div className="glass-strong rounded-xl3 p-12">
+        <div className="grid min-h-dvh place-items-center p-5 text-center lg:h-full">
+          <div className="glass-strong rounded-xl3 p-6 lg:p-12">
             <p className="font-display text-4xl font-bold text-danger">{t(locale, 'error')}</p>
             <p className="mt-4 text-xl text-ink-secondary">{error}</p>
           </div>
@@ -156,7 +156,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="h-full w-full"
+            className="min-h-dvh w-full lg:h-full"
           >
             {scene === 'connecting' && <Connecting label={t(locale, 'connecting')} />}
             {scene === 'lobby' && <Lobby />}
@@ -205,7 +205,7 @@ function pickScene(
 
 function Connecting({ label }: { label: string }) {
   return (
-    <div className="grid h-full place-items-center">
+    <div className="grid min-h-dvh place-items-center lg:h-full">
       <div className="flex flex-col items-center gap-6">
         <Loader2 size={64} className="animate-spin text-brand-violet" />
         <p className="font-display text-3xl font-bold text-ink-secondary">{label}</p>

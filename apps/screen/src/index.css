@@ -15,7 +15,26 @@
   body {
     @apply bg-bg-base text-ink-primary font-body antialiased;
     background-image: theme('backgroundImage.gradient-page');
-    overflow: hidden;
+    /* The big-screen layout is a fixed kiosk on a TV/laptop (no scroll). On
+       phone-sized viewports we let the page scroll so the host UI is usable in
+       portrait too. */
+    overflow-x: hidden;
+  }
+  @media (min-width: 1024px) {
+    body {
+      overflow: hidden;
+    }
+  }
+  /* Honour the OS "reduce motion" setting (the canvas ParticleField already does;
+     this covers the CSS keyframe animations). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }
 

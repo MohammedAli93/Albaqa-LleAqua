@@ -74,6 +74,39 @@ The bad mobile feel traced to three systemic causes, not a hundred unrelated bug
 - `pnpm --filter @tahaddi/controller typecheck` — passes.
 - `pnpm --filter @tahaddi/controller build` — passes (production bundle builds clean).
 
+---
+
+## Part 2 — `screen` (big-screen/host) app made phone-responsive
+
+The `screen` app was built as a fixed landscape TV kiosk (`body { overflow: hidden }`,
+`h-full` everywhere, fixed 2-column grids, `text-6xl`–`text-8xl`, a 280px QR). Viewed
+on a phone in portrait it overflowed and clipped (the QR card + room code ran off the
+right edge). Made it responsive **without touching the TV layout**: everything below
+the `lg` (1024px) breakpoint now stacks, scales down, and scrolls; at `lg`+ the
+original TV design is preserved byte-for-byte via `lg:` overrides.
+
+**Mechanism**
+- `index.css`: `body` scrolls on phones, `overflow: hidden` only re-applied at `lg`+.
+  Added `prefers-reduced-motion` kill-switch; `main.tsx` wrapped in `<MotionConfig
+  reducedMotion="user">`.
+- `App.tsx` shell + every scene root: `h-full` → `min-h-dvh lg:h-full` so the page
+  can grow and scroll on phones but stays a fixed kiosk on a TV.
+
+**Per-scene (base = phone, `lg:` = unchanged TV layout)**
+- **Setup** — 2-col type/mode pickers → 1-col on phone (`sm:` 2-col); icons/type/padding scaled; team-config steppers stack with the divider hidden on phone.
+- **Lobby** — 2-col (QR | players) → stacked; **QR now fluid** (`w-full max-w-[15rem]`, `h-auto`) so it never overflows; room code `text-7xl`→`text-4xl` with tighter tracking; player grid scrolls instead of clipping.
+- **Question** — stage + side leaderboard rail → stacked (rail drops below); question `text-6xl`→`text-3xl`; answer podiums row → **2×2 grid** on phone with scaled letters/labels.
+- **Scoreboard** — both individual list and team board (`grid-flow-col`→`grid-flow-row`) scaled; clipping (`overflow-hidden`) gated to `lg`+.
+- **SeenJeem** — team panels, draft grid (`w-72` fixed → fluid), point-cell boards, and the active-question **modal now scrolls** (`max-h-[92dvh] overflow-y-auto`) so it's never taller than the screen.
+- **Winner** — `text-8xl`/`text-7xl` champion text and crown/avatar scaled for phone; long names wrap.
+
+**Validation:** `typecheck` + production `build` pass for `@tahaddi/screen`.
+
+> Note: the `screen` app is still intended to run on a TV/laptop in landscape. This
+> just makes it usable/clean when a host opens it on a phone in portrait.
+
+---
+
 ## Follow-ups (optional, not blocking)
 
 - `apps/controller/src/hooks/useCountdown.ts` is now unused (Answer no longer needs

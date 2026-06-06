@@ -45,20 +45,20 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
   }
 
   return (
-    <div className="safe grid h-full place-items-center">
+    <div className="safe grid min-h-dvh place-items-center lg:h-full">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-strong w-full max-w-4xl rounded-xl4 p-12"
+        className="glass-strong w-full max-w-4xl rounded-xl4 p-6 lg:p-12"
       >
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="font-display text-5xl font-black text-gradient">
+        <div className="mb-6 flex items-center justify-between gap-3 lg:mb-8">
+          <h1 className="font-display text-3xl font-black text-gradient lg:text-5xl">
             {step === 1 ? t(locale, 'chooseGameType') : t(locale, 'chooseGameMode')}
           </h1>
           {step === 2 && (
             <button
               onClick={() => setStep(1)}
-              className="flex items-center gap-2 rounded-2xl bg-bg-sunken px-5 py-3 text-2xl text-ink-secondary"
+              className="flex shrink-0 items-center gap-2 rounded-2xl bg-bg-sunken px-4 py-2 text-lg text-ink-secondary lg:px-5 lg:py-3 lg:text-2xl"
             >
               <ChevronLeft /> {t(locale, 'back')}
             </button>
@@ -66,37 +66,37 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
         </div>
 
         {step === 1 ? (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
             {types.map((ty) => {
               const Icon = ty.icon;
               return (
                 <button
                   key={ty.key}
                   onClick={() => { setType(ty.key); setStep(2); }}
-                  className="glass flex flex-col items-center gap-4 rounded-xl3 p-10 transition hover:-translate-y-1 hover:shadow-glow"
+                  className="glass flex flex-col items-center gap-3 rounded-xl3 p-6 transition hover:-translate-y-1 hover:shadow-glow lg:gap-4 lg:p-10"
                 >
-                  <span className="grid h-24 w-24 place-items-center rounded-3xl bg-gradient-brand text-white">
-                    <Icon size={48} />
+                  <span className="grid h-16 w-16 place-items-center rounded-3xl bg-gradient-brand text-white lg:h-24 lg:w-24">
+                    <Icon className="h-7 w-7 lg:h-12 lg:w-12" />
                   </span>
-                  <span className="font-display text-3xl font-extrabold">{ty.title}</span>
-                  <span className="text-xl text-ink-secondary">{ty.desc}</span>
+                  <span className="font-display text-2xl font-extrabold lg:text-3xl">{ty.title}</span>
+                  <span className="text-center text-base text-ink-secondary lg:text-xl">{ty.desc}</span>
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6">
             {/* Solo testing: fill with auto-playing bots */}
             <button
               onClick={() => setBots((b) => !b)}
               className={[
-                'flex w-full items-center justify-between rounded-xl3 p-6 text-start transition',
+                'flex w-full items-center justify-between gap-3 rounded-xl3 p-4 text-start transition lg:p-6',
                 bots ? 'bg-gradient-brand text-white shadow-glow' : 'glass',
               ].join(' ')}
             >
               <span>
-                <span className="block font-display text-2xl font-extrabold">🤖 اختبر مع بوتات</span>
-                <span className={`text-lg ${bots ? 'text-white/80' : 'text-ink-secondary'}`}>
+                <span className="block font-display text-xl font-extrabold lg:text-2xl">🤖 اختبر مع بوتات</span>
+                <span className={`text-base lg:text-lg ${bots ? 'text-white/80' : 'text-ink-secondary'}`}>
                   املأ الغرفة بلاعبين آليين وابدأ تلقائياً — للتجربة بدون أشخاص
                 </span>
               </span>
@@ -116,26 +116,26 @@ export function Setup({ onConfirm }: { onConfirm: (sel: SetupSelection) => void 
             </button>
 
             {type === GameType.TEAMS && (
-              <div className="glass flex items-center justify-around rounded-xl3 p-6">
+              <div className="glass flex flex-col items-center gap-4 rounded-xl3 p-5 lg:flex-row lg:justify-around lg:p-6">
                 <Stepper label={t(locale, 'teamCount')} value={teamCount} min={GAME_LIMITS.MIN_TEAMS} max={GAME_LIMITS.MAX_TEAMS} onChange={setTeamCount} />
-                <div className="h-16 w-px bg-ink-muted/15" />
+                <div className="hidden h-16 w-px bg-ink-muted/15 lg:block" />
                 <Stepper label={t(locale, 'playersPerTeam')} value={playersPerTeam} min={GAME_LIMITS.MIN_PLAYERS_PER_TEAM} max={GAME_LIMITS.MAX_PLAYERS_PER_TEAM} onChange={setPlayersPerTeam} />
               </div>
             )}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
               {modes.map((m) => {
                 const Icon = m.icon;
                 return (
                   <button
                     key={m.key}
                     onClick={() => confirm(m.key)}
-                    className="glass flex flex-col items-center gap-4 rounded-xl3 p-10 transition hover:-translate-y-1 hover:shadow-glow"
+                    className="glass flex flex-col items-center gap-3 rounded-xl3 p-6 transition hover:-translate-y-1 hover:shadow-glow lg:gap-4 lg:p-10"
                   >
-                    <span className="grid h-24 w-24 place-items-center rounded-3xl bg-white shadow-glass">
-                      <Icon size={48} className={m.tint} />
+                    <span className="grid h-16 w-16 place-items-center rounded-3xl bg-white shadow-glass lg:h-24 lg:w-24">
+                      <Icon className={`h-7 w-7 lg:h-12 lg:w-12 ${m.tint}`} />
                     </span>
-                    <span className="font-display text-3xl font-extrabold">{m.title}</span>
-                    <span className="text-center text-xl text-ink-secondary">{m.desc}</span>
+                    <span className="font-display text-2xl font-extrabold lg:text-3xl">{m.title}</span>
+                    <span className="text-center text-base text-ink-secondary lg:text-xl">{m.desc}</span>
                   </button>
                 );
               })}

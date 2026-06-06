@@ -32,42 +32,42 @@ export function Winner() {
   const team = winner.winnerTeam;
 
   return (
-    <div className="relative grid h-full place-items-center bg-gradient-stage">
+    <div className="relative grid min-h-dvh place-items-center bg-gradient-stage p-5 lg:h-full lg:p-0">
       <ConfettiRain />
       <motion.div
         initial={{ scale: 0.6, opacity: 0, y: 60 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 160, damping: 18 }}
-        className="flex flex-col items-center gap-6 text-center"
+        className="flex w-full max-w-3xl flex-col items-center gap-4 text-center lg:gap-6"
       >
         <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity }}>
-          <Crown size={120} className="text-prize-gold" style={{ filter: 'drop-shadow(0 0 30px rgba(245,197,24,0.8))' }} />
+          <Crown className="h-20 w-20 text-prize-gold lg:h-[7.5rem] lg:w-[7.5rem]" style={{ filter: 'drop-shadow(0 0 30px rgba(245,197,24,0.8))' }} />
         </motion.div>
-        <p className="font-display text-4xl font-bold text-ink-secondary">{t(locale, 'champion')}</p>
+        <p className="font-display text-2xl font-bold text-ink-secondary lg:text-4xl">{t(locale, 'champion')}</p>
 
         {champ && (
           <>
-            <div className="scale-150">
+            <div className="scale-100 lg:scale-150">
               <Avatar avatarId={champ.avatarId} size={120} />
             </div>
-            <h1 className="font-display text-8xl font-black text-gold-gradient">{champ.nickname}</h1>
-            <p className="tnum font-display text-4xl font-bold"><CountUp value={champ.score} /> {t(locale, 'score')}</p>
+            <h1 className="max-w-full break-words font-display text-5xl font-black text-gold-gradient lg:text-8xl">{champ.nickname}</h1>
+            <p className="tnum font-display text-2xl font-bold lg:text-4xl"><CountUp value={champ.score} /> {t(locale, 'score')}</p>
           </>
         )}
         {team && (
           <>
             <div
-              className="grid h-28 w-28 place-items-center rounded-full shadow-gold"
+              className="grid h-20 w-20 place-items-center rounded-full shadow-gold lg:h-28 lg:w-28"
               style={{ background: team.color }}
             >
-              <Crown color="white" size={56} />
+              <Crown color="white" className="h-10 w-10 lg:h-14 lg:w-14" />
             </div>
-            <h1 className="font-display text-7xl font-black" style={{ color: team.color }}>{team.name}</h1>
-            <p className="tnum font-display text-4xl font-bold"><CountUp value={team.score} /> {t(locale, 'score')}</p>
+            <h1 className="max-w-full break-words font-display text-4xl font-black lg:text-7xl" style={{ color: team.color }}>{team.name}</h1>
+            <p className="tnum font-display text-2xl font-bold lg:text-4xl"><CountUp value={team.score} /> {t(locale, 'score')}</p>
           </>
         )}
 
-        <p className="mt-4 font-display text-5xl font-bold text-gradient animate-pulse-glow">
+        <p className="mt-2 font-display text-3xl font-bold text-gradient animate-pulse-glow lg:mt-4 lg:text-5xl">
           {t(locale, 'congratulations')}
         </p>
       </motion.div>
