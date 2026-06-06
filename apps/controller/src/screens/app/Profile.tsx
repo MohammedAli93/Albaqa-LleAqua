@@ -36,7 +36,7 @@ export function Profile() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-6 py-8">
+    <div className="flex min-h-dvh flex-col px-6 py-8">
       <h1 className="font-display text-4xl font-bold text-gradient">
         أهلاً {account?.username}
       </h1>

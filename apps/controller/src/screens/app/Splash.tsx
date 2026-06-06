@@ -5,7 +5,7 @@ import { useStore } from '../../store.js';
 export function Splash() {
   const { set } = useStore();
   return (
-    <div className="flex min-h-screen flex-col items-center justify-between px-6 py-12">
+    <div className="flex min-h-dvh flex-col items-center justify-between px-6 py-12">
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}

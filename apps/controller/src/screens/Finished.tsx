@@ -8,7 +8,7 @@ export function Finished() {
   const iWon = winner?.winner?.id === participantId;
 
   return (
-    <div className="grid min-h-full place-items-center px-6 text-center">
+    <div className="grid min-h-dvh place-items-center px-6 text-center">
       <motion.div
         initial={{ opacity: 0, scale: 0.7 }}
         animate={{ opacity: 1, scale: 1 }}

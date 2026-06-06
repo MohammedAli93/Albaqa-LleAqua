@@ -70,7 +70,7 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-6 py-10">
+    <div className="flex min-h-dvh flex-col px-6 py-10">
       {/* Brand wordmark */}
       <div className="mt-2 text-center">
         <h1 className="font-display text-5xl font-black text-gradient">{t(locale, 'appName')}</h1>

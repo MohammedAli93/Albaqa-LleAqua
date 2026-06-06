@@ -40,7 +40,7 @@ export function SeenJeem() {
     }
     const ll = sj.lifelines[myTeamId];
     return (
-      <div className="flex min-h-screen flex-col gap-4 p-5">
+      <div className="flex min-h-dvh flex-col gap-4 p-5">
         <div className="flex items-center justify-between">
           <span className="font-display text-2xl font-bold text-brand-cyan">
             {sj.active.points}
@@ -153,7 +153,7 @@ export function SeenJeem() {
 
 function Waiting({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="grid min-h-screen place-items-center p-8 text-center">
+    <div className="grid min-h-dvh place-items-center p-8 text-center">
       <div>
         <p className="font-display text-3xl font-bold">{title}</p>
         {subtitle && <p className="mt-3 text-lg text-ink-secondary">{subtitle}</p>}
@@ -164,7 +164,7 @@ function Waiting({ title, subtitle }: { title: string; subtitle?: string }) {
 
 function Pickable({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col gap-4 p-5">
+    <div className="flex min-h-dvh flex-col gap-4 p-5">
       <p className="font-display text-2xl font-bold">{title}</p>
       <div className="flex flex-col gap-3">{children}</div>
     </div>

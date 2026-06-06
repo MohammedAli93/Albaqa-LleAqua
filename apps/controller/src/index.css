@@ -15,10 +15,26 @@
   body {
     @apply bg-bg-base text-ink-primary font-body antialiased;
     background-image: theme('backgroundImage.gradient-page');
-    background-attachment: fixed;
+    /* NB: `background-attachment: fixed` is broken/janky on iOS Safari and forces
+       costly repaints on scroll. The fixed <Aurora/> layer provides the same
+       parallax feel without the perf hit. */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
+    /* Smooth momentum scrolling + don't let the browser hijack vertical pans. */
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Respect the OS "reduce motion" setting: kill ambient/infinite animations and
+     collapse transitions so the UI stays calm and battery-friendly on mobile. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
   button {
     touch-action: manipulation;

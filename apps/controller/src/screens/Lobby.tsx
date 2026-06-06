@@ -15,10 +15,10 @@ export function Lobby() {
   }
 
   return (
-    <div className="grid min-h-full place-items-center px-6 text-center">
+    <div className="grid min-h-dvh place-items-center px-6 text-center">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-5">
         <Avatar avatarId={avatarId} size={120} selected />
-        <p className="font-display text-4xl font-bold" dir="auto">{nickname}</p>
+        <p className="max-w-full break-words font-display text-4xl font-bold" dir="auto">{nickname}</p>
         <div className="flex items-center gap-3 text-xl text-ink-secondary">
           <Loader2 className="animate-spin" />
           {t(locale, 'waitingForPlayers')}
@@ -47,7 +47,7 @@ function TeamPicker() {
   }
 
   return (
-    <div className="flex min-h-full flex-col px-5 py-8">
+    <div className="flex min-h-dvh flex-col px-5 py-8">
       <h1 className="font-display text-3xl font-black">{t(locale, 'chooseTeam')}</h1>
       <p className="mt-2 text-ink-secondary">{t(locale, 'teamVsTeam')}</p>
 

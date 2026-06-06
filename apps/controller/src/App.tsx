@@ -57,7 +57,7 @@ export default function App() {
   // Phone-first: on desktop the UI is a centered phone-width column, not stretched.
   if (appView !== 'game') {
     return (
-      <div className="relative min-h-full">
+      <div className="relative min-h-dvh">
         <Aurora />
         <AnimatePresence mode="wait">
           <motion.div
@@ -81,7 +81,7 @@ export default function App() {
 
   // ── In-game flow ──
   return (
-    <div className="relative min-h-full">
+    <div className="relative min-h-dvh">
       <Aurora />
       <AnimatePresence mode="wait">
         <motion.div
@@ -90,7 +90,7 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.25 }}
-          className="mx-auto min-h-screen w-full max-w-md"
+          className="mx-auto w-full max-w-md"
         >
           {phase === 'join' && <Join />}
           {phase === 'lobby' && <Lobby />}
@@ -109,7 +109,8 @@ export default function App() {
             initial={{ y: -60 }}
             animate={{ y: 0 }}
             exit={{ y: -60 }}
-            className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 bg-bg-raised/90 py-3 text-center backdrop-blur"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+            className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 bg-bg-raised/90 pb-3 text-center backdrop-blur"
           >
             <PauseCircle size={18} className="text-brand-cyan" />
             <span className="text-sm font-semibold text-ink-secondary">

@@ -6,7 +6,7 @@ import { useStore } from '../store.js';
 export function Eliminated() {
   const { myRank, myScore, locale } = useStore();
   return (
-    <div className="grid min-h-full place-items-center px-6 text-center">
+    <div className="grid min-h-dvh place-items-center px-6 text-center">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}

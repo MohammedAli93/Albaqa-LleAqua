@@ -38,7 +38,7 @@ export function Join() {
   }
 
   return (
-    <div className="flex min-h-full flex-col px-5 py-6">
+    <div className="flex min-h-dvh flex-col px-5 py-6">
       <h1 className="mb-1 text-center font-display text-5xl font-black text-gradient">{t(locale, 'appName')}</h1>
 
       <div className="mt-6 space-y-5">

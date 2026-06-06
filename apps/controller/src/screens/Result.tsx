@@ -11,7 +11,7 @@ export function Result() {
 
   if (phase === 'locked') {
     return (
-      <div className="grid min-h-full place-items-center px-6 text-center">
+      <div className="grid min-h-dvh place-items-center px-6 text-center">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-5">
           <Clock size={72} className="text-brand-cyan animate-pulse-glow" />
           <p className="font-display text-3xl font-bold">{t(locale, 'answerLocked')}</p>
@@ -24,7 +24,7 @@ export function Result() {
   const correct = lastResult?.isCorrect;
   return (
     <div
-      className="grid min-h-full place-items-center px-6 text-center"
+      className="grid min-h-dvh place-items-center px-6 text-center"
       style={{ background: correct ? 'radial-gradient(ellipse at 50% 30%, rgba(34,197,94,0.25), transparent 60%)' : 'radial-gradient(ellipse at 50% 30%, rgba(239,68,68,0.22), transparent 60%)' }}
     >
       <motion.div

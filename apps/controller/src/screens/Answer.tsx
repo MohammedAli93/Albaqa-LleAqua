@@ -4,14 +4,12 @@ import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { submitAnswer } from '../socket.js';
 import { haptic } from '../hooks/useDevice.js';
-import { useCountdown } from '../hooks/useCountdown.js';
 
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 export function Answer() {
   const { question, roundId, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, locale } = useStore();
-  const remaining = useCountdown(endsAt, !hasAnswered);
   if (!question || !roundId) return null;
 
   const onPick = (optionId: string) => {
@@ -20,33 +18,47 @@ export function Answer() {
     submitAnswer(roundId, optionId).catch(() => {});
   };
 
-  const pct = Math.max(0, Math.min(1, remaining / roundTotalMs));
+  // Drive the timer bar with a single GPU-accelerated keyframe animation instead
+  // of a per-frame React countdown — no re-renders of the whole question/options
+  // tree 60×/sec. Keyed by roundId so it restarts cleanly for each new question.
+  const totalMs = roundTotalMs || 1;
+  const remainingMs = endsAt ? Math.max(0, endsAt - Date.now()) : totalMs;
+  const startPct = Math.max(0, Math.min(1, remainingMs / totalMs));
 
   return (
-    <div className="flex min-h-full flex-col px-4 py-5">
+    <div className="flex min-h-dvh flex-col px-4 py-5">
       {/* timer bar */}
-      <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-ink-muted/15">
+      <div className="mb-4 h-2.5 w-full shrink-0 overflow-hidden rounded-full bg-ink-muted/15">
         <motion.div
+          key={roundId}
           className="h-full rounded-full"
-          style={{ background: pct > 0.5 ? '#14B8A6' : pct > 0.25 ? '#F59E0B' : '#EF4444' }}
-          animate={{ width: `${pct * 100}%` }}
-          transition={{ ease: 'linear', duration: 0.2 }}
+          initial={{ width: `${startPct * 100}%`, backgroundColor: '#14B8A6' }}
+          animate={{ width: '0%', backgroundColor: ['#14B8A6', '#14B8A6', '#F59E0B', '#EF4444'] }}
+          transition={{
+            width: { duration: remainingMs / 1000, ease: 'linear' },
+            backgroundColor: { duration: remainingMs / 1000, times: [0, 0.5, 0.75, 1], ease: 'linear' },
+          }}
         />
       </div>
 
       {question.category && (
         <div
-          className="mx-auto mb-3 w-fit rounded-full px-4 py-1 text-sm font-bold text-white"
+          className="mx-auto mb-3 w-fit shrink-0 rounded-full px-4 py-1 text-sm font-bold text-white"
           style={{ background: question.category.color }}
         >
           {question.category.nameAr}
         </div>
       )}
-      <h2 className="mb-5 text-center font-display text-2xl font-bold leading-snug" dir="rtl">
+      <h2 className="mb-5 shrink-0 text-center font-display text-2xl font-bold leading-snug" dir="rtl">
         {question.promptAr}
       </h2>
 
-      <div className="grid flex-1 grid-cols-1 content-center gap-3">
+      {/* Scrollable, vertically-centred option list. `min-h-0` lets this flex
+          child shrink so it can scroll; `my-auto` centres when there's room and
+          collapses when options overflow — so 5–6 options never get clipped on
+          short screens or in landscape. */}
+      <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1 py-1">
+        <div className="my-auto grid w-full grid-cols-1 gap-3">
         {question.options.map((opt, i) => {
           const picked = selectedOptionId === opt.id;
           const dimmed = hasAnswered && !picked;
@@ -69,9 +81,10 @@ export function Answer() {
             </motion.button>
           );
         })}
+        </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-ink-secondary">
+      <div className="mt-4 shrink-0 flex items-center justify-between text-ink-secondary">
         <span>{t(locale, 'lives')}: <span className="tnum font-bold text-ink-primary">{myLives}</span></span>
         {hasAnswered && <span className="font-bold text-prize-gold animate-pulse-glow">{t(locale, 'answerLocked')}</span>}
       </div>

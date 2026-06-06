@@ -49,7 +49,7 @@ export function Play() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-5 py-6">
+    <div className="flex min-h-dvh flex-col px-5 py-6">
       <button
         onClick={() => (step === 2 ? setStep(1) : set({ appView: 'home' }))}
         className="flex items-center gap-1 self-start text-ink-secondary"
@@ -157,7 +157,7 @@ function Stepper({
         <button
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="grid h-10 w-10 place-items-center rounded-xl2 bg-bg-sunken text-ink-primary disabled:opacity-30"
+          className="grid h-11 w-11 place-items-center rounded-xl2 bg-bg-sunken text-ink-primary disabled:opacity-30"
         >
           <Minus size={18} />
         </button>
@@ -165,7 +165,7 @@ function Stepper({
         <button
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
-          className="grid h-10 w-10 place-items-center rounded-xl2 bg-bg-sunken text-ink-primary disabled:opacity-30"
+          className="grid h-11 w-11 place-items-center rounded-xl2 bg-bg-sunken text-ink-primary disabled:opacity-30"
         >
           <Plus size={18} />
         </button>

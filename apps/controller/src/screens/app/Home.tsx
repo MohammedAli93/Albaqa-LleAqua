@@ -30,7 +30,7 @@ export function Home() {
   const country = COUNTRIES.find((c) => c.code === account.country);
 
   return (
-    <div className="flex min-h-screen flex-col px-5 py-6">
+    <div className="flex min-h-dvh flex-col px-5 py-6">
       {/* Profile hero */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
@@ -43,16 +43,16 @@ export function Home() {
             <div className="absolute inset-0 rounded-full bg-gradient-brand opacity-60 blur-md" />
             <Avatar avatarId={account.avatarId} size={68} />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-display text-2xl font-extrabold">{account.username}</span>
-              {country && <span className="text-xl">{country.flag}</span>}
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-display text-2xl font-extrabold">{account.username}</span>
+              {country && <span className="shrink-0 text-xl">{country.flag}</span>}
             </div>
             <span className="text-sm text-ink-muted">جاهز للتحدّي؟</span>
           </div>
           <button
             onClick={() => { clearAccount(); set({ account: null, appView: 'splash' }); }}
-            className="text-ink-muted transition hover:text-ink-secondary"
+            className="-m-2.5 grid h-11 w-11 shrink-0 place-items-center text-ink-muted transition hover:text-ink-secondary"
             aria-label="تسجيل الخروج"
           >
             <LogOut size={20} />
