@@ -545,7 +545,16 @@ export async function resolveRound(gameId: string): Promise<void> {
     await release();
 
     if (state.settings.autoAdvance) {
-      setTimeout(() => void startNextRound(gameId).catch((err) => logger.error({ err, gameId }, 'auto-advance failed')), nextInMs);
+      setTimeout(
+        () =>
+          void (async () => {
+            // Don't fire a new question if the game was paused during intermission
+            // (e.g. host dropped). resumeGame() continues from here on reconnect.
+            const cur = await getRoom(gameId);
+            if (cur?.status === GameStatus.ACTIVE) await startNextRound(gameId);
+          })().catch((err) => logger.error({ err, gameId }, 'auto-advance failed')),
+        nextInMs,
+      );
     }
   } catch (err) {
     await release();
@@ -662,6 +671,13 @@ export async function resumeGame(gameId: string): Promise<void> {
       emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId: state.currentRound!.roundId, remainingMs }),
     );
     scheduleRoundEnd(gameId, endsAt, () => void resolveRound(gameId));
+  } else if (state.currentRound && state.currentRound.phase === RoundPhase.INTERMISSION && state.settings.autoAdvance) {
+    // Paused mid-intermission (the auto-advance was skipped). Resume the loop by
+    // moving on to the next question.
+    await saveRoom(state);
+    emitter.toRoom(gameId, ServerEvent.GAME_RESUMED, { reason: 'host' });
+    await startNextRound(gameId);
+    return;
   } else {
     await saveRoom(state);
   }

@@ -19,6 +19,7 @@ import { connectHost } from './socket.js';
 import { startDemoBots } from './demo.js';
 import { initSfxGesture } from './lib/sfx.js';
 import { ParticleField } from './components/ParticleField.js';
+import { useWakeLock } from './hooks/useWakeLock.js';
 import { Setup } from './scenes/Setup.js';
 import { Lobby } from './scenes/Lobby.js';
 import { Question } from './scenes/Question.js';
@@ -62,6 +63,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [needSetup, setNeedSetup] = useState(false);
   const booted = useRef(false);
+
+  // Hold a screen wake-lock once a room exists so the host display never sleeps
+  // (a sleeping host drops its socket and pauses the game).
+  useWakeLock(!!roomCode && status !== 'COMPLETED');
 
   async function createAndHost(settings: GameSettings, demo = false, demoCount = 8): Promise<void> {
     try {
