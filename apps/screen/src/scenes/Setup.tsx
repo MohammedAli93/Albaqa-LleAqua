@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Users, Coins, Swords, ChevronLeft, Check, type LucideIcon } from 'lucide-react';
+import { User, Users, Coins, Swords, ChevronLeft, type LucideIcon } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { Brand } from '../components/Brand.js';
 
 export interface SetupSelection {
   type: GameType;
@@ -35,17 +36,9 @@ export function Setup({
   const [teamB, setTeamB] = useState('');
   const [bots, setBots] = useState(false);
 
-  const types: { key: GameType; icon: LucideIcon; title: string; tagline: string; bullets: string[]; grad: string }[] = [
-    {
-      key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'),
-      bullets: [t(locale, 'individualPoint1'), t(locale, 'individualPoint2'), t(locale, 'individualPoint3')],
-      grad: 'from-brand-violet to-brand-deep',
-    },
-    {
-      key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'),
-      bullets: [t(locale, 'teamsPoint1'), t(locale, 'teamsPoint2'), t(locale, 'teamsPoint3')],
-      grad: 'from-action-hot to-action',
-    },
+  const types: { key: GameType; icon: LucideIcon; title: string; tagline: string; grad: string }[] = [
+    { key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'), grad: 'from-brand-violet to-brand-deep' },
+    { key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'), grad: 'from-action-hot to-action' },
   ];
   const modes: { key: GameMode; icon: LucideIcon; title: string; desc: string; tint: string }[] = [
     { key: GameMode.POINTS, icon: Coins, title: t(locale, 'pointsGame'), desc: t(locale, 'pointsGameDesc'), tint: 'text-brand-deep' },
@@ -69,53 +62,38 @@ export function Setup({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-strong w-full max-w-4xl rounded-xl4 p-6 lg:p-12"
+        className="glass-strong w-full max-w-3xl rounded-xl4 p-6 lg:p-9"
       >
-        <div className="mb-6 flex items-center justify-between gap-3 lg:mb-8">
-          <h1 className="font-display text-3xl font-black text-gradient lg:text-5xl">{title}</h1>
+        {/* Game-name logo on top, then the step title */}
+        <div className="relative mb-5 flex flex-col items-center gap-2 text-center lg:mb-7">
           {step === 2 && !initialType && (
             <button
               onClick={() => setStep(1)}
-              className="flex shrink-0 items-center gap-2 rounded-2xl bg-bg-sunken px-4 py-2 text-lg text-ink-secondary lg:px-5 lg:py-3 lg:text-2xl"
+              className="absolute end-0 top-1 flex shrink-0 items-center gap-1.5 rounded-2xl bg-bg-sunken px-3.5 py-2 text-base text-ink-secondary lg:px-4 lg:text-lg"
             >
-              <ChevronLeft /> {t(locale, 'back')}
+              <ChevronLeft size={20} /> {t(locale, 'back')}
             </button>
           )}
+          <Brand className="text-[clamp(1.6rem,3vw,3rem)]" />
+          <h1 className="font-display text-xl font-black text-ink-secondary lg:text-2xl">{title}</h1>
         </div>
 
         {step === 1 ? (
-          // ── Step 1: type — big one-tap cards ──
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-7">
+          // ── Step 1: type — simple one-tap cards (icon → title → tagline) ──
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
             {types.map((ty) => {
               const Icon = ty.icon;
               return (
                 <button
                   key={ty.key}
                   onClick={() => { setType(ty.key); setStep(2); }}
-                  className="group relative overflow-hidden rounded-xl4 text-start shadow-card transition hover:-translate-y-1 hover:shadow-glow"
+                  className="group glass flex flex-col items-center gap-3 rounded-xl3 p-6 text-center transition hover:-translate-y-1 hover:shadow-glow lg:gap-4 lg:p-7"
                 >
-                  {/* Gradient header band */}
-                  <div className={`relative flex items-center gap-4 bg-gradient-to-br ${ty.grad} px-7 pb-9 pt-7 text-white lg:gap-5 lg:px-9 lg:pt-9`}>
-                    <span className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/15 blur-2xl" />
-                    <span className="grid h-20 w-20 shrink-0 place-items-center rounded-[1.75rem] bg-white/20 backdrop-blur-sm ring-1 ring-white/30 transition group-hover:scale-105 lg:h-24 lg:w-24">
-                      <Icon className="h-10 w-10 lg:h-12 lg:w-12" strokeWidth={2.3} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-display text-4xl font-black leading-tight drop-shadow-sm lg:text-5xl">{ty.title}</span>
-                      <span className="mt-1 block font-display text-xl font-bold text-white/90 lg:text-2xl">{ty.tagline}</span>
-                    </span>
-                  </div>
-                  {/* Body — value bullets */}
-                  <div className="-mt-4 rounded-t-[1.75rem] bg-bg-raised px-7 pb-7 pt-6 lg:px-9">
-                    <ul className="space-y-3">
-                      {ty.bullets.map((b) => (
-                        <li key={b} className="flex items-start gap-3 text-lg leading-snug text-ink-secondary lg:text-xl">
-                          <Check size={22} className="mt-0.5 shrink-0 text-action" strokeWidth={3} />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <span className={`grid h-20 w-20 place-items-center rounded-[1.6rem] bg-gradient-to-br ${ty.grad} text-white shadow-glow transition group-hover:scale-105 lg:h-24 lg:w-24`}>
+                    <Icon className="h-10 w-10 lg:h-12 lg:w-12" strokeWidth={2.2} />
+                  </span>
+                  <span className="font-display text-3xl font-black lg:text-4xl">{ty.title}</span>
+                  <span className="font-display text-base font-bold text-ink-secondary lg:text-xl">{ty.tagline}</span>
                 </button>
               );
             })}
