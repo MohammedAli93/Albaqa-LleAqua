@@ -37,8 +37,9 @@ function buildSettings(opts: {
   demo?: boolean;
   name?: string;
   categoryId?: string;
+  perPlayerCategory?: boolean;
 }): GameSettings {
-  const { type, mode, teamNames, demo, name, categoryId } = opts;
+  const { type, mode, teamNames, demo, name, categoryId, perPlayerCategory } = opts;
   // Team mode is always points (never elimination). Seen Jeem is its own mode.
   const effectiveMode = type === GameType.TEAMS && mode === GameMode.ELIMINATION ? GameMode.POINTS : mode;
   let base: GameSettings =
@@ -54,6 +55,7 @@ function buildSettings(opts: {
     base = { ...base, teamNames: names, teamCount: names.length, playersPerTeam: undefined };
   }
   if (categoryId) base = { ...base, categoryId };
+  if (perPlayerCategory) base = { ...base, perPlayerCategory: true };
   if (demo) base = { ...base, intermissionSec: 4, totalRounds: base.totalRounds ?? 8 };
   if (name) base = { ...base, tournamentName: name };
   return base;
@@ -65,6 +67,7 @@ export default function App() {
   const [needSetup, setNeedSetup] = useState(false);
   const [setupType, setSetupType] = useState<GameType | null>(null);
   const [catParam, setCatParam] = useState<string | undefined>(undefined);
+  const [ppParam, setPpParam] = useState(false);
   const booted = useRef(false);
 
   // Hold a screen wake-lock once a room exists so the host display never sleeps
@@ -111,6 +114,8 @@ export default function App() {
     const modeParam = (params.get('mode') ?? '').toLowerCase();
     const catParamUrl = params.get('cat') ?? undefined;
     setCatParam(catParamUrl);
+    const perPlayer = params.get('pp') === '1';
+    setPpParam(perPlayer);
     const hasConfig = !!typeParam || !!modeParam || demo;
 
     if (!hasConfig) {
@@ -147,6 +152,7 @@ export default function App() {
       demo,
       name: params.get('name') ?? undefined,
       categoryId: catParamUrl,
+      perPlayerCategory: perPlayer,
     });
     void createAndHost(settings, demo, demoCount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +176,7 @@ export default function App() {
       {!error && needSetup && (
         <Setup
           initialType={setupType}
-          onConfirm={(sel) => void createAndHost(buildSettings({ ...sel, categoryId: catParam }), !!sel.demo)}
+          onConfirm={(sel) => void createAndHost(buildSettings({ ...sel, categoryId: catParam, perPlayerCategory: ppParam }), !!sel.demo)}
         />
       )}
 

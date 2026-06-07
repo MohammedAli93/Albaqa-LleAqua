@@ -69,6 +69,9 @@ export interface ControllerState {
   // Seen-Jeem mode
   seenJeem: SeenJeemSnapshot | null;
   myTeamId: string | null;
+  /** Per-player-category mode: each player picks their own category in the lobby. */
+  perPlayerCategory: boolean;
+  myCategoryId: string | null;
   sjResolved: SjCellResolvedPayload | null;
 
   set: (p: Partial<ControllerState>) => void;
@@ -107,6 +110,8 @@ export const useStore = create<ControllerState>((set, get) => ({
   account: loadAccount(),
   seenJeem: null,
   myTeamId: null,
+  perPlayerCategory: false,
+  myCategoryId: null,
   sjResolved: null,
 
   set: (p) => set(p),
@@ -118,8 +123,8 @@ export const useStore = create<ControllerState>((set, get) => ({
         case ServerEvent.ROOM_STATE: {
           const snap = payload as RoomSnapshot;
           const self = snap.self;
-          const myTeamId =
-            snap.participants.find((p) => p.id === s.participantId)?.teamId ?? s.myTeamId;
+          const me = snap.participants.find((p) => p.id === s.participantId);
+          const myTeamId = me?.teamId ?? s.myTeamId;
           const phase = snap.seenJeem ? 'seenjeem' : derivePhase(snap, self?.status);
           return {
             status: snap.game.status,
@@ -137,6 +142,8 @@ export const useStore = create<ControllerState>((set, get) => ({
             myStatus: self?.status ?? s.myStatus,
             seenJeem: snap.seenJeem ?? s.seenJeem,
             myTeamId,
+            perPlayerCategory: snap.game.perPlayerCategory ?? false,
+            myCategoryId: me?.categoryId ?? s.myCategoryId,
             phase: s.participantId ? phase : s.phase,
           };
         }

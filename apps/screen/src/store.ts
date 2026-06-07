@@ -59,6 +59,8 @@ export interface ScreenState {
   // current round
   roundId: string | null;
   question: PublicQuestion | null;
+  /** Per-player-category mode: whose category this round belongs to. */
+  turnPlayer: { nickname: string; avatarId: string } | null;
   endsAt: number | null;
   roundTotalMs: number;
   remainingMs: number;
@@ -101,6 +103,7 @@ export const useStore = create<ScreenState>((set) => ({
   leaderboard: [],
   roundId: null,
   question: null,
+  turnPlayer: null,
   endsAt: null,
   roundTotalMs: 15000,
   remainingMs: 0,
@@ -164,6 +167,7 @@ export const useStore = create<ScreenState>((set) => ({
             round: p.round,
             roundId: p.roundId,
             question: p.question,
+            turnPlayer: p.turnPlayer ?? null,
             endsAt: p.endsAt,
             roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
             remainingMs: Math.max(0, p.endsAt - Date.now()),

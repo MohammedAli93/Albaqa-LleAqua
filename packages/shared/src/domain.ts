@@ -148,6 +148,9 @@ export interface GameSettings {
   /** Chosen trivia category (id). When set, the room's questions are drawn from
    *  this category (generated on demand) instead of the package's question list. */
   categoryId?: string;
+  /** Per-player-category mode: each player picks their own category in the lobby;
+   *  rounds rotate through players, each drawing from that player's category. */
+  perPlayerCategory?: boolean;
 }
 
 export const GAME_LIMITS = {

@@ -22,6 +22,7 @@ export function toPublicParticipant(p: LiveParticipant): PublicParticipant {
     score: p.score,
     lives: p.lives,
     teamId: p.teamId,
+    categoryId: p.categoryId,
   };
 }
 
@@ -128,6 +129,7 @@ export function buildSnapshot(state: RoomState, selfId?: string): RoomSnapshot {
       status: state.status,
       round: state.roundIndex + 1,
       totalRounds: state.totalRounds,
+      perPlayerCategory: state.settings.perPlayerCategory || undefined,
     },
     participants: visibleParticipants(state).map(toPublicParticipant),
     teams: Object.keys(state.teams).length ? publicTeams(state) : undefined,

@@ -6,13 +6,19 @@ import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Spinner } from '../components/Spinner.js';
-import { pickTeam } from '../socket.js';
+import { CategoryPicker } from '../components/CategoryPicker.js';
+import { pickTeam, pickCategory } from '../socket.js';
 
 export function Lobby() {
-  const { nickname, avatarId, locale, gameType } = useStore();
+  const { nickname, avatarId, locale, gameType, perPlayerCategory, myCategoryId } = useStore();
 
   if (gameType === GameType.TEAMS) {
     return <TeamPicker />;
+  }
+
+  // Per-player-category mode: each player picks their own category before start.
+  if (perPlayerCategory && !myCategoryId) {
+    return <CategoryChooser />;
   }
 
   return (
@@ -20,8 +26,34 @@ export function Lobby() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-5">
         <Avatar avatarId={avatarId} size={120} selected />
         <p className="max-w-full break-words font-display text-4xl font-bold" dir="auto">{nickname}</p>
+        {perPlayerCategory && myCategoryId && (
+          <p className="font-display text-lg font-bold text-brand-deep">{t(locale, 'categoryChosen')} ✓</p>
+        )}
         <Spinner size={36} label={t(locale, 'waitingHostStart')} />
       </motion.div>
+    </div>
+  );
+}
+
+function CategoryChooser() {
+  const { locale, set } = useStore();
+  const [busy, setBusy] = useState(false);
+
+  async function choose(categoryId: string) {
+    if (busy || !categoryId) return;
+    setBusy(true);
+    try {
+      await pickCategory(categoryId);
+      set({ myCategoryId: categoryId }); // optimistic; ROOM_STATE confirms
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-dvh flex-col px-5 py-6">
+      <h1 className="font-display text-3xl font-black">{t(locale, 'pickYourCategory')}</h1>
+      <CategoryPicker onPick={choose} />
     </div>
   );
 }

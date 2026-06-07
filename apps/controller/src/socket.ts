@@ -91,6 +91,20 @@ export function pickTeam(teamId: string): Promise<void> {
   });
 }
 
+/** Per-player-category lobby: pick your own category. */
+export function pickCategory(categoryId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    socket?.emit(
+      ClientEvent.PLAYER_PICK_CATEGORY,
+      { categoryId },
+      (res: { ok: boolean; error?: { code: string } }) => {
+        if (res?.ok) resolve();
+        else reject(new Error(res?.error?.code ?? 'PICK_CATEGORY_FAILED'));
+      },
+    );
+  });
+}
+
 export function getSocket(): Socket | null {
   return socket;
 }

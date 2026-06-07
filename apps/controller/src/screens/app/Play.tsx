@@ -30,9 +30,10 @@ export function Play() {
   ];
 
   /** Open the chosen game on the big screen (or fall back to join-by-code). */
-  function launch(type: GameType, mode: GameMode, categoryId: string) {
-    const params = new URLSearchParams({ type, mode });
-    if (categoryId) params.set('cat', categoryId);
+  function launch(opts: { categoryId?: string; perPlayer?: boolean }) {
+    const params = new URLSearchParams({ type: pendingType, mode: pendingMode });
+    if (opts.categoryId) params.set('cat', opts.categoryId);
+    if (opts.perPlayer) params.set('pp', '1');
     if (SCREEN_URL) {
       window.open(`${SCREEN_URL}/?${params.toString()}`, '_blank');
       set({ appView: 'home' });
@@ -125,7 +126,29 @@ export function Play() {
       )}
 
       {step === 'category' && (
-        <CategoryPicker onPick={(categoryId) => launch(pendingType, pendingMode, categoryId)} />
+        <div className="mt-5">
+          {/* Each player picks their own category (turn-based) */}
+          <button
+            onClick={() => launch({ perPlayer: true })}
+            className="flex w-full items-center gap-3 rounded-xl3 bg-gradient-brand p-5 text-start text-white shadow-glow transition active:scale-[0.98]"
+          >
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur-sm">
+              <Users size={26} />
+            </span>
+            <span className="flex-1">
+              <span className="block font-display text-xl font-extrabold">{t(locale, 'eachPlayerCategory')}</span>
+              <span className="block text-sm text-white/85">{t(locale, 'eachPlayerCategoryHint')}</span>
+            </span>
+          </button>
+
+          <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
+            <span className="h-px flex-1 bg-ink-muted/20" />
+            {t(locale, 'orPickOneForAll')}
+            <span className="h-px flex-1 bg-ink-muted/20" />
+          </div>
+
+          <CategoryPicker onPick={(categoryId) => launch({ categoryId })} />
+        </div>
       )}
 
       {step !== 'category' && (

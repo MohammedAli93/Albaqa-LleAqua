@@ -16,7 +16,7 @@ const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7']
 export function Question() {
   const {
     question, phase, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
-    correctOptionId, distribution, heroes, teams, leaderboard, mode, locale,
+    correctOptionId, distribution, heroes, teams, leaderboard, mode, turnPlayer, locale,
   } = useStore();
 
   const collecting = phase === 'collecting';
@@ -65,6 +65,18 @@ export function Question() {
               transition={{ type: 'spring', stiffness: 180, damping: 18 }}
               className="flex w-full max-w-3xl flex-col items-center gap-4 lg:gap-5"
             >
+              {turnPlayer && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-strong flex items-center gap-2.5 rounded-full px-4 py-1.5 lg:px-5"
+                >
+                  <Avatar avatarId={turnPlayer.avatarId} size={32} />
+                  <span className="font-display text-screen-status font-extrabold text-ink-primary">
+                    {t(locale, 'yourTurn', { name: turnPlayer.nickname })}
+                  </span>
+                </motion.div>
+              )}
               {question.category && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.6, rotate: -4 }}

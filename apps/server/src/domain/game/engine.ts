@@ -41,6 +41,7 @@ import {
   publicTeams,
 } from './snapshot.js';
 import * as fsm from './fsm.js';
+import { buildPerPlayerOrder } from '../rooms/roomService.js';
 import {
   scheduleRoundEnd,
   clearRoundTimer,
@@ -179,6 +180,30 @@ export async function pickTeam(
   return state;
 }
 
+/** Per-player-category mode: a player chooses their own category in the lobby. */
+export async function pickCategory(
+  gameId: string,
+  participantId: string,
+  categoryId: string,
+): Promise<RoomState> {
+  const state = await withRoomLock(gameId, async () => {
+    const state = await mustGetRoom(gameId);
+    if (!state.settings.perPlayerCategory) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'اختيار الفئة لكل لاعب غير مفعّل');
+    }
+    if (state.status !== GameStatus.LOBBY) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'لا يمكن تغيير الفئة بعد بدء اللعبة');
+    }
+    const participant = state.participants[participantId];
+    if (!participant) throw new AppError(ErrorCode.NOT_AUTHORIZED, 'لست لاعباً في هذه الغرفة');
+    participant.categoryId = categoryId;
+    await saveRoom(state);
+    return state;
+  });
+  emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(state));
+  return state;
+}
+
 /** Rebind a reconnecting socket to its participant by session token hash. */
 export async function reconnect(
   gameId: string,
@@ -271,6 +296,31 @@ export async function startGame(gameId: string): Promise<void> {
     );
   }
 
+  // Per-player-category mode: build the round order now that everyone has joined
+  // and (mostly) picked. Rounds rotate through players, each from their category.
+  if (state.settings.perPlayerCategory) {
+    const players = Object.values(state.participants)
+      .filter((p) => p.status === ParticipantStatus.ACTIVE)
+      .sort((a, b) => a.joinOrder - b.joinOrder)
+      .map((p) => ({ id: p.id, categoryId: p.categoryId }));
+    const target = state.settings.totalRounds ?? 20;
+    const { questionOrder, roundOwners } = await buildPerPlayerOrder(players, target);
+    if (questionOrder.length >= 1) {
+      state.questionOrder = questionOrder;
+      state.roundOwners = roundOwners;
+      state.totalRounds = questionOrder.length;
+    } else {
+      // Safety net: fall back to the package so the game is always playable.
+      const pkgQs = await prisma.packageQuestion.findMany({
+        where: { packageId: state.packageId },
+        orderBy: { order: 'asc' },
+        select: { questionId: true },
+      });
+      state.questionOrder = pkgQs.map((q) => q.questionId);
+      state.totalRounds = state.questionOrder.length;
+    }
+  }
+
   state.status = GameStatus.ACTIVE;
   state.startedAt = Date.now();
   state.roundIndex = -1;
@@ -339,11 +389,14 @@ export async function startNextRound(gameId: string): Promise<void> {
   };
   await saveRoom(state);
 
+  const ownerId = state.roundOwners?.[nextIndex];
+  const owner = ownerId ? state.participants[ownerId] : undefined;
   emitter.toRoom(gameId, ServerEvent.QUESTION_SHOW, {
     round: nextIndex + 1,
     roundId,
     question: loaded.publicQuestion,
     endsAt,
+    ...(owner ? { turnPlayer: { nickname: owner.nickname, avatarId: owner.avatarId } } : {}),
   });
 
   // Countdown ticks (≈4 Hz) + the authoritative resolution at endsAt.

@@ -45,6 +45,74 @@ async function categoryQuestionOrder(categoryId: string, desiredRounds: number):
   return shuffle(rows.map((r) => r.id)).slice(0, desiredRounds);
 }
 
+/** Fallback category for players who never picked one (per-player mode). */
+async function defaultCategoryId(): Promise<string | null> {
+  const bySlug = await prisma.category.findFirst({ where: { slug: 'general', deletedAt: null }, select: { id: true } });
+  if (bySlug) return bySlug.id;
+  const any = await prisma.category.findFirst({ where: { deletedAt: null }, orderBy: { sortOrder: 'asc' }, select: { id: true } });
+  return any?.id ?? null;
+}
+
+/**
+ * Per-player-category mode: build the round order by rotating through players in
+ * join order, each round drawing the next question from THAT player's category.
+ * Questions are de-duplicated per category (shared cursor) so the same question
+ * never repeats even when players share a category. Returns the question ids and
+ * the per-round owner participant ids (aligned).
+ */
+export async function buildPerPlayerOrder(
+  players: { id: string; categoryId?: string }[],
+  targetRounds: number,
+): Promise<{ questionOrder: string[]; roundOwners: string[] }> {
+  if (players.length === 0) return { questionOrder: [], roundOwners: [] };
+  const perPlayer = Math.max(1, Math.ceil(targetRounds / players.length));
+
+  // Resolve each player's category (fallback to a default) and build one shuffled
+  // pool per distinct category with a shared cursor.
+  const fallback = await defaultCategoryId();
+  const playerCat = new Map<string, string>();
+  const catPool = new Map<string, string[]>();
+  const catCursor = new Map<string, number>();
+  for (const p of players) {
+    const catId = p.categoryId ?? fallback;
+    if (!catId) continue;
+    playerCat.set(p.id, catId);
+    if (!catPool.has(catId)) {
+      await ensureCategoryQuestions(catId, Math.min(perPlayer + 4, 15));
+      const rows = await prisma.question.findMany({
+        where: { categoryId: catId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+        select: { id: true },
+      });
+      catPool.set(catId, shuffle(rows.map((r) => r.id)));
+      catCursor.set(catId, 0);
+    }
+  }
+
+  const questionOrder: string[] = [];
+  const roundOwners: string[] = [];
+  for (let r = 0; r < targetRounds; r++) {
+    let placed = false;
+    // Try the round-robin player first, then the others, so a player with an empty
+    // pool doesn't stall the game.
+    for (let k = 0; k < players.length; k++) {
+      const p = players[(r + k) % players.length]!;
+      const catId = playerCat.get(p.id);
+      if (!catId) continue;
+      const pool = catPool.get(catId)!;
+      const idx = catCursor.get(catId)!;
+      if (idx < pool.length) {
+        questionOrder.push(pool[idx]!);
+        roundOwners.push(p.id);
+        catCursor.set(catId, idx + 1);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) break; // every pool exhausted
+  }
+  return { questionOrder, roundOwners };
+}
+
 /** Default team names/colors, indexed by team number. */
 export const TEAM_PALETTE = ['#4F46E5', '#14B8A6', '#FB7185', '#F59E0B', '#22C55E', '#A855F7', '#0EA5E9', '#EF4444'];
 export const TEAM_NAMES = ['الفريق الأزرق', 'الفريق الأخضر', 'الفريق الوردي', 'الفريق الذهبي', 'الفريق الزمردي', 'الفريق البنفسجي', 'الفريق السماوي', 'الفريق الأحمر'];
@@ -78,17 +146,24 @@ export async function createRoom(
 
   // Questions come from the chosen category (generated on demand) when one is set;
   // otherwise from the package's curated list. A too-thin category falls back to
-  // the package so a game is always playable.
+  // the package so a game is always playable. In per-player-category mode the order
+  // is built at start (once every player has picked their category).
   const packageOrder = pkg.questions.map((q) => q.questionId);
   let questionOrder = packageOrder;
-  if (settings.categoryId) {
-    const desired = settings.totalRounds ?? 25;
-    const catOrder = await categoryQuestionOrder(settings.categoryId, desired);
-    if (catOrder.length >= 4) questionOrder = catOrder;
+  let totalRounds: number;
+  if (settings.perPlayerCategory) {
+    questionOrder = [];
+    totalRounds = settings.totalRounds ?? 20;
+  } else {
+    if (settings.categoryId) {
+      const desired = settings.totalRounds ?? 25;
+      const catOrder = await categoryQuestionOrder(settings.categoryId, desired);
+      if (catOrder.length >= 4) questionOrder = catOrder;
+    }
+    totalRounds = settings.totalRounds
+      ? Math.min(settings.totalRounds, questionOrder.length)
+      : questionOrder.length;
   }
-  const totalRounds = settings.totalRounds
-    ? Math.min(settings.totalRounds, questionOrder.length)
-    : questionOrder.length;
 
   const game = await prisma.game.create({
     data: {

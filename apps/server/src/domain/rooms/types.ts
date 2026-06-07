@@ -25,6 +25,8 @@ export interface LiveParticipant {
   lives: number;
   joinOrder: number;
   teamId?: string;
+  /** Per-player-category mode: this player's chosen category id. */
+  categoryId?: string;
   sessionTokenHash: string;
   socketId?: string;
   disconnectedAt?: number; // epoch ms, set when socket drops
@@ -128,6 +130,9 @@ export interface RoomState {
   packageId: string;
   /** Ordered question ids drawn from the package. */
   questionOrder: string[];
+  /** Per-player-category mode: participantId whose category owns each round
+   *  (aligned with questionOrder). Empty/undefined otherwise. */
+  roundOwners?: string[];
   roundIndex: number; // -1 before first round
   totalRounds: number;
   participants: Record<string, LiveParticipant>;

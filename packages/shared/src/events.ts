@@ -33,6 +33,7 @@ import {
 export const ClientEvent = {
   PLAYER_JOIN: 'player:join',
   PLAYER_PICK_TEAM: 'player:pickTeam',
+  PLAYER_PICK_CATEGORY: 'player:pickCategory',
   PLAYER_ANSWER: 'player:answer',
   PLAYER_HEARTBEAT: 'player:heartbeat',
   PLAYER_LEAVE: 'player:leave',
@@ -126,6 +127,8 @@ export const PublicParticipantSchema = z.object({
   score: z.number().int(),
   lives: z.number().int(),
   teamId: z.string().optional(),
+  /** Per-player-category mode: this player's chosen category id (if picked). */
+  categoryId: z.string().optional(),
 });
 export type PublicParticipant = z.infer<typeof PublicParticipantSchema>;
 
@@ -227,6 +230,8 @@ export const RoomSnapshotSchema = z.object({
     status: zEnum(GameStatus),
     round: z.number().int(),
     totalRounds: z.number().int(),
+    /** Per-player-category mode: each player picks their own category in the lobby. */
+    perPlayerCategory: z.boolean().optional(),
   }),
   participants: z.array(PublicParticipantSchema),
   teams: z.array(TeamPublicSchema).optional(),
@@ -281,6 +286,10 @@ export type PlayerAnswerInput = z.infer<typeof PlayerAnswerSchema>;
 export const PickTeamSchema = z.object({ teamId: z.string().min(1) });
 export type PickTeamInput = z.infer<typeof PickTeamSchema>;
 
+/** Per-player-category mode: a player picks their own category in the lobby. */
+export const PickCategorySchema = z.object({ categoryId: z.string().min(1) });
+export type PickCategoryInput = z.infer<typeof PickCategorySchema>;
+
 export const PlayerKickSchema = z.object({ participantId: z.string().min(1) });
 export const RoomTerminateSchema = z.object({ gameId: z.string().min(1) });
 export const EmptySchema = z.object({}).strict();
@@ -289,6 +298,7 @@ export const EmptySchema = z.object({}).strict();
 export const CLIENT_EVENT_SCHEMAS = {
   [ClientEvent.PLAYER_JOIN]: PlayerJoinSchema,
   [ClientEvent.PLAYER_PICK_TEAM]: PickTeamSchema,
+  [ClientEvent.PLAYER_PICK_CATEGORY]: PickCategorySchema,
   [ClientEvent.PLAYER_ANSWER]: PlayerAnswerSchema,
   [ClientEvent.PLAYER_HEARTBEAT]: EmptySchema,
   [ClientEvent.PLAYER_LEAVE]: EmptySchema,
@@ -326,6 +336,8 @@ export interface QuestionShowPayload {
   roundId: string;
   question: PublicQuestion;
   endsAt: number;
+  /** Per-player-category mode: whose category this round belongs to. */
+  turnPlayer?: { nickname: string; avatarId: string };
 }
 
 export interface TimerTickPayload {
