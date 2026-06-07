@@ -184,7 +184,7 @@ export default function App() {
             transition={{ duration: 0.4 }}
             className="min-h-dvh w-full lg:h-full"
           >
-            {scene === 'connecting' && <Connecting label={t(locale, 'connecting')} />}
+            {scene === 'connecting' && <Connecting />}
             {scene === 'lobby' && <Lobby />}
             {scene === 'question' && <Question />}
             {scene === 'seenjeem' && <SeenJeem />}
@@ -229,13 +229,14 @@ function pickScene(
   return 'lobby';
 }
 
-function Connecting({ label }: { label: string }) {
+function Connecting() {
+  // Just a loading indicator (+ game logo) between scenes — no "connecting" text,
+  // per client feedback.
   return (
     <div className="grid min-h-dvh place-items-center lg:h-full">
       <div className="flex flex-col items-center gap-6">
         <Brand className="mb-2 text-screen-title" />
         <Loader2 size={72} className="animate-spin text-brand-violet" />
-        <p className="font-display text-screen-status font-bold text-ink-secondary">{label}</p>
       </div>
     </div>
   );
