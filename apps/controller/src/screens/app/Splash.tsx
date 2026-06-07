@@ -23,10 +23,8 @@ export function Splash() {
           className="relative"
         >
           <div className="absolute inset-0 -z-10 rounded-[40%] bg-brand-violet/30 blur-3xl animate-pulse-glow" />
-          <h1 className="font-display text-[5.5rem] font-black leading-[1.12] text-gradient text-glow pb-2">
-            البقاء
-            <br />
-            للأقوى
+          <h1 className="font-display text-[6.5rem] font-black leading-[1.12] text-gradient text-glow pb-2">
+            تحدّي
           </h1>
         </motion.div>
         <motion.p
@@ -35,7 +33,7 @@ export function Splash() {
           transition={{ delay: 0.35 }}
           className="mt-6 max-w-xs text-lg leading-relaxed text-ink-secondary"
         >
-          العب مع أصحابك أسئلة ممتعة، والبقاء للأقوى.
+          العب مع أصحابك أسئلة ممتعة، وتحدَّ الجميع.
         </motion.p>
       </div>
 
