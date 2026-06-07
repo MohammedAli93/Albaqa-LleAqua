@@ -13,9 +13,37 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { generateCapabilityToken, hashCapabilityToken } from '../auth/tokens.js';
+import { ensureCategoryQuestions } from '../content/questionGen.js';
 import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
 import type { RoomState } from './types.js';
+
+/** Fisher–Yates shuffle (returns a new array). */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
+/**
+ * Build the round question order for a category game: ensure the category has
+ * enough questions (generating on demand), then draw a randomized set. Falls back
+ * to an empty list (caller uses the package) if the category can't be filled.
+ */
+async function categoryQuestionOrder(categoryId: string, desiredRounds: number): Promise<string[]> {
+  // Cap the synchronous fill at 15 so a brand-new category starts quickly; the
+  // pool grows on each subsequent play. The game then draws up to desiredRounds
+  // from whatever is available.
+  await ensureCategoryQuestions(categoryId, Math.min(desiredRounds, 15));
+  const rows = await prisma.question.findMany({
+    where: { categoryId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+    select: { id: true },
+  });
+  return shuffle(rows.map((r) => r.id)).slice(0, desiredRounds);
+}
 
 /** Default team names/colors, indexed by team number. */
 export const TEAM_PALETTE = ['#4F46E5', '#14B8A6', '#FB7185', '#F59E0B', '#22C55E', '#A855F7', '#0EA5E9', '#EF4444'];
@@ -48,7 +76,16 @@ export async function createRoom(
   const hostToken = generateCapabilityToken();
   const hostTokenHash = hashCapabilityToken(hostToken);
 
-  const questionOrder = pkg.questions.map((q) => q.questionId);
+  // Questions come from the chosen category (generated on demand) when one is set;
+  // otherwise from the package's curated list. A too-thin category falls back to
+  // the package so a game is always playable.
+  const packageOrder = pkg.questions.map((q) => q.questionId);
+  let questionOrder = packageOrder;
+  if (settings.categoryId) {
+    const desired = settings.totalRounds ?? 25;
+    const catOrder = await categoryQuestionOrder(settings.categoryId, desired);
+    if (catOrder.length >= 4) questionOrder = catOrder;
+  }
   const totalRounds = settings.totalRounds
     ? Math.min(settings.totalRounds, questionOrder.length)
     : questionOrder.length;

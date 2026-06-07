@@ -138,6 +138,7 @@ export const GameSettingsSchema = z
     firstTeamId: z.string().nullable().optional(),
     scoringMode: z.enum(['SPEED', 'PLACEMENT']).optional(),
     tournamentName: z.string().max(120).optional(),
+    categoryId: z.string().uuid().optional(),
   })
   .refine((s) => s.minPlayers <= s.maxPlayers, {
     message: 'minPlayers must be <= maxPlayers',

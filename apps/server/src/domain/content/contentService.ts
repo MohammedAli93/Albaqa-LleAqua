@@ -13,6 +13,26 @@ export function listCategories() {
   });
 }
 
+/** Public grouped category catalog for the create-game picker. */
+export function listCategoryGroups() {
+  return prisma.categoryGroup.findMany({
+    orderBy: { sortOrder: 'asc' },
+    select: {
+      id: true,
+      slug: true,
+      nameAr: true,
+      nameEn: true,
+      color: true,
+      icon: true,
+      categories: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, slug: true, nameAr: true, nameEn: true, color: true, icon: true },
+      },
+    },
+  });
+}
+
 export function createCategory(data: Prisma.CategoryCreateInput) {
   return prisma.category.create({ data });
 }

@@ -5,7 +5,7 @@
     "dockerfilePath": "apps/server/Dockerfile"
   },
   "deploy": {
-    "startCommand": "sh -c \"pnpm exec prisma migrate deploy && node dist/index.js\"",
+    "startCommand": "sh -c \"pnpm exec prisma migrate deploy && pnpm exec tsx prisma/seed.ts && node dist/index.js\"",
     "healthcheckPath": "/readyz",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",

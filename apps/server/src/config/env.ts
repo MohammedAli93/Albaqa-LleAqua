@@ -43,6 +43,13 @@ const EnvSchema = z.object({
   STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
 
+  // AI question generation (Claude). When ANTHROPIC_API_KEY is empty, generation
+  // is disabled and games fall back to the seeded package questions.
+  ANTHROPIC_API_KEY: z.string().optional().default(''),
+  QUESTION_MODEL: z.string().default('claude-opus-4-8'),
+  // Target pool size kept per category; a game tops the pool up on demand.
+  QUESTIONS_MIN_PER_CATEGORY: z.coerce.number().int().default(30),
+
   SENTRY_DSN: z.string().optional().default(''),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default(''),
   OTEL_SERVICE_NAME: z.string().default('tahaddi-server'),

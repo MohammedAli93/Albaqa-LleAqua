@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Check, Users } from 'lucide-react';
+import { Check, Users } from 'lucide-react';
 import { GameType } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
+import { Spinner } from '../components/Spinner.js';
 import { pickTeam } from '../socket.js';
 
 export function Lobby() {
@@ -19,10 +20,7 @@ export function Lobby() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-5">
         <Avatar avatarId={avatarId} size={120} selected />
         <p className="max-w-full break-words font-display text-4xl font-bold" dir="auto">{nickname}</p>
-        <div className="flex items-center gap-3 text-xl text-ink-secondary">
-          <Loader2 className="animate-spin" />
-          {t(locale, 'waitingHostStart')}
-        </div>
+        <Spinner size={36} label={t(locale, 'waitingHostStart')} />
       </motion.div>
     </div>
   );
@@ -95,9 +93,7 @@ function TeamPicker() {
             <p className="font-display text-lg font-bold" style={{ color: myTeam.color }}>
               {t(locale, 'youAreInTeam', { team: myTeam.name })}
             </p>
-            <div className="flex items-center gap-3 text-ink-secondary">
-              <Loader2 className="animate-spin" /> {t(locale, 'waitingHostStart')}
-            </div>
+            <Spinner size={30} label={t(locale, 'waitingHostStart')} />
           </div>
         ) : (
           <p className="text-ink-secondary">{t(locale, 'chooseTeam')}</p>

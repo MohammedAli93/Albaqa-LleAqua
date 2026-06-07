@@ -8,11 +8,16 @@ import { asyncHandler } from '../../middleware/errorHandler.js';
 import { limiters } from '../../middleware/rateLimit.js';
 import { ok } from '../respond.js';
 import * as roomService from '../../domain/rooms/roomService.js';
-import { listPublicPackages } from '../../domain/content/contentService.js';
+import { listPublicPackages, listCategoryGroups } from '../../domain/content/contentService.js';
 
 export const publicRouter: ExpressRouter = Router();
 
 publicRouter.get('/avatars', (_req, res) => ok(res, { avatars: AVATARS }));
+
+publicRouter.get(
+  '/categories/public',
+  asyncHandler(async (_req, res) => ok(res, { groups: await listCategoryGroups() })),
+);
 
 publicRouter.get(
   '/packages/public',

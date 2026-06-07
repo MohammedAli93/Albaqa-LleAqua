@@ -79,6 +79,21 @@ enum Difficulty {
   EXPERT
 }
 
+/// A top-level grouping of categories (e.g. "الثقافة والمعرفة" → الجغرافيا، التاريخ…).
+/// Drives the grouped category picker shown when the host creates a game.
+model CategoryGroup {
+  id         String     @id @default(uuid())
+  slug       String     @unique
+  nameAr     String
+  nameEn     String
+  color      String     @default("#7C3AED")
+  icon       String?
+  sortOrder  Int        @default(0)
+  categories Category[]
+  createdAt  DateTime   @default(now()) @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @db.Timestamptz
+}
+
 model Category {
   id        String     @id @default(uuid())
   slug      String     @unique
@@ -87,10 +102,16 @@ model Category {
   color     String     @default("#7C3AED")
   icon      String?
   sortOrder Int        @default(0)
+
+  groupId   String?
+  group     CategoryGroup? @relation(fields: [groupId], references: [id])
+
   questions Question[]
   deletedAt DateTime?  @db.Timestamptz
   createdAt DateTime   @default(now()) @db.Timestamptz
   updatedAt DateTime   @updatedAt @db.Timestamptz
+
+  @@index([groupId, sortOrder])
 }
 
 model Question {

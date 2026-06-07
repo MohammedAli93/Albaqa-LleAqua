@@ -41,7 +41,7 @@ export const CATEGORIES: Category[] = [
   { id: 'literature', nameAr: 'أدب', icon: '📚', gradient: ['#6366F1', '#4F46E5'] },
   { id: 'geography', nameAr: 'جغرافيا', icon: '🗺️', gradient: ['#14B8A6', '#0EA5E9'] },
   { id: 'arab', nameAr: 'الوطن العربي', icon: '🌙', gradient: ['#8B5CF6', '#4F46E5'] },
-  { id: 'politics', nameAr: 'سياسة', icon: '🏛️', gradient: ['#0EA5E9', '#2563EB'] },
+  { id: 'religion', nameAr: 'الدين الإسلامي', icon: '🕌', gradient: ['#16A34A', '#15803D'] },
   { id: 'science', nameAr: 'علوم', icon: '🔬', gradient: ['#06B6D4', '#3B82F6'] },
   { id: 'worldcup', nameAr: 'كأس العالم', icon: '🏆', gradient: ['#FACC15', '#F59E0B'] },
 ];

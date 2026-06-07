@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Users, Coins, Swords, ChevronLeft, Plus, X, type LucideIcon } from 'lucide-react';
-import { GameType, GameMode, GAME_LIMITS } from '@tahaddi/shared';
+import { User, Users, Coins, Swords, ChevronLeft, Check, type LucideIcon } from 'lucide-react';
+import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 
@@ -30,12 +30,22 @@ export function Setup({
   const { locale } = useStore();
   const [step, setStep] = useState<1 | 2>(initialType ? 2 : 1);
   const [type, setType] = useState<GameType | null>(initialType);
-  const [teamNames, setTeamNames] = useState<string[]>(['', '']);
+  // Exactly two teams (client requirement): [Team A, Team B].
+  const [teamA, setTeamA] = useState('');
+  const [teamB, setTeamB] = useState('');
   const [bots, setBots] = useState(false);
 
-  const types: { key: GameType; icon: LucideIcon; title: string; tagline: string; grad: string }[] = [
-    { key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'), grad: 'from-brand-violet to-brand-deep' },
-    { key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'), grad: 'from-action-hot to-action' },
+  const types: { key: GameType; icon: LucideIcon; title: string; tagline: string; bullets: string[]; grad: string }[] = [
+    {
+      key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'),
+      bullets: [t(locale, 'individualPoint1'), t(locale, 'individualPoint2'), t(locale, 'individualPoint3')],
+      grad: 'from-brand-violet to-brand-deep',
+    },
+    {
+      key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'),
+      bullets: [t(locale, 'teamsPoint1'), t(locale, 'teamsPoint2'), t(locale, 'teamsPoint3')],
+      grad: 'from-action-hot to-action',
+    },
   ];
   const modes: { key: GameMode; icon: LucideIcon; title: string; desc: string; tint: string }[] = [
     { key: GameMode.POINTS, icon: Coins, title: t(locale, 'pointsGame'), desc: t(locale, 'pointsGameDesc'), tint: 'text-brand-deep' },
@@ -49,17 +59,8 @@ export function Setup({
         ? t(locale, 'nameTeams')
         : t(locale, 'chooseGameMode');
 
-  function setName(i: number, v: string) {
-    setTeamNames((ns) => ns.map((n, idx) => (idx === i ? v.slice(0, 24) : n)));
-  }
-  function addTeam() {
-    setTeamNames((ns) => (ns.length < GAME_LIMITS.MAX_TEAMS ? [...ns, ''] : ns));
-  }
-  function removeTeam(i: number) {
-    setTeamNames((ns) => (ns.length > GAME_LIMITS.MIN_TEAMS ? ns.filter((_, idx) => idx !== i) : ns));
-  }
   function createTeams() {
-    const names = teamNames.map((n, i) => n.trim() || `الفريق ${i + 1}`);
+    const names = [teamA.trim() || 'الفريق الأول', teamB.trim() || 'الفريق الثاني'];
     onConfirm({ type: GameType.TEAMS, mode: GameMode.POINTS, teamNames: names, demo: bots });
   }
 
@@ -84,20 +85,37 @@ export function Setup({
 
         {step === 1 ? (
           // ── Step 1: type — big one-tap cards ──
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-7">
             {types.map((ty) => {
               const Icon = ty.icon;
               return (
                 <button
                   key={ty.key}
                   onClick={() => { setType(ty.key); setStep(2); }}
-                  className="group glass flex flex-col items-center gap-4 rounded-xl3 p-8 text-center transition hover:-translate-y-1 hover:shadow-glow lg:gap-5 lg:p-12"
+                  className="group relative overflow-hidden rounded-xl4 text-start shadow-card transition hover:-translate-y-1 hover:shadow-glow"
                 >
-                  <span className={`grid h-24 w-24 place-items-center rounded-[2rem] bg-gradient-to-br ${ty.grad} text-white shadow-glow transition group-hover:scale-105 lg:h-32 lg:w-32`}>
-                    <Icon className="h-12 w-12 lg:h-16 lg:w-16" strokeWidth={2.2} />
-                  </span>
-                  <span className="font-display text-3xl font-black lg:text-5xl">{ty.title}</span>
-                  <span className="font-display text-lg font-bold text-ink-secondary lg:text-2xl">{ty.tagline}</span>
+                  {/* Gradient header band */}
+                  <div className={`relative flex items-center gap-4 bg-gradient-to-br ${ty.grad} px-7 pb-9 pt-7 text-white lg:gap-5 lg:px-9 lg:pt-9`}>
+                    <span className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/15 blur-2xl" />
+                    <span className="grid h-20 w-20 shrink-0 place-items-center rounded-[1.75rem] bg-white/20 backdrop-blur-sm ring-1 ring-white/30 transition group-hover:scale-105 lg:h-24 lg:w-24">
+                      <Icon className="h-10 w-10 lg:h-12 lg:w-12" strokeWidth={2.3} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-display text-4xl font-black leading-tight drop-shadow-sm lg:text-5xl">{ty.title}</span>
+                      <span className="mt-1 block font-display text-xl font-bold text-white/90 lg:text-2xl">{ty.tagline}</span>
+                    </span>
+                  </div>
+                  {/* Body — value bullets */}
+                  <div className="-mt-4 rounded-t-[1.75rem] bg-bg-raised px-7 pb-7 pt-6 lg:px-9">
+                    <ul className="space-y-3">
+                      {ty.bullets.map((b) => (
+                        <li key={b} className="flex items-start gap-3 text-lg leading-snug text-ink-secondary lg:text-xl">
+                          <Check size={22} className="mt-0.5 shrink-0 text-action" strokeWidth={3} />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </button>
               );
             })}
@@ -107,46 +125,20 @@ export function Setup({
             <BotsToggle bots={bots} onToggle={() => setBots((b) => !b)} />
 
             {type === GameType.TEAMS ? (
-              // ── Step 2b: name the teams, then create (points only) ──
+              // ── Step 2b: name exactly two teams, then create (points only) ──
               <>
-                <div className="space-y-3">
-                  {teamNames.map((name, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <span
-                        className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl font-display text-xl font-black text-white"
-                        style={{ background: TEAM_TINT[i % TEAM_TINT.length] }}
-                      >
-                        {i + 1}
-                      </span>
-                      <input
-                        value={name}
-                        onChange={(e) => setName(i, e.target.value)}
-                        dir="auto"
-                        placeholder={t(locale, 'teamNamePlaceholder')}
-                        aria-label={t(locale, 'teamNameLabel', { n: i + 1 })}
-                        className="w-full rounded-2xl bg-bg-sunken px-5 py-4 text-xl font-bold text-ink-primary outline-none focus:ring-2 focus:ring-brand-deep lg:text-2xl"
-                      />
-                      {teamNames.length > GAME_LIMITS.MIN_TEAMS && (
-                        <button
-                          onClick={() => removeTeam(i)}
-                          aria-label="حذف الفريق"
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-bg-sunken text-ink-muted transition hover:text-danger"
-                        >
-                          <X size={20} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  <TeamNameField
+                    color={TEAM_TINT[0]!} badge="A"
+                    label={t(locale, 'teamAName')} placeholder={t(locale, 'teamAPlaceholder')}
+                    value={teamA} onChange={(v) => setTeamA(v.slice(0, 24))}
+                  />
+                  <TeamNameField
+                    color={TEAM_TINT[1]!} badge="B"
+                    label={t(locale, 'teamBName')} placeholder={t(locale, 'teamBPlaceholder')}
+                    value={teamB} onChange={(v) => setTeamB(v.slice(0, 24))}
+                  />
                 </div>
-
-                {teamNames.length < GAME_LIMITS.MAX_TEAMS && (
-                  <button
-                    onClick={addTeam}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-muted/30 py-3 font-display text-lg font-bold text-ink-secondary transition hover:border-brand-deep hover:text-brand-deep"
-                  >
-                    <Plus size={20} /> فريق آخر
-                  </button>
-                )}
 
                 <button
                   onClick={createTeams}
@@ -183,7 +175,33 @@ export function Setup({
   );
 }
 
-const TEAM_TINT = ['#4F46E5', '#14B8A6', '#FB7185', '#F59E0B', '#22C55E', '#A855F7', '#0EA5E9', '#EF4444'];
+const TEAM_TINT = ['#4F46E5', '#FB7185'];
+
+function TeamNameField({
+  color, badge, label, placeholder, value, onChange,
+}: {
+  color: string; badge: string; label: string; placeholder: string;
+  value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex items-center gap-3">
+      <span
+        className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl font-display text-2xl font-black text-white lg:h-16 lg:w-16"
+        style={{ background: color }}
+      >
+        {badge}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        dir="auto"
+        placeholder={placeholder}
+        aria-label={label}
+        className="w-full rounded-2xl bg-bg-sunken px-5 py-4 text-xl font-bold text-ink-primary outline-none focus:ring-2 focus:ring-brand-deep lg:text-2xl"
+      />
+    </label>
+  );
+}
 
 function BotsToggle({ bots, onToggle }: { bots: boolean; onToggle: () => void }) {
   return (

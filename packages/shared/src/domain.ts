@@ -145,6 +145,9 @@ export interface GameSettings {
   scoringMode?: ScoringMode;
   /** Optional display name for the tournament/session (البطولة). */
   tournamentName?: string;
+  /** Chosen trivia category (id). When set, the room's questions are drawn from
+   *  this category (generated on demand) instead of the package's question list. */
+  categoryId?: string;
 }
 
 export const GAME_LIMITS = {
@@ -155,7 +158,7 @@ export const GAME_LIMITS = {
   MIN_LIVES: 1,
   MAX_LIVES: 5,
   MIN_TEAMS: 2,
-  MAX_TEAMS: 8,
+  MAX_TEAMS: 2, // client requirement: team mode is exactly two teams (Team A / Team B)
   MIN_PLAYERS_PER_TEAM: 1,
   MAX_PLAYERS_PER_TEAM: 20,
   NICKNAME_MIN: 2,

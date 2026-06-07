@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import {
   Trophy, Medal, LogOut, Play as PlayIcon, ScanLine, Tv, QrCode, Users, Coins, Swords,
-  Dumbbell, Drama, Palette, Landmark, BookOpen, Globe2, Moon, Scale, FlaskConical,
+  Dumbbell, Drama, Palette, Landmark, BookOpen, Globe2, Moon, FlaskConical,
   type LucideIcon,
 } from 'lucide-react';
 import { useStore } from '../../store.js';
@@ -22,7 +22,7 @@ function Step({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
 
 const CAT_ICON: Record<string, LucideIcon> = {
   sports: Dumbbell, culture: Drama, arts: Palette, history: Landmark, literature: BookOpen,
-  geography: Globe2, arab: Moon, politics: Scale, science: FlaskConical, worldcup: Trophy,
+  geography: Globe2, arab: Moon, religion: Moon, science: FlaskConical, worldcup: Trophy,
 };
 export function Home() {
   const { account, set } = useStore();
