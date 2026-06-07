@@ -356,6 +356,8 @@ export interface AnswerResultPayload {
 
 export interface ScoreUpdatePayload {
   leaderboard: RankedEntry[];
+  /** TEAMS mode: refreshed team totals so the screen updates each round. */
+  teams?: TeamPublic[];
 }
 
 export interface PlayerEliminatedPayload {

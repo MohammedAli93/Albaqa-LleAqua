@@ -197,7 +197,7 @@ export const useStore = create<ScreenState>((set) => ({
         }
         case ServerEvent.SCORE_UPDATE: {
           const p = payload as ScoreUpdatePayload;
-          return { leaderboard: p.leaderboard };
+          return p.teams ? { leaderboard: p.leaderboard, teams: p.teams } : { leaderboard: p.leaderboard };
         }
         case ServerEvent.PLAYER_ELIMINATED: {
           const p = payload as PlayerEliminatedPayload;

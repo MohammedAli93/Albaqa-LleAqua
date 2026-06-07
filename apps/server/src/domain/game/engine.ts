@@ -38,6 +38,7 @@ import {
   buildSnapshot,
   buildLeaderboard,
   toPublicParticipant,
+  publicTeams,
 } from './snapshot.js';
 import * as fsm from './fsm.js';
 import {
@@ -507,8 +508,12 @@ export async function resolveRound(gameId: string): Promise<void> {
       });
     }
 
-    // Leaderboard with deltas.
-    emitter.toRoom(gameId, ServerEvent.SCORE_UPDATE, { leaderboard: buildLeaderboard(state, deltas) });
+    // Leaderboard with deltas. TEAMS games also carry refreshed team totals so the
+    // screen updates the team scores every round (the +1-per-round team scoring).
+    emitter.toRoom(gameId, ServerEvent.SCORE_UPDATE, {
+      leaderboard: buildLeaderboard(state, deltas),
+      ...(state.type === GameType.TEAMS ? { teams: publicTeams(state) } : {}),
+    });
 
     // Eliminations.
     if (eliminatedIds.length) {
