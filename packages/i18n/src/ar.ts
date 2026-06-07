@@ -2,7 +2,7 @@
  *  Tone: simple, friendly, clear — short sentences, suitable for all ages,
  *  no technical words. Pan-Arab MSA-light so everyone understands. */
 const ar = {
-  appName: 'تحدّي',
+  appName: 'البقاء للأقوى',
   // lobby / join
   scanToJoin: 'امسح الكود وادخل',
   roomCode: 'كود الغرفة',
@@ -62,7 +62,7 @@ const ar = {
   pointsGame: 'لعبة النقاط',
   pointsGameDesc: 'اجمع أكثر نقاط وتفوز',
   eliminationGame: 'لعبة التصفيات',
-  eliminationGameDesc: 'كل خطأ يقرّبك للخروج — وآخر من يصمد يفوز',
+  eliminationGameDesc: 'كل خطأ يقرّبك للخروج — والبقاء للأقوى',
   seenJeem: 'سين جيم',
   next: 'التالي',
   back: 'رجوع',
