@@ -29,7 +29,7 @@ export function Lobby() {
           className="glass-strong mt-6 flex flex-col items-center gap-4 rounded-xl3 p-6 lg:mt-0 lg:gap-6 lg:p-12"
         >
           <p className="font-display text-2xl font-bold lg:text-4xl">{t(locale, 'scanToJoin')}</p>
-          <div className="w-full max-w-[15rem] rounded-xl3 bg-white p-4 shadow-glow lg:max-w-none lg:p-6">
+          <div className="w-full max-w-[13rem] rounded-xl3 bg-white p-4 shadow-glow lg:max-w-[17rem] lg:p-5">
             <QRCodeSVG value={joinUrl} size={280} level="M" className="h-auto w-full" />
           </div>
           <div className="text-center">
