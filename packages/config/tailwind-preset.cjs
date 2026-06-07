@@ -40,21 +40,24 @@ module.exports = {
       // 75" TV, with min/max caps so desktop & tablet stay balanced. Intended for
       // the full-viewport `apps/screen` host display (do NOT use in the phone
       // controller — its constrained column makes vw units misbehave).
+      // Arabic glyphs hang below the baseline, so word tokens get generous
+      // line-height (≥1.3) to avoid clipped descenders inside truncate/overflow.
+      // Number tokens (score/ranknum/code/timer — digits only) stay tight.
       fontSize: {
-        'screen-brand': ['clamp(1rem, 1.4vw, 1.75rem)', { lineHeight: '1.1' }],
-        'screen-meta': ['clamp(0.95rem, 1.35vw, 1.6rem)', { lineHeight: '1.2' }],
-        'screen-status': ['clamp(1.1rem, 1.7vw, 1.9rem)', { lineHeight: '1.3' }],
+        'screen-brand': ['clamp(1rem, 1.4vw, 1.75rem)', { lineHeight: '1.3' }],
+        'screen-meta': ['clamp(0.95rem, 1.35vw, 1.6rem)', { lineHeight: '1.35' }],
+        'screen-status': ['clamp(1.1rem, 1.7vw, 1.9rem)', { lineHeight: '1.35' }],
         'screen-timer': ['clamp(1.25rem, 1.9vw, 2.15rem)', { lineHeight: '1' }],
-        'screen-answer': ['clamp(1.15rem, 1.9vw, 2.2rem)', { lineHeight: '1.18' }],
-        'screen-rankname': ['clamp(1.2rem, 1.8vw, 2rem)', { lineHeight: '1.15' }],
+        'screen-answer': ['clamp(1.15rem, 1.9vw, 2.2rem)', { lineHeight: '1.35' }],
+        'screen-rankname': ['clamp(1.2rem, 1.8vw, 2rem)', { lineHeight: '1.35' }],
         'screen-ranknum': ['clamp(1.5rem, 2.2vw, 2.75rem)', { lineHeight: '1' }],
         'screen-score': ['clamp(1.6rem, 2.5vw, 3rem)', { lineHeight: '1' }],
-        'screen-team': ['clamp(1.5rem, 2.7vw, 3.25rem)', { lineHeight: '1.1' }],
-        'screen-question': ['clamp(1.6rem, 3.1vw, 3.5rem)', { lineHeight: '1.18' }],
-        'screen-title': ['clamp(1.75rem, 3.3vw, 4rem)', { lineHeight: '1.15' }],
+        'screen-team': ['clamp(1.5rem, 2.7vw, 3.25rem)', { lineHeight: '1.4' }],
+        'screen-question': ['clamp(1.6rem, 3.1vw, 3.5rem)', { lineHeight: '1.3' }],
+        'screen-title': ['clamp(1.75rem, 3.3vw, 4rem)', { lineHeight: '1.3' }],
         'screen-code': ['clamp(2.75rem, 7.5vw, 7.5rem)', { lineHeight: '1' }],
-        'screen-name': ['clamp(2.25rem, 6vw, 6.5rem)', { lineHeight: '1.05' }],
-        'screen-champion': ['clamp(3rem, 9vw, 9.5rem)', { lineHeight: '1' }],
+        'screen-name': ['clamp(2.25rem, 6vw, 6.5rem)', { lineHeight: '1.3' }],
+        'screen-champion': ['clamp(3rem, 9vw, 9.5rem)', { lineHeight: '1.22' }],
       },
       borderRadius: { xl2: '1.25rem', xl3: '1.75rem', xl4: '2.25rem' },
       boxShadow: {
