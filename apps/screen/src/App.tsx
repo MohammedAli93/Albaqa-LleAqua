@@ -18,6 +18,7 @@ import { connectHost } from './socket.js';
 import { startDemoBots } from './demo.js';
 import { initSfxGesture } from './lib/sfx.js';
 import { ParticleField } from './components/ParticleField.js';
+import { Brand } from './components/Brand.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { Setup } from './scenes/Setup.js';
 import { Lobby } from './scenes/Lobby.js';
@@ -202,8 +203,8 @@ export default function App() {
             className="fixed inset-0 z-50 grid place-items-center bg-bg-base/80 backdrop-blur-md"
           >
             <div className="flex flex-col items-center gap-4">
-              <PauseCircle size={80} className="text-brand-cyan animate-pulse-glow" />
-              <p className="font-display text-5xl font-bold">{t(locale, 'paused')}</p>
+              <PauseCircle size={88} className="text-brand-cyan animate-pulse-glow" />
+              <p className="font-display text-screen-title font-bold">{t(locale, 'paused')}</p>
             </div>
           </motion.div>
         )}
@@ -232,8 +233,9 @@ function Connecting({ label }: { label: string }) {
   return (
     <div className="grid min-h-dvh place-items-center lg:h-full">
       <div className="flex flex-col items-center gap-6">
-        <Loader2 size={64} className="animate-spin text-brand-violet" />
-        <p className="font-display text-3xl font-bold text-ink-secondary">{label}</p>
+        <Brand className="mb-2 text-screen-title" />
+        <Loader2 size={72} className="animate-spin text-brand-violet" />
+        <p className="font-display text-screen-status font-bold text-ink-secondary">{label}</p>
       </div>
     </div>
   );

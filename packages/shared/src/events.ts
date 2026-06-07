@@ -164,6 +164,8 @@ export const RankedEntrySchema = z.object({
   rank: z.number().int(),
   score: z.number().int(),
   delta: z.number().int(),
+  /** Remaining lives — ELIMINATION mode (drives the hearts display). */
+  lives: z.number().int(),
   status: zEnum(ParticipantStatus),
   teamId: z.string().optional(),
 });

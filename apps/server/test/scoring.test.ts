@@ -40,7 +40,7 @@ describe('scoreRound — individual', () => {
     });
     const state = makeRoom(
       [p1, p2, p3],
-      { mode: GameMode.ELIMINATION, currentRound: round },
+      { mode: GameMode.POINTS, currentRound: round },
       { scoringMode: ScoringMode.SPEED },
     );
 
@@ -53,6 +53,15 @@ describe('scoreRound — individual', () => {
     expect(byId.p2!.pointsAwarded).toBe(0);
     expect(byId.p3!.isCorrect).toBe(false);
     expect(byId.p3!.responseMs).toBe(15000); // full window for a timeout
+  });
+
+  it('elimination mode awards no points (survival only)', () => {
+    const p1 = makeParticipant('p1');
+    const round = makeRound({ answers: { p1: { optionId: 'a', serverTs: 1_002_000 } } });
+    const state = makeRoom([p1], { mode: GameMode.ELIMINATION, currentRound: round });
+    const { outcomes } = scoreRound(state, round);
+    expect(outcomes[0]!.isCorrect).toBe(true);
+    expect(outcomes[0]!.pointsAwarded).toBe(0); // no scoring in elimination
   });
 
   it('placement (points mode): ranks correct answers 3 / 2 / 1', () => {
@@ -151,9 +160,25 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     expect(heroA.participantId).toBe('a1');
 
     applyResolution(state, round, scored);
-    // Placement: team A first (3) → its hero a1 has 3; team B second (2).
-    expect(state.teams.A!.score).toBe(3);
-    expect(state.teams.B!.score).toBe(2);
+    // Flat +1 per team that answered first-correct (score is TEAM-owned, not summed
+    // from players). Both teams answered, so both gain exactly one point.
+    expect(state.teams.A!.score).toBe(1);
+    expect(state.teams.B!.score).toBe(1);
+    // No per-player scoreboard in team mode — players carry no points.
+    expect(state.participants.a1!.score).toBe(0);
+  });
+
+  it('accumulates one team point per round won (not per player)', () => {
+    const { a1, a2, b1, teams } = teamRoom();
+    const state = makeRoom([a1, a2, b1], { type: GameType.TEAMS, mode: GameMode.POINTS, teams });
+    // Round 1: both A members correct (A first), B wrong → only A scores.
+    const r1 = makeRound({ answers: { a1: { optionId: 'a', serverTs: 1_002_000 }, a2: { optionId: 'a', serverTs: 1_003_000 }, b1: { optionId: 'b', serverTs: 1_001_000 } } });
+    applyResolution(state, r1, scoreRound({ ...state, currentRound: r1 }, r1));
+    // Round 2: A correct again.
+    const r2 = makeRound({ answers: { a1: { optionId: 'a', serverTs: 1_002_000 } } });
+    applyResolution(state, r2, scoreRound({ ...state, currentRound: r2 }, r2));
+    expect(state.teams.A!.score).toBe(2); // two rounds won = 2 points (not 2× members)
+    expect(state.teams.B!.score).toBe(0);
   });
 
   it('team mode is points-only: no team ever loses a life or gets eliminated', () => {
@@ -196,6 +221,15 @@ describe('evaluateWinCondition', () => {
       mode: GameMode.ELIMINATION,
     });
     expect(evaluateWinCondition(state, false).isOver).toBe(false);
+  });
+
+  it('elimination: on exhaustion the winner is the survivor with most lives (not score)', () => {
+    const p1 = makeParticipant('p1', { lives: 1, score: 10 });
+    const p2 = makeParticipant('p2', { lives: 3, score: 0 }); // fewer points, more lives → wins
+    const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION });
+    const win = evaluateWinCondition(state, true);
+    expect(win.isOver).toBe(true);
+    expect(win.winnerId).toBe('p2');
   });
 
   it('points: only ends on question exhaustion, highest score wins', () => {

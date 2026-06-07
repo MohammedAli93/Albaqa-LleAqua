@@ -1,13 +1,16 @@
 import { motion } from 'framer-motion';
 import { Check, X, Clock, Zap } from 'lucide-react';
-import { GameType } from '@tahaddi/shared';
+import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { Hearts } from '../components/Hearts.js';
 
 /** Shown after personal result arrives, or while waiting for results (locked). */
 export function Result() {
-  const { phase, lastResult, myScore, myLives, locale, gameType, lastHeroes, myTeamId } = useStore();
-  const myHero = gameType === GameType.TEAMS ? lastHeroes.find((h) => h.teamId === myTeamId) : undefined;
+  const { phase, lastResult, myScore, myLives, locale, gameType, gameMode, lastHeroes, myTeamId } = useStore();
+  const isTeams = gameType === GameType.TEAMS;
+  const isElimination = gameMode === GameMode.ELIMINATION;
+  const myHero = isTeams ? lastHeroes.find((h) => h.teamId === myTeamId) : undefined;
 
   if (phase === 'locked') {
     return (
@@ -37,9 +40,13 @@ export function Result() {
           {correct ? <Check size={64} color="white" /> : <X size={64} color="white" />}
         </div>
         <p className="font-display text-4xl font-black">{correct ? t(locale, 'correct') : t(locale, 'wrong')}</p>
-        {lastResult && lastResult.pointsAwarded > 0 && (
+
+        {/* Individual POINTS only: the personal points gained this round. */}
+        {!isTeams && !isElimination && lastResult && lastResult.pointsAwarded > 0 && (
           <p className="tnum font-display text-3xl font-bold text-success">+{lastResult.pointsAwarded}</p>
         )}
+
+        {/* Teams: who earned the team's point (the score is team-owned). */}
         {myHero && (
           <div className="glass flex items-center gap-2 rounded-xl2 px-4 py-3 text-start">
             <Zap size={20} className="shrink-0 text-prize-gold" />
@@ -48,10 +55,14 @@ export function Result() {
             </span>
           </div>
         )}
-        <div className="flex gap-8 text-ink-secondary">
-          <span>{t(locale, 'score')}: <b className="tnum text-ink-primary">{myScore}</b></span>
-          <span>{t(locale, 'lives')}: <b className="tnum text-ink-primary">{myLives}</b></span>
-        </div>
+
+        {/* Status row — hearts for elimination, score for individual points,
+            nothing for teams (the team total lives on the big screen). */}
+        {isElimination ? (
+          <Hearts lives={myLives} size={30} />
+        ) : !isTeams ? (
+          <span className="text-ink-secondary">{t(locale, 'score')}: <b className="tnum text-ink-primary">{myScore}</b></span>
+        ) : null}
       </motion.div>
     </div>
   );

@@ -110,43 +110,31 @@ function scoreIndividual(state: RoomState, round: LiveRound, outcomes: AnswerOut
 }
 
 /**
- * TEAMS scoring: for each team, the FIRST correct member (by server time) is the
- * hero and earns the team's point; every other member earns 0 (no double-score).
- * Teams are then ranked by their hero's response time for placement, or the hero
- * gets a speed bonus in ELIMINATION mode.
+ * TEAMS scoring (client rule): the score belongs to the TEAM, not the player.
+ * For each team, the FIRST correct member (by server time) is the hero and earns
+ * the team a FLAT +1 — never placement/speed, never per-player accumulation.
+ * Both teams can earn +1 in the same round (each team's own first-correct).
  */
-function scoreTeams(state: RoomState, round: LiveRound, outcomes: AnswerOutcome[]): TeamHero[] {
+function scoreTeams(state: RoomState, outcomes: AnswerOutcome[]): TeamHero[] {
   const byParticipant = new Map(outcomes.map((o) => [o.participantId, o]));
 
   // First correct outcome per team.
   const heroOutcomeByTeam = new Map<string, AnswerOutcome>();
   for (const o of outcomes) {
     if (!o.isCorrect) continue;
-    const p = state.participants[o.participantId];
-    const teamId = p?.teamId;
+    const teamId = state.participants[o.participantId]?.teamId;
     if (!teamId) continue;
     const current = heroOutcomeByTeam.get(teamId);
     if (!current || o.responseMs < current.responseMs) heroOutcomeByTeam.set(teamId, o);
   }
 
-  const placement = effectiveScoringMode(state) === ScoringMode.PLACEMENT;
-  const windowMs = round.timeLimitSec * 1000;
-
-  // Rank the teams' heroes by speed for placement scoring.
-  const ranked = [...heroOutcomeByTeam.entries()].sort(
-    (a, b) => a[1].responseMs - b[1].responseMs,
-  );
-
   const heroes: TeamHero[] = [];
-  ranked.forEach(([teamId, heroOutcome], rank) => {
-    const points = placement
-      ? placementPoints(rank)
-      : computePoints(round.basePoints, round.speedBonus, heroOutcome.responseMs, windowMs);
+  for (const [teamId, heroOutcome] of heroOutcomeByTeam) {
     const o = byParticipant.get(heroOutcome.participantId)!;
-    o.pointsAwarded = points;
+    o.pointsAwarded = 1; // flat — display only; the +1 is applied to the TEAM total
     o.isTeamHero = true;
-    heroes.push({ teamId, participantId: heroOutcome.participantId, pointsAwarded: points });
-  });
+    heroes.push({ teamId, participantId: heroOutcome.participantId, pointsAwarded: 1 });
+  }
   return heroes;
 }
 
@@ -154,23 +142,16 @@ function scoreTeams(state: RoomState, round: LiveRound, outcomes: AnswerOutcome[
 export function scoreRound(state: RoomState, round: LiveRound): ScoredRound {
   const outcomes = baseOutcomes(state, round);
   if (state.type === GameType.TEAMS) {
-    const heroes = scoreTeams(state, round, outcomes);
-    return { outcomes, heroes };
+    return { outcomes, heroes: scoreTeams(state, outcomes) };
   }
-  scoreIndividual(state, round, outcomes);
+  // INDIVIDUAL: points are a POINTS-mode concept only. Elimination is survival-only
+  // (no score is awarded or shown — ranking is by lives / elimination order).
+  if (state.mode === GameMode.POINTS) scoreIndividual(state, round, outcomes);
   return { outcomes, heroes: [] };
 }
 
 export interface ResolutionResult {
   eliminatedIds: string[];
-}
-
-/** Recompute every team's aggregate score from its members' personal scores. */
-function recomputeTeamScores(state: RoomState): void {
-  for (const team of Object.values(state.teams)) team.score = 0;
-  for (const p of Object.values(state.participants)) {
-    if (p.teamId && state.teams[p.teamId]) state.teams[p.teamId]!.score += p.score;
-  }
 }
 
 /**
@@ -182,19 +163,25 @@ export function applyResolution(
   round: LiveRound,
   scored: ScoredRound,
 ): ResolutionResult {
-  const eliminatedIds: string[] = [];
-  const elimination = state.mode === GameMode.ELIMINATION;
+  // TEAMS: the score is TEAM-owned. Each team that answered first-correct gets a
+  // flat +1 added straight to the team total — no per-player scoreboard exists.
+  if (state.type === GameType.TEAMS) {
+    for (const hero of scored.heroes) {
+      const team = state.teams[hero.teamId];
+      if (team) team.score += 1;
+    }
+    return { eliminatedIds: [] };
+  }
 
-  // Award personal points (heroes carry the team's point; others earned 0).
+  // INDIVIDUAL: award personal points (POINTS mode only; elimination awards none).
   for (const o of scored.outcomes) {
     const p = state.participants[o.participantId];
     if (p) p.score += o.pointsAwarded;
   }
 
-  // Elimination only applies to INDIVIDUAL games. Team mode is points-only — teams
-  // never lose lives or get eliminated; they just accumulate points.
-  if (elimination && state.type === GameType.INDIVIDUAL) {
-    // INDIVIDUAL elimination: a wrong (or missing) answer costs a life.
+  const eliminatedIds: string[] = [];
+  if (state.mode === GameMode.ELIMINATION) {
+    // A wrong (or missing) answer costs a life; 0 lives → eliminated this round.
     for (const o of scored.outcomes) {
       const p = state.participants[o.participantId];
       if (!p || o.isCorrect) continue;
@@ -206,8 +193,6 @@ export function applyResolution(
       }
     }
   }
-
-  if (state.type === GameType.TEAMS) recomputeTeamScores(state);
   return { eliminatedIds };
 }
 
@@ -227,15 +212,31 @@ export interface WinCondition {
 }
 
 /**
+ * Survival ranking comparator for ELIMINATION mode (sort ascending → best first).
+ * Order: still-alive before eliminated → more lives first → eliminated later
+ * (higher eliminatedRound) ranks above those out earlier → earliest joinOrder.
+ * Score is intentionally NOT used — elimination is purely about survival.
+ */
+export function compareSurvival(a: LiveParticipant, b: LiveParticipant): number {
+  const aAlive = a.status !== ParticipantStatus.ELIMINATED;
+  const bAlive = b.status !== ParticipantStatus.ELIMINATED;
+  if (aAlive !== bAlive) return aAlive ? -1 : 1;
+  if (a.lives !== b.lives) return b.lives - a.lives;
+  const ar = a.eliminatedRound ?? Number.POSITIVE_INFINITY;
+  const br = b.eliminatedRound ?? Number.POSITIVE_INFINITY;
+  if (ar !== br) return br - ar; // eliminated later → better rank
+  return a.joinOrder - b.joinOrder;
+}
+
+/**
  * Determine whether the game is over and who won.
  *  - POINTS: never eliminates — ends when the rounds run out; highest total wins.
- *  - ELIMINATION (INDIVIDUAL only): ends at ≤1 active player, or when rounds run out.
+ *  - ELIMINATION (INDIVIDUAL only): ends at ≤1 active player, or when rounds run out;
+ *    the winner is the last survivor (survival ranking, NOT score).
  *  - TEAMS: always points-based — ends when rounds run out; highest team score wins.
- *  Ties break by score, then earliest joinOrder / team order.
  */
 export function evaluateWinCondition(state: RoomState, questionsExhausted: boolean): WinCondition {
   if (state.type === GameType.TEAMS) {
-    // Team mode is points-only: play out all rounds, highest team score wins.
     if (!questionsExhausted) return { isOver: false };
     return { isOver: true, winnerTeamId: pickTopTeam(Object.values(state.teams))?.id };
   }
@@ -248,7 +249,7 @@ export function evaluateWinCondition(state: RoomState, questionsExhausted: boole
 
   const active = activeParticipants(state);
   if (active.length <= 1 || questionsExhausted) {
-    const winner = pickTopParticipant(active.length ? active : Object.values(state.participants));
+    const winner = [...Object.values(state.participants)].sort(compareSurvival)[0];
     return { isOver: true, winnerId: winner?.id };
   }
   return { isOver: false };
@@ -259,5 +260,5 @@ function pickTopParticipant(list: LiveParticipant[]): LiveParticipant | undefine
 }
 
 function pickTopTeam(list: LiveTeam[]): LiveTeam | undefined {
-  return [...list].sort((a, b) => b.lives - a.lives || b.score - a.score)[0];
+  return [...list].sort((a, b) => b.score - a.score)[0];
 }

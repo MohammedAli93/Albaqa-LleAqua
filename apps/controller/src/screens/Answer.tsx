@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+import { GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { Hearts } from '../components/Hearts.js';
 import { submitAnswer } from '../socket.js';
 import { haptic } from '../hooks/useDevice.js';
 
@@ -9,8 +11,9 @@ const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 export function Answer() {
-  const { question, roundId, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, locale } = useStore();
+  const { question, roundId, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, locale } = useStore();
   if (!question || !roundId) return null;
+  const isElimination = gameMode === GameMode.ELIMINATION;
 
   const onPick = (optionId: string) => {
     if (hasAnswered) return;
@@ -85,7 +88,7 @@ export function Answer() {
       </div>
 
       <div className="mt-4 shrink-0 flex items-center justify-between text-ink-secondary">
-        <span>{t(locale, 'lives')}: <span className="tnum font-bold text-ink-primary">{myLives}</span></span>
+        {isElimination ? <Hearts lives={myLives} size={26} /> : <span />}
         {hasAnswered && <span className="font-bold text-prize-gold animate-pulse-glow">{t(locale, 'answerLocked')}</span>}
       </div>
     </div>

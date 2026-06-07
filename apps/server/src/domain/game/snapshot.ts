@@ -1,5 +1,7 @@
 /** Build client-facing projections from authoritative RoomState. */
 import {
+  GameMode,
+  GameType,
   ParticipantStatus,
   SeenJeemPhase,
   type PublicParticipant,
@@ -9,6 +11,7 @@ import {
   type TeamPublic,
 } from '@tahaddi/shared';
 import type { RoomState, LiveParticipant, LiveSeenJeem } from '../rooms/types.js';
+import { compareSurvival } from './scoring.js';
 
 export function toPublicParticipant(p: LiveParticipant): PublicParticipant {
   return {
@@ -45,14 +48,18 @@ export function publicTeams(state: RoomState): TeamPublic[] {
 /**
  * Ranked leaderboard. `delta` carries the points gained in the last resolution
  * if provided, so the screen can flash score changes.
+ *
+ * Ranking depends on mode: POINTS (and TEAMS) rank by score; INDIVIDUAL
+ * ELIMINATION ranks by survival (lives → elimination order), never by score.
  */
 export function buildLeaderboard(
   state: RoomState,
   deltas: Record<string, number> = {},
 ): RankedEntry[] {
-  const ranked = visibleParticipants(state).sort(
-    (a, b) => b.score - a.score || a.joinOrder - b.joinOrder,
-  );
+  const isElimination = state.type === GameType.INDIVIDUAL && state.mode === GameMode.ELIMINATION;
+  const ranked = isElimination
+    ? [...visibleParticipants(state)].sort(compareSurvival)
+    : [...visibleParticipants(state)].sort((a, b) => b.score - a.score || a.joinOrder - b.joinOrder);
   return ranked.map((p, i) => ({
     participantId: p.id,
     nickname: p.nickname,
@@ -60,6 +67,7 @@ export function buildLeaderboard(
     rank: i + 1,
     score: p.score,
     delta: deltas[p.id] ?? 0,
+    lives: p.lives,
     status: p.status,
     teamId: p.teamId,
   }));

@@ -2,9 +2,10 @@ import { motion } from 'framer-motion';
 import { Skull } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { Hearts } from '../components/Hearts.js';
 
 export function Eliminated() {
-  const { myRank, myScore, locale } = useStore();
+  const { myRank, locale } = useStore();
   return (
     <div className="grid min-h-dvh place-items-center px-6 text-center">
       <motion.div
@@ -16,12 +17,14 @@ export function Eliminated() {
           <Skull size={96} className="text-danger" />
         </motion.div>
         <p className="font-display text-5xl font-black text-danger">{t(locale, 'eliminated')}</p>
+        {/* All hearts lost — survival is the story, not a score. */}
+        <Hearts lives={0} size={34} />
         {myRank > 0 && (
           <p className="text-2xl text-ink-secondary">
             {t(locale, 'rank')}: <b className="tnum text-ink-primary">#{myRank}</b>
           </p>
         )}
-        <p className="text-xl text-ink-muted">{t(locale, 'score')}: <b className="tnum">{myScore}</b></p>
+        <p className="text-xl text-ink-muted">{t(locale, 'betterLuck')}</p>
       </motion.div>
     </div>
   );
