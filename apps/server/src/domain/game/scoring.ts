@@ -110,32 +110,23 @@ function scoreIndividual(state: RoomState, round: LiveRound, outcomes: AnswerOut
 }
 
 /**
- * TEAMS scoring (client rule): the score belongs to the TEAM, not the player.
- * For each team, the FIRST correct member (by server time) is the hero and earns
- * the team a FLAT +1 — never placement/speed, never per-player accumulation.
- * Both teams can earn +1 in the same round (each team's own first-correct).
+ * TEAMS scoring (client rule): the score belongs to the TEAM, and it's a RACE —
+ * only ONE team wins each round. The single globally-first correct answer (fastest
+ * by server time across everyone) takes a FLAT +1 for its team; the other team gets
+ * nothing. No per-round ties — first correct click wins.
  */
 function scoreTeams(state: RoomState, outcomes: AnswerOutcome[]): TeamHero[] {
-  const byParticipant = new Map(outcomes.map((o) => [o.participantId, o]));
-
-  // First correct outcome per team.
-  const heroOutcomeByTeam = new Map<string, AnswerOutcome>();
+  let best: AnswerOutcome | undefined;
   for (const o of outcomes) {
     if (!o.isCorrect) continue;
-    const teamId = state.participants[o.participantId]?.teamId;
-    if (!teamId) continue;
-    const current = heroOutcomeByTeam.get(teamId);
-    if (!current || o.responseMs < current.responseMs) heroOutcomeByTeam.set(teamId, o);
+    if (!state.participants[o.participantId]?.teamId) continue; // unassigned can't score
+    if (!best || o.responseMs < best.responseMs) best = o;
   }
-
-  const heroes: TeamHero[] = [];
-  for (const [teamId, heroOutcome] of heroOutcomeByTeam) {
-    const o = byParticipant.get(heroOutcome.participantId)!;
-    o.pointsAwarded = 1; // flat — display only; the +1 is applied to the TEAM total
-    o.isTeamHero = true;
-    heroes.push({ teamId, participantId: heroOutcome.participantId, pointsAwarded: 1 });
-  }
-  return heroes;
+  if (!best) return [];
+  const teamId = state.participants[best.participantId]!.teamId!;
+  best.pointsAwarded = 1; // display only; the +1 is applied to the TEAM total
+  best.isTeamHero = true;
+  return [{ teamId, participantId: best.participantId, pointsAwarded: 1 }];
 }
 
 /** Resolve a round: correctness, response times, and points per type/mode. */

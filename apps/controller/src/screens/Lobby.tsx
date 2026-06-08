@@ -10,15 +10,21 @@ import { CategoryPicker } from '../components/CategoryPicker.js';
 import { pickTeam, pickCategory } from '../socket.js';
 
 export function Lobby() {
-  const { nickname, avatarId, locale, gameType, perPlayerCategory, myCategoryId } = useStore();
+  const { nickname, avatarId, locale, gameType, myTeamId, perPlayerCategory, myCategoryId } = useStore();
+  const isTeams = gameType === GameType.TEAMS;
 
-  if (gameType === GameType.TEAMS) {
+  // 1. Teams: pick your team first (Team A / Team B).
+  if (isTeams && !myTeamId) {
     return <TeamPicker />;
   }
-
-  // Per-player-category mode: each player picks their own category before start.
+  // 2. Per-player-category mode: pick your own category (single OR teams) — same
+  //    lobby flow as picking a team.
   if (perPlayerCategory && !myCategoryId) {
     return <CategoryChooser />;
+  }
+  // 3. Teams waiting room (lets you still switch team).
+  if (isTeams) {
+    return <TeamPicker />;
   }
 
   return (

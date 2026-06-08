@@ -150,20 +150,19 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     const scored = scoreRound(state, round);
     const byId = Object.fromEntries(scored.outcomes.map((o) => [o.participantId, o]));
 
-    // a1 was first for team A → hero; a2 earns nothing (no double-score).
+    // Race: a1 was the globally-first correct (1_002_000) → ONLY team A wins.
+    // b1 (1_003_000) and a2 (1_004_000) earn nothing — no per-round tie.
     expect(byId.a1!.isTeamHero).toBe(true);
     expect(byId.a2!.pointsAwarded).toBe(0);
     expect(byId.a2!.isTeamHero).toBeUndefined();
-    // Heroes: team A (1st overall) and team B (2nd overall).
-    expect(scored.heroes.map((h) => h.teamId).sort()).toEqual(['A', 'B']);
-    const heroA = scored.heroes.find((h) => h.teamId === 'A')!;
-    expect(heroA.participantId).toBe('a1');
+    expect(byId.b1!.isTeamHero).toBeUndefined();
+    expect(scored.heroes.map((h) => h.teamId)).toEqual(['A']);
+    expect(scored.heroes[0]!.participantId).toBe('a1');
 
     applyResolution(state, round, scored);
-    // Flat +1 per team that answered first-correct (score is TEAM-owned, not summed
-    // from players). Both teams answered, so both gain exactly one point.
+    // Only one team wins the round (+1). The losing team gets nothing.
     expect(state.teams.A!.score).toBe(1);
-    expect(state.teams.B!.score).toBe(1);
+    expect(state.teams.B!.score).toBe(0);
     // No per-player scoreboard in team mode — players carry no points.
     expect(state.participants.a1!.score).toBe(0);
   });
