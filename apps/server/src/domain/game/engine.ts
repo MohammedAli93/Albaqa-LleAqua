@@ -196,6 +196,17 @@ export async function pickCategory(
     }
     const participant = state.participants[participantId];
     if (!participant) throw new AppError(ErrorCode.NOT_AUTHORIZED, 'لست لاعباً في هذه الغرفة');
+    // Categories are claimed exclusively: a category another active player already
+    // holds can't be taken. (Re-picking your own current category is a no-op.)
+    const taken = Object.values(state.participants).some(
+      (p) =>
+        p.id !== participantId &&
+        p.status !== ParticipantStatus.LEFT &&
+        p.categoryId === categoryId,
+    );
+    if (taken) {
+      throw new AppError(ErrorCode.CONFLICT, 'هذه الفئة اختارها لاعب آخر، اختر فئة أخرى');
+    }
     participant.categoryId = categoryId;
     await saveRoom(state);
     return state;

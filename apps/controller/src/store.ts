@@ -5,6 +5,7 @@ import {
   GameType,
   GameMode,
   type RoomSnapshot,
+  type PublicParticipant,
   type PublicQuestion,
   type QuestionShowPayload,
   type QuestionRevealPayload,
@@ -44,6 +45,8 @@ export interface ControllerState {
   gameMode: GameMode;
   teams: TeamPublic[];
   lastHeroes: RoundHero[];
+  /** Everyone in the room — used to know which categories are already claimed. */
+  participants: PublicParticipant[];
 
   question: PublicQuestion | null;
   roundId: string | null;
@@ -92,6 +95,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   gameMode: GameMode.POINTS,
   teams: [],
   lastHeroes: [],
+  participants: [],
   question: null,
   roundId: null,
   endsAt: null,
@@ -132,6 +136,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             gameMode: snap.game.mode,
             teams: snap.teams ?? s.teams,
             lastHeroes: snap.heroes ?? s.lastHeroes,
+            participants: snap.participants ?? s.participants,
             paused: snap.game.status === 'PAUSED',
             question: snap.currentRound?.question ?? null,
             roundId: snap.currentRound?.roundId ?? null,

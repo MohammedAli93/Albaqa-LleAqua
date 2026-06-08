@@ -42,12 +42,23 @@ export function Lobby() {
 }
 
 function CategoryChooser() {
-  const { locale, set } = useStore();
+  const { locale, set, nickname, avatarId, participantId, participants } = useStore();
   const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Categories already claimed by OTHER players — hidden from this picker so each
+  // player ends up with a unique one. (Server enforces it too.)
+  const claimedIds = new Set(
+    participants
+      .filter((p) => p.id !== participantId && p.categoryId)
+      .map((p) => p.categoryId as string),
+  );
 
   async function choose(categoryId: string) {
     if (busy || !categoryId) return;
     setBusy(true);
+    setErr(null);
     // Advance the lobby IMMEDIATELY — don't wait on the socket round-trip. If the
     // connection drops right here the ack is lost, but the UI is already past the
     // picker and the store keeps myCategoryId across snapshots; the reconnect
@@ -56,16 +67,39 @@ function CategoryChooser() {
     try {
       await pickCategory(categoryId);
     } catch {
-      // Hard rejection (not a transient drop) — roll back to the picker.
+      // Hard rejection (e.g. someone grabbed it first) — roll back to the picker.
       set({ myCategoryId: null });
+      setErr(t(locale, 'categoryTaken'));
+      setStarted(true);
       setBusy(false);
     }
   }
 
+  // Step 0 — intro: confirm name, then a clear "Choose Category" button.
+  if (!started) {
+    return (
+      <div className="grid min-h-dvh place-items-center px-6 text-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6">
+          <Avatar avatarId={avatarId} size={104} selected />
+          <p className="max-w-full break-words font-display text-3xl font-bold" dir="auto">{nickname}</p>
+          <button
+            onClick={() => setStarted(true)}
+            className="btn-cta w-full rounded-2xl py-5 text-2xl font-black"
+          >
+            {t(locale, 'pickYourCategory')}
+          </button>
+          <p className="text-sm text-ink-secondary">{t(locale, 'pickCategoryHint')}</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Step 1/2 — the guided group → sub-category picker.
   return (
     <div className="flex min-h-dvh flex-col px-5 py-6">
       <h1 className="font-display text-3xl font-black">{t(locale, 'pickYourCategory')}</h1>
-      <CategoryPicker onPick={choose} />
+      {err && <p className="mt-2 text-sm font-semibold text-danger">{err}</p>}
+      <CategoryPicker onPick={choose} claimedIds={claimedIds} />
     </div>
   );
 }
