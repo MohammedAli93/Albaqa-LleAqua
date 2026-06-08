@@ -5,7 +5,6 @@ import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../../store.js';
 import { SCREEN_URL } from '../../lib/config.js';
-import { CategoryPicker } from '../../components/CategoryPicker.js';
 
 /**
  * Game creation launcher (the phone tells the big screen what to host).
@@ -16,24 +15,24 @@ import { CategoryPicker } from '../../components/CategoryPicker.js';
  * Falls back to join-by-code when no big screen is configured.
  */
 type ModeDef = { key: GameMode; icon: LucideIcon; title: string; desc: string; tint: string };
-type Step = 'type' | 'mode' | 'category';
+type Step = 'type' | 'mode';
 
 export function Play() {
   const { locale, set } = useStore();
   const [step, setStep] = useState<Step>('type');
-  const [pendingType, setPendingType] = useState<GameType>(GameType.INDIVIDUAL);
-  const [pendingMode, setPendingMode] = useState<GameMode>(GameMode.POINTS);
 
   const modes: ModeDef[] = [
     { key: GameMode.POINTS, icon: Coins, title: t(locale, 'pointsGame'), desc: t(locale, 'pointsGameDesc'), tint: 'from-brand-deep/15 text-brand-deep' },
     { key: GameMode.ELIMINATION, icon: Swords, title: t(locale, 'eliminationGame'), desc: t(locale, 'eliminationGameDesc'), tint: 'from-action/15 text-action' },
   ];
 
-  /** Open the chosen game on the big screen (or fall back to join-by-code). */
-  function launch(opts: { categoryId?: string; perPlayer?: boolean }) {
-    const params = new URLSearchParams({ type: pendingType, mode: pendingMode });
-    if (opts.categoryId) params.set('cat', opts.categoryId);
-    if (opts.perPlayer) params.set('pp', '1');
+  /**
+   * Launch the game on the big screen. Every game is per-player-category: each
+   * player picks their own category (football/history/…) in the lobby BEFORE the
+   * host starts — the category step lives in the lobby, not here.
+   */
+  function launch(type: GameType, mode: GameMode) {
+    const params = new URLSearchParams({ type, mode, pp: '1' });
     if (SCREEN_URL) {
       window.open(`${SCREEN_URL}/?${params.toString()}`, '_blank');
       set({ appView: 'home' });
@@ -43,23 +42,16 @@ export function Play() {
   }
 
   function chooseType(type: GameType) {
-    setPendingType(type);
-    if (type === GameType.TEAMS) {
-      setPendingMode(GameMode.POINTS);
-      setStep('category');
-    } else {
-      setStep('mode');
-    }
+    if (type === GameType.TEAMS) launch(GameType.TEAMS, GameMode.POINTS);
+    else setStep('mode');
   }
 
   function goBack() {
-    if (step === 'category') setStep(pendingType === GameType.TEAMS ? 'type' : 'mode');
-    else if (step === 'mode') setStep('type');
+    if (step === 'mode') setStep('type');
     else set({ appView: 'home' });
   }
 
-  const heading =
-    step === 'type' ? t(locale, 'chooseGameType') : step === 'mode' ? t(locale, 'chooseGameMode') : t(locale, 'chooseCategory');
+  const heading = step === 'type' ? t(locale, 'chooseGameType') : t(locale, 'chooseGameMode');
 
   return (
     <div className="flex min-h-dvh flex-col px-5 py-6">
@@ -73,9 +65,6 @@ export function Play() {
       </div>
 
       <h1 className="mt-4 font-display text-3xl font-black">{heading}</h1>
-      {step === 'category' && (
-        <p className="mt-1 text-sm text-ink-secondary">{t(locale, 'chooseCategoryHint')}</p>
-      )}
 
       {step === 'type' && (
         // ── Step: type — simple stacked cards (icon → title → tagline) ──
@@ -109,7 +98,7 @@ export function Play() {
                 key={m.key}
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.06 * i }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => { setPendingMode(m.key); setStep('category'); }}
+                onClick={() => launch(GameType.INDIVIDUAL, m.key)}
                 className={`glass flex w-full items-center gap-4 rounded-xl3 bg-gradient-to-l ${m.tint} to-white p-5 text-start`}
               >
                 <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white shadow-glass">
@@ -125,37 +114,9 @@ export function Play() {
         </div>
       )}
 
-      {step === 'category' && (
-        <div className="mt-5">
-          {/* Each player picks their own category (turn-based) */}
-          <button
-            onClick={() => launch({ perPlayer: true })}
-            className="flex w-full items-center gap-3 rounded-xl3 bg-gradient-brand p-5 text-start text-white shadow-glow transition active:scale-[0.98]"
-          >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 backdrop-blur-sm">
-              <Users size={26} />
-            </span>
-            <span className="flex-1">
-              <span className="block font-display text-xl font-extrabold">{t(locale, 'eachPlayerCategory')}</span>
-              <span className="block text-sm text-white/85">{t(locale, 'eachPlayerCategoryHint')}</span>
-            </span>
-          </button>
-
-          <div className="my-5 flex items-center gap-3 text-sm text-ink-muted">
-            <span className="h-px flex-1 bg-ink-muted/20" />
-            {t(locale, 'orPickOneForAll')}
-            <span className="h-px flex-1 bg-ink-muted/20" />
-          </div>
-
-          <CategoryPicker onPick={(categoryId) => launch({ categoryId })} />
-        </div>
-      )}
-
-      {step !== 'category' && (
-        <p className="mt-auto pt-8 text-center text-sm leading-relaxed text-ink-muted">
-          افتح اللعبة على الشاشة الكبيرة، وامسح الكود من جوّالك.
-        </p>
-      )}
+      <p className="mt-auto pt-8 text-center text-sm leading-relaxed text-ink-muted">
+        افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود ويختار فئته.
+      </p>
     </div>
   );
 }
