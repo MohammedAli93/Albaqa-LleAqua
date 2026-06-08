@@ -130,6 +130,7 @@ export async function startSeenJeem(gameId: string): Promise<void> {
       name: team.name,
       color: team.color,
       score: 0,
+      winMs: 0, // unused in Seen Jeem (board format); kept for the shared LiveTeam shape
       lives: 1,
       capacity: state.settings.playersPerTeam ?? players.length,
     };

@@ -35,6 +35,8 @@ export interface TeamHero {
   teamId: string;
   participantId: string;
   pointsAwarded: number;
+  /** The winning answer's response time (ms) — fed into the team's tiebreaker total. */
+  responseMs: number;
 }
 
 export interface ScoredRound {
@@ -126,7 +128,7 @@ function scoreTeams(state: RoomState, outcomes: AnswerOutcome[]): TeamHero[] {
   const teamId = state.participants[best.participantId]!.teamId!;
   best.pointsAwarded = 1; // display only; the +1 is applied to the TEAM total
   best.isTeamHero = true;
-  return [{ teamId, participantId: best.participantId, pointsAwarded: 1 }];
+  return [{ teamId, participantId: best.participantId, pointsAwarded: 1, responseMs: best.responseMs }];
 }
 
 /** Resolve a round: correctness, response times, and points per type/mode. */
@@ -159,7 +161,10 @@ export function applyResolution(
   if (state.type === GameType.TEAMS) {
     for (const hero of scored.heroes) {
       const team = state.teams[hero.teamId];
-      if (team) team.score += 1;
+      if (team) {
+        team.score += 1;
+        team.winMs += hero.responseMs; // faster wins accumulate less time → tiebreaker
+      }
     }
     return { eliminatedIds: [] };
   }
@@ -251,5 +256,7 @@ function pickTopParticipant(list: LiveParticipant[]): LiveParticipant | undefine
 }
 
 function pickTopTeam(list: LiveTeam[]): LiveTeam | undefined {
-  return [...list].sort((a, b) => b.score - a.score)[0];
+  // Highest score wins; on an equal-score tie the FASTER team wins (lower cumulative
+  // buzz time across the rounds it won).
+  return [...list].sort((a, b) => b.score - a.score || a.winMs - b.winMs)[0];
 }

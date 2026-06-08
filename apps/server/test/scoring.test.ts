@@ -126,8 +126,8 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     const a1 = makeParticipant('a1', { teamId: 'A', joinOrder: 0 });
     const a2 = makeParticipant('a2', { teamId: 'A', joinOrder: 1 });
     const b1 = makeParticipant('b1', { teamId: 'B', joinOrder: 2 });
-    const teamA: LiveTeam = { id: 'A', name: 'A', color: '#1', score: 0, lives: 1, capacity: 4 };
-    const teamB: LiveTeam = { id: 'B', name: 'B', color: '#2', score: 0, lives: 1, capacity: 4 };
+    const teamA: LiveTeam = { id: 'A', name: 'A', color: '#1', score: 0, winMs: 0, lives: 1, capacity: 4 };
+    const teamB: LiveTeam = { id: 'B', name: 'B', color: '#2', score: 0, winMs: 0, lives: 1, capacity: 4 };
     return { a1, a2, b1, teams: { A: teamA, B: teamB } };
   }
 
@@ -178,6 +178,27 @@ describe('scoreRound — teams (first correct earns the point)', () => {
     applyResolution(state, r2, scoreRound({ ...state, currentRound: r2 }, r2));
     expect(state.teams.A!.score).toBe(2); // two rounds won = 2 points (not 2× members)
     expect(state.teams.B!.score).toBe(0);
+  });
+
+  it('breaks an equal-score finish in favour of the faster team (lower buzz time)', () => {
+    const { a1, b1, teams } = teamRoom();
+    const state = makeRoom([a1, b1], { type: GameType.TEAMS, mode: GameMode.POINTS, teams });
+    // Round 1: team A wins, but SLOWLY (responseMs 5000).
+    const r1 = makeRound({ answers: { a1: { optionId: 'a', serverTs: 1_005_000 } } });
+    applyResolution(state, r1, scoreRound({ ...state, currentRound: r1 }, r1));
+    // Round 2: team B wins, FAST (responseMs 2000).
+    const r2 = makeRound({ answers: { b1: { optionId: 'a', serverTs: 1_002_000 } } });
+    applyResolution(state, r2, scoreRound({ ...state, currentRound: r2 }, r2));
+
+    // Both teams won one round → tied on points, but B was faster overall.
+    expect(state.teams.A!.score).toBe(1);
+    expect(state.teams.B!.score).toBe(1);
+    expect(state.teams.A!.winMs).toBe(5000);
+    expect(state.teams.B!.winMs).toBe(2000);
+
+    const win = evaluateWinCondition(state, true);
+    expect(win.isOver).toBe(true);
+    expect(win.winnerTeamId).toBe('B'); // faster team wins the tie
   });
 
   it('team mode is points-only: no team ever loses a life or gets eliminated', () => {

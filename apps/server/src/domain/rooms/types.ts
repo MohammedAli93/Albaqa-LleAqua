@@ -38,6 +38,12 @@ export interface LiveTeam {
   name: string;
   color: string;
   score: number;
+  /**
+   * Tiebreaker: cumulative response time (ms) of the first-correct answers on the
+   * rounds this team WON. Lower = faster overall. Used only to break an equal-score
+   * finish in TEAMS points mode (the faster team wins). 0 = won nothing yet.
+   */
+  winMs: number;
   /** Legacy/unused in team mode (points-only). Kept for the schema default. */
   lives: number;
   /** Optional max players per team; null = unlimited (players choose freely). */

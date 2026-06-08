@@ -219,6 +219,7 @@ export async function createRoom(
         name: team.name,
         color: team.color,
         score: 0,
+        winMs: 0,
         lives: 1,
         capacity: capacity ?? null,
       };

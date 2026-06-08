@@ -32,7 +32,7 @@ export function Play() {
    * host starts — the category step lives in the lobby, not here.
    */
   function launch(type: GameType, mode: GameMode) {
-    const params = new URLSearchParams({ type, mode, pp: '1' });
+    const params = new URLSearchParams({ type, mode });
     if (SCREEN_URL) {
       window.open(`${SCREEN_URL}/?${params.toString()}`, '_blank');
       set({ appView: 'home' });
