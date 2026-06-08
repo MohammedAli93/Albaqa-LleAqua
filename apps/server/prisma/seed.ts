@@ -108,7 +108,7 @@ async function main() {
         ? await prisma.question.update({ where: { id: existing.id }, data })
         : await prisma.question.create({ data });
       totalQuestions++;
-      if (sampleForPackage.length < 30) sampleForPackage.push(saved.id);
+      if (sampleForPackage.length < 60) sampleForPackage.push(saved.id);
     }
   }
   const createdQuestionIds = sampleForPackage;
