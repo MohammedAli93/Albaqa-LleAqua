@@ -48,10 +48,16 @@ function CategoryChooser() {
   async function choose(categoryId: string) {
     if (busy || !categoryId) return;
     setBusy(true);
+    // Advance the lobby IMMEDIATELY — don't wait on the socket round-trip. If the
+    // connection drops right here the ack is lost, but the UI is already past the
+    // picker and the store keeps myCategoryId across snapshots; the reconnect
+    // self-heal (socket.ts) re-asserts the pick to the server.
+    set({ myCategoryId: categoryId });
     try {
       await pickCategory(categoryId);
-      set({ myCategoryId: categoryId }); // optimistic; ROOM_STATE confirms
     } catch {
+      // Hard rejection (not a transient drop) — roll back to the picker.
+      set({ myCategoryId: null });
       setBusy(false);
     }
   }

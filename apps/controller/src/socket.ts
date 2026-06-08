@@ -21,7 +21,16 @@ export function connect(roomCode: string, sessionToken?: string): Socket {
   });
 
   const { set, applyServerEvent } = useStore.getState();
-  socket.on('connect', () => set({ conn: 'connected' }));
+  socket.on('connect', () => {
+    set({ conn: 'connected' });
+    // Self-heal a per-player category pick across reconnects: if we already chose a
+    // category in the lobby but the original emit may have been lost to a drop,
+    // re-assert it now. Idempotent server-side (it just re-stores the same value).
+    const st = useStore.getState();
+    if (st.perPlayerCategory && st.myCategoryId && st.status === 'LOBBY') {
+      socket?.emit(ClientEvent.PLAYER_PICK_CATEGORY, { categoryId: st.myCategoryId });
+    }
+  });
   socket.io.on('reconnect_attempt', () => set({ conn: 'reconnecting' }));
   socket.on('disconnect', () => set({ conn: 'reconnecting' }));
   socket.on('connect_error', (err) => set({ conn: 'error', errorCode: (err as Error & { data?: { code?: string } }).data?.code ?? 'CONNECT_ERROR' }));
