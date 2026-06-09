@@ -126,7 +126,9 @@ export function Question() {
                   style={{ borderInlineStart: `5px solid ${color}` }}
                 >
                   <Zap className="text-prize-gold" size={22} />
-                  <span className="font-display text-screen-status font-semibold">{t(locale, 'firstCorrectHero', { name: h.nickname, team: h.teamName })}</span>
+                  <span className="font-display text-screen-status font-semibold">
+                    {t(locale, 'teamTookPoint', { team: h.teamName })} · {t(locale, 'answeredFirst', { name: h.nickname })}
+                  </span>
                   <span className="tnum font-display text-screen-status font-bold text-success">+{h.pointsAwarded}</span>
                 </motion.div>
               );

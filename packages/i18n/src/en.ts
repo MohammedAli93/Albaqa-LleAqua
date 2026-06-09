@@ -104,6 +104,8 @@ const en: typeof ar = {
   teamVsTeam: 'Team vs team',
   teamLives: 'Team lives',
   firstCorrectHero: '{name} scored a point for {team}',
+  teamTookPoint: 'Team {team} took the point',
+  answeredFirst: '{name} answered first',
   register: 'New account',
   login: 'Log in',
   createAccount: 'Create your account',

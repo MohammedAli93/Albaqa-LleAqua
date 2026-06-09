@@ -112,6 +112,8 @@ const ar = {
   teamLives: 'محاولات الفريق',
   /** e.g. "أحمد كسب نقطة لفريق الصقور" — first correct answer scores for the team. */
   firstCorrectHero: '{name} كسب نقطة لفريق {team}',
+  teamTookPoint: 'فريق {team} أحرز النقطة',
+  answeredFirst: '{name} أجاب أولاً وأسرع',
   // ── Registration / account ──
   register: 'حساب جديد',
   login: 'دخول',

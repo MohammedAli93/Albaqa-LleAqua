@@ -9,12 +9,11 @@ import { Avatar } from '../components/Avatar.js';
 /** Shown after personal result arrives, or while waiting for results (locked). */
 export function Result() {
   const {
-    phase, lastResult, myLives, locale, gameType, gameMode, lastHeroes, myTeamId,
+    phase, lastResult, myLives, locale, gameType, gameMode, lastHeroes, myTeamId, teams,
     leaderboard, participantId, totalRounds, nextRound, nextCategory,
   } = useStore();
   const isTeams = gameType === GameType.TEAMS;
   const isElimination = gameMode === GameMode.ELIMINATION;
-  const myHero = isTeams ? lastHeroes.find((h) => h.teamId === myTeamId) : undefined;
 
   if (phase === 'locked') {
     return (
@@ -53,13 +52,32 @@ export function Result() {
           <p className="tnum font-display text-2xl font-bold text-success">+{lastResult.pointsAwarded}</p>
         )}
 
-        {/* Teams: who earned the team's point (the score is team-owned). */}
-        {myHero && (
-          <div className="glass flex items-center gap-2 rounded-xl2 px-4 py-3 text-start">
-            <Zap size={20} className="shrink-0 text-prize-gold" />
-            <span className="text-sm text-ink-secondary">
-              {t(locale, 'firstCorrectHero', { name: myHero.nickname, team: myHero.teamName })}
-            </span>
+        {/* Teams: which team took the point this round, and who was fastest —
+            shown to EVERYONE so the team scoring is clear in points mode. */}
+        {isTeams && lastHeroes.length > 0 && (
+          <div className="flex w-full max-w-sm flex-col gap-2">
+            {lastHeroes.map((h) => {
+              const mine = h.teamId === myTeamId;
+              const color = teams.find((tm) => tm.id === h.teamId)?.color ?? '#4F46E5';
+              return (
+                <div
+                  key={h.teamId}
+                  className={['flex items-center gap-3 rounded-2xl px-4 py-3 text-start', mine ? 'ring-2' : 'bg-bg-raised/60'].join(' ')}
+                  style={mine ? { background: `${color}22`, ['--tw-ring-color' as string]: color } : { borderInlineStart: `5px solid ${color}` }}
+                >
+                  <Zap size={22} className="shrink-0 text-prize-gold" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-display text-base font-black" style={{ color }}>
+                      {t(locale, 'teamTookPoint', { team: h.teamName })}
+                    </span>
+                    <span className="block truncate text-sm text-ink-secondary" dir="auto">
+                      {t(locale, 'answeredFirst', { name: h.nickname })}
+                    </span>
+                  </span>
+                  <span className="tnum font-display text-lg font-black text-success">+{h.pointsAwarded}</span>
+                </div>
+              );
+            })}
           </div>
         )}
 
