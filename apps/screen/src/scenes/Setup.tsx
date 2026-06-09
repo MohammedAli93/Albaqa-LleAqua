@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Users, Coins, Swords, ChevronLeft, type LucideIcon } from 'lucide-react';
+import { User, Users, Coins, Swords, ChevronLeft, Sparkles, Trophy, type LucideIcon } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
@@ -58,11 +58,19 @@ export function Setup({
   }
 
   return (
-    <div className="safe grid min-h-dvh place-items-center lg:h-full">
+    <div
+      className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full"
+      style={{ backgroundImage: 'linear-gradient(165deg, #4F46E5 0%, #6D28D9 48%, #DB2777 100%)' }}
+    >
+      {/* playful décor — same identity as the controller hero */}
+      <div className="pointer-events-none absolute -right-24 -top-24 h-[40vh] w-[40vh] rounded-full bg-white/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-24 bottom-0 h-[44vh] w-[44vh] rounded-full bg-action/30 blur-3xl" />
+      <Sparkles className="pointer-events-none absolute left-[7%] top-[12%] animate-float text-white/60" size={40} />
+      <Trophy className="pointer-events-none absolute right-[9%] top-[18%] animate-float text-prize-gold" size={36} style={{ animationDelay: '1.2s' }} />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-strong w-full max-w-3xl rounded-xl4 p-6 lg:p-9"
+        className="glass-strong relative w-full max-w-3xl rounded-xl4 p-6 lg:p-9"
       >
         {/* Game-name logo on top, then the step title */}
         <div className="relative mb-5 flex flex-col items-center gap-2 text-center lg:mb-7">

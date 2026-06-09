@@ -60,7 +60,10 @@ export function Winner() {
   const isElim = mode === GameMode.ELIMINATION;
 
   return (
-    <div className="relative grid min-h-dvh place-items-center overflow-hidden bg-gradient-stage p-5 lg:h-full lg:p-0">
+    <div
+      className="relative grid min-h-dvh place-items-center overflow-hidden p-5 lg:h-full lg:p-0"
+      style={{ backgroundImage: 'linear-gradient(165deg, #4F46E5 0%, #6D28D9 48%, #DB2777 100%)' }}
+    >
       <ConfettiRain />
       <AnimatePresence mode="wait">
         {stage === 'champion' ? (
@@ -159,7 +162,7 @@ function Champion({
         </>
       ) : null}
 
-      <p className="mt-1 font-display text-screen-status font-bold text-gradient animate-pulse-glow">
+      <p className="mt-1 font-display text-screen-status font-bold text-white animate-pulse-glow">
         {t(locale, 'congratulations')}
       </p>
     </div>
@@ -170,7 +173,7 @@ function Champion({
 function PlayerRanking({ leaderboard, isElim, locale }: { leaderboard: RankedEntry[]; isElim: boolean; locale: Locale }) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-7">{t(locale, 'finalRanking')}</h2>
+      <h2 className="mb-5 text-center font-display text-screen-title font-black text-white drop-shadow lg:mb-7">{t(locale, 'finalRanking')}</h2>
       <div className="flex flex-col gap-2.5 lg:gap-3">
         {leaderboard.map((e, i) => {
           const out = e.status === 'ELIMINATED';
@@ -207,7 +210,7 @@ function TeamRanking({ teams, leaderboard, locale }: { teams: TeamPublic[]; lead
   const ranked = [...teams].sort((a, b) => b.score - a.score);
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-7">{t(locale, 'finalRanking')}</h2>
+      <h2 className="mb-5 text-center font-display text-screen-title font-black text-white drop-shadow lg:mb-7">{t(locale, 'finalRanking')}</h2>
       <div className="flex flex-col gap-3 lg:gap-4">
         {ranked.map((team, i) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);
