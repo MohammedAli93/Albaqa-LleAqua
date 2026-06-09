@@ -40,6 +40,7 @@ const ar = {
   scoreboard: 'النتائج',
   winner: 'الفائز',
   champion: 'البطل',
+  you: 'أنت',
   finalRanking: 'الترتيب النهائي',
   betterLuck: 'حظ أوفر المرة الجاية',
   winningTeam: 'الفريق الفائز',
