@@ -353,6 +353,16 @@ export async function startGame(gameId: string): Promise<void> {
 
 // ──────────────────────────────── Round loop ────────────────────────────────
 
+/** Fisher-Yates shuffle (used to narrow showdown options). */
+function shuffleArr<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
 export async function startNextRound(gameId: string): Promise<void> {
   const state = await mustGetRoom(gameId);
   const nextIndex = state.roundIndex + 1;
@@ -364,6 +374,27 @@ export async function startNextRound(gameId: string): Promise<void> {
 
   const questionId = state.questionOrder[nextIndex]!;
   const loaded = await loadQuestion(questionId);
+
+  // Elimination showdown: when only 2 or 3 players remain, narrow the question to
+  // exactly that many options (the correct one + N-1 distractors). Fewer options
+  // makes the final duel clear, and combined with the "never wipe everyone"
+  // safety net it guarantees a single winner emerges.
+  if (state.mode === GameMode.ELIMINATION && state.type === GameType.INDIVIDUAL) {
+    const activeCount = Object.values(state.participants).filter(
+      (p) => p.status === ParticipantStatus.ACTIVE,
+    ).length;
+    const opts = loaded.publicQuestion.options;
+    if (activeCount >= 2 && activeCount <= 3 && opts.length > activeCount) {
+      const correct = opts.find((o) => o.id === loaded.correctOptionId);
+      if (correct) {
+        const distractors = shuffleArr(opts.filter((o) => o.id !== loaded.correctOptionId)).slice(
+          0,
+          activeCount - 1,
+        );
+        loaded.publicQuestion.options = shuffleArr([correct, ...distractors]);
+      }
+    }
+  }
 
   const startedAt = Date.now();
   const timeLimitSec = loaded.timeLimitSec || state.settings.questionTimerSec;

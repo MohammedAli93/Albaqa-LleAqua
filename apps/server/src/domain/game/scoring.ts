@@ -177,15 +177,33 @@ export function applyResolution(
 
   const eliminatedIds: string[] = [];
   if (state.mode === GameMode.ELIMINATION) {
-    // A wrong (or missing) answer costs a life; 0 lives → eliminated this round.
-    for (const o of scored.outcomes) {
+    const activeBefore = Object.values(state.participants).filter(
+      (p) => p.status === ParticipantStatus.ACTIVE,
+    ).length;
+    // Active players who got it wrong (or didn't answer) — they'd lose a life.
+    const wrongActive = scored.outcomes.filter((o) => {
       const p = state.participants[o.participantId];
-      if (!p || o.isCorrect) continue;
-      p.lives = Math.max(0, p.lives - 1);
-      if (p.lives <= 0) {
-        p.status = ParticipantStatus.ELIMINATED;
-        p.eliminatedRound = round.index;
-        eliminatedIds.push(p.id);
+      return p && p.status === ParticipantStatus.ACTIVE && !o.isCorrect;
+    });
+    // Of those, who would drop to 0 lives and be eliminated.
+    const wouldExit = wrongActive.filter(
+      (o) => state.participants[o.participantId]!.lives - 1 <= 0,
+    );
+    // SAFETY NET: if this round would eliminate EVERYONE still in (all remaining
+    // answered wrong), don't eliminate anyone — nobody loses a life and the round
+    // is effectively replayed. This guarantees there's always a survivor, so the
+    // game never ends with all players losing at once.
+    const wipesEveryone = activeBefore > 0 && activeBefore - wouldExit.length <= 0;
+    if (!wipesEveryone) {
+      // A wrong (or missing) answer costs a life; 0 lives → eliminated this round.
+      for (const o of wrongActive) {
+        const p = state.participants[o.participantId]!;
+        p.lives = Math.max(0, p.lives - 1);
+        if (p.lives <= 0) {
+          p.status = ParticipantStatus.ELIMINATED;
+          p.eliminatedRound = round.index;
+          eliminatedIds.push(p.id);
+        }
       }
     }
   }
