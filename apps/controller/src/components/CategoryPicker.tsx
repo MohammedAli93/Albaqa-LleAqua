@@ -5,6 +5,7 @@ import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { fetchCategoryGroups, type PickerGroup, type PickerCategory } from '../lib/categories.js';
 import { CategoryArt } from './CategoryArt.js';
+import { CategoryImage } from './CategoryImage.js';
 import { Spinner } from './Spinner.js';
 
 /**
@@ -94,9 +95,11 @@ export function CategoryPicker({
                 transition={{ delay: Math.min(i * 0.03, 0.3) }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onPick(c.id)}
-                className="relative flex aspect-[5/4] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl px-3 py-3 text-center font-display text-base font-bold text-white shadow-card"
+                className="group relative flex aspect-[5/4] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl px-3 py-3 text-center font-display text-base font-bold text-white shadow-card"
                 style={{ backgroundImage: `linear-gradient(140deg, ${c.color} 0%, ${shade(c.color)} 100%)` }}
               >
+                <CategoryImage slug={c.slug} alt={c.nameAr} />
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
                 <span className="pointer-events-none absolute -bottom-5 -left-4 h-16 w-16 rounded-full bg-white/15 blur-xl" />
                 <CategoryArt slug={c.slug} className="relative h-10 w-10 drop-shadow" />
                 <span className="relative block leading-snug drop-shadow-sm">{c.nameAr}</span>

@@ -48,9 +48,10 @@ export default function App() {
       return;
     }
 
-    // Otherwise open the app shell: home if signed in, else straight to login.
-    const signedIn = !!(account && account.username);
-    set({ appView: signedIn ? 'home' : 'login' });
+    // Otherwise open the landing page for EVERYONE (guests included). Sign-in is
+    // a top-bar button on the landing, not a gate — guests can browse and play;
+    // logging in just saves their wins/profile.
+    set({ appView: 'home' });
   }, [set, account]);
 
   // ── App shell (front door) ──
@@ -66,7 +67,9 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="mx-auto w-full max-w-md"
+            // Landing page is a full responsive website (mobile → desktop → TV);
+            // the other shell screens stay a phone-width column.
+            className={appView === 'home' ? 'w-full' : 'mx-auto w-full max-w-md'}
           >
             {appView === 'splash' && <Splash />}
             {appView === 'login' && <Login />}
