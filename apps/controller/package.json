@@ -15,6 +15,7 @@
     "@tahaddi/shared": "workspace:*",
     "framer-motion": "^11.11.1",
     "lucide-react": "^0.451.0",
+    "qrcode.react": "^4.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "socket.io-client": "^4.8.0",

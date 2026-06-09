@@ -58,6 +58,10 @@
     border: 1px solid rgba(79, 70, 229, 0.14);
     @apply shadow-card;
   }
+  /* TV safe area for Host mode (keeps content off projector/TV overscan edges). */
+  .safe {
+    padding: 4vmin 5vmin;
+  }
   /* Gradient text — Arabic glyphs hang below the baseline, so give the clipped
      text box breathing room (line-height + bottom padding) to avoid cropping. */
   .text-gradient {
