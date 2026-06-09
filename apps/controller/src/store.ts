@@ -13,8 +13,10 @@ import {
   type YouEliminatedPayload,
   type ScoreUpdatePayload,
   type GameCompletedPayload,
+  type RoundCompletedPayload,
   type TimerTickPayload,
   type TeamPublic,
+  type RankedEntry,
   type RoundHero,
   type TeamScoredPayload,
   type SeenJeemSnapshot,
@@ -62,6 +64,14 @@ export interface ControllerState {
   myStatus: string;
   lastResult: AnswerResultPayload | null;
 
+  // Round position + standings shown on the phone between questions.
+  round: number;
+  totalRounds: number;
+  leaderboard: RankedEntry[];
+  /** The upcoming question's 1-based number + category (from ROUND_COMPLETED). */
+  nextRound: number | null;
+  nextCategory: RoundCompletedPayload['nextCategory'] | null;
+
   winner: GameCompletedPayload | null;
   paused: boolean;
 
@@ -108,6 +118,11 @@ export const useStore = create<ControllerState>((set, get) => ({
   myRank: 0,
   myStatus: 'ACTIVE',
   lastResult: null,
+  round: 0,
+  totalRounds: 0,
+  leaderboard: [],
+  nextRound: null,
+  nextCategory: null,
   winner: null,
   paused: false,
   appView: 'login',
@@ -137,6 +152,9 @@ export const useStore = create<ControllerState>((set, get) => ({
             teams: snap.teams ?? s.teams,
             lastHeroes: snap.heroes ?? s.lastHeroes,
             participants: snap.participants ?? s.participants,
+            leaderboard: snap.leaderboard ?? s.leaderboard,
+            round: snap.game.round ?? s.round,
+            totalRounds: snap.game.totalRounds ?? s.totalRounds,
             paused: snap.game.status === 'PAUSED',
             question: snap.currentRound?.question ?? null,
             roundId: snap.currentRound?.roundId ?? null,
@@ -161,6 +179,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             phase: 'question',
             question: p.question,
             roundId: p.roundId,
+            round: p.round,
             endsAt: p.endsAt,
             roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
             selectedOptionId: null,
@@ -168,6 +187,8 @@ export const useStore = create<ControllerState>((set, get) => ({
             correctOptionId: null,
             lastResult: null,
             lastHeroes: [],
+            nextRound: null,
+            nextCategory: null,
             paused: false,
           };
         }
@@ -198,7 +219,11 @@ export const useStore = create<ControllerState>((set, get) => ({
         case ServerEvent.SCORE_UPDATE: {
           const p = payload as ScoreUpdatePayload;
           const me = p.leaderboard.find((e) => e.participantId === s.participantId);
-          return me ? { myRank: me.rank, myScore: me.score } : {};
+          return { leaderboard: p.leaderboard, ...(me ? { myRank: me.rank, myScore: me.score } : {}) };
+        }
+        case ServerEvent.ROUND_COMPLETED: {
+          const p = payload as RoundCompletedPayload;
+          return { nextRound: p.nextRound ?? null, nextCategory: p.nextCategory ?? null };
         }
         case ServerEvent.YOU_ELIMINATED: {
           const p = payload as YouEliminatedPayload;

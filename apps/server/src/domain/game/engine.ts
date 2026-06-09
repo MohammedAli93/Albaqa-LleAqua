@@ -610,9 +610,22 @@ export async function resolveRound(gameId: string): Promise<void> {
     round.phase = RoundPhase.INTERMISSION;
     await saveRoom(state);
     const nextInMs = state.settings.intermissionSec * 1000;
+    // Preview the upcoming question's number + category so phones can show
+    // "next: question X of Y" between rounds.
+    const nextIdx = round.index + 1;
+    let nextCategory: { nameAr: string; nameEn?: string; color: string; icon?: string } | undefined;
+    if (nextIdx < state.questionOrder.length) {
+      try {
+        nextCategory = (await loadQuestion(state.questionOrder[nextIdx]!)).publicQuestion.category;
+      } catch {
+        nextCategory = undefined;
+      }
+    }
     emitter.toRoom(gameId, ServerEvent.ROUND_COMPLETED, {
       roundIndex: round.index + 1,
       nextInMs: state.settings.autoAdvance ? nextInMs : undefined,
+      nextRound: nextIdx < state.questionOrder.length ? nextIdx + 1 : undefined,
+      nextCategory,
     });
 
     await release();

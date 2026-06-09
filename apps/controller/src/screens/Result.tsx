@@ -1,13 +1,17 @@
 import { motion } from 'framer-motion';
-import { Check, X, Clock, Zap } from 'lucide-react';
+import { Check, X, Clock, Zap, ChevronRight } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Hearts } from '../components/Hearts.js';
+import { Avatar } from '../components/Avatar.js';
 
 /** Shown after personal result arrives, or while waiting for results (locked). */
 export function Result() {
-  const { phase, lastResult, myScore, myLives, locale, gameType, gameMode, lastHeroes, myTeamId } = useStore();
+  const {
+    phase, lastResult, myLives, locale, gameType, gameMode, lastHeroes, myTeamId,
+    leaderboard, participantId, totalRounds, nextRound, nextCategory,
+  } = useStore();
   const isTeams = gameType === GameType.TEAMS;
   const isElimination = gameMode === GameMode.ELIMINATION;
   const myHero = isTeams ? lastHeroes.find((h) => h.teamId === myTeamId) : undefined;
@@ -25,25 +29,28 @@ export function Result() {
   }
 
   const correct = lastResult?.isCorrect;
+  // Standings to show on the phone after each question. Teams' totals live on the
+  // big screen, so the per-player table is for individual modes (points/elimination).
+  const showStandings = !isTeams && leaderboard.length > 0;
   return (
     <div
-      className="grid min-h-dvh place-items-center px-6 text-center"
-      style={{ background: correct ? 'radial-gradient(ellipse at 50% 30%, rgba(34,197,94,0.25), transparent 60%)' : 'radial-gradient(ellipse at 50% 30%, rgba(239,68,68,0.22), transparent 60%)' }}
+      className="flex min-h-dvh flex-col items-center px-5 pb-8 pt-8"
+      style={{ background: correct ? 'radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.22), transparent 55%)' : 'radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.2), transparent 55%)' }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.6 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', stiffness: 200, damping: 16 }}
-        className="flex flex-col items-center gap-5"
+        className="flex flex-col items-center gap-3"
       >
-        <div className={`grid h-28 w-28 place-items-center rounded-full ${correct ? 'bg-success' : 'bg-danger'}`} style={{ boxShadow: `0 0 50px ${correct ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.6)'}` }}>
-          {correct ? <Check size={64} color="white" /> : <X size={64} color="white" />}
+        <div className={`grid h-20 w-20 place-items-center rounded-full ${correct ? 'bg-success' : 'bg-danger'}`} style={{ boxShadow: `0 0 40px ${correct ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.5)'}` }}>
+          {correct ? <Check size={48} color="white" /> : <X size={48} color="white" />}
         </div>
-        <p className="font-display text-4xl font-black">{correct ? t(locale, 'correct') : t(locale, 'wrong')}</p>
+        <p className="font-display text-3xl font-black">{correct ? t(locale, 'correct') : t(locale, 'wrong')}</p>
 
         {/* Individual POINTS only: the personal points gained this round. */}
         {!isTeams && !isElimination && lastResult && lastResult.pointsAwarded > 0 && (
-          <p className="tnum font-display text-3xl font-bold text-success">+{lastResult.pointsAwarded}</p>
+          <p className="tnum font-display text-2xl font-bold text-success">+{lastResult.pointsAwarded}</p>
         )}
 
         {/* Teams: who earned the team's point (the score is team-owned). */}
@@ -56,14 +63,78 @@ export function Result() {
           </div>
         )}
 
-        {/* Status row — hearts for elimination, score for individual points,
-            nothing for teams (the team total lives on the big screen). */}
-        {isElimination ? (
-          <Hearts lives={myLives} size={30} />
-        ) : !isTeams ? (
-          <span className="text-ink-secondary">{t(locale, 'score')}: <b className="tnum text-ink-primary">{myScore}</b></span>
-        ) : null}
+        {isElimination && <Hearts lives={myLives} size={28} />}
       </motion.div>
+
+      {/* Live standings after each question. */}
+      {showStandings && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+          className="mt-6 w-full max-w-sm"
+        >
+          <p className="mb-2 px-1 font-display text-sm font-bold text-ink-secondary">{t(locale, 'standings')}</p>
+          <div className="space-y-1.5">
+            {standingsToShow(leaderboard, participantId).map((e) => {
+              const mine = e.participantId === participantId;
+              const out = e.status === 'ELIMINATED';
+              return (
+                <div
+                  key={e.participantId}
+                  className={[
+                    'flex items-center gap-2.5 rounded-xl px-3 py-2',
+                    mine ? 'bg-brand-deep/15 ring-1 ring-brand-deep/40' : 'bg-bg-raised/60',
+                    out ? 'opacity-50' : '',
+                  ].join(' ')}
+                >
+                  <span className="tnum w-6 text-center font-display text-base font-black text-ink-secondary">{e.rank}</span>
+                  <Avatar avatarId={e.avatarId} size={28} />
+                  <span className="min-w-0 flex-1 truncate font-display text-sm font-bold" dir="auto">{e.nickname}</span>
+                  {isElimination ? (
+                    <Hearts lives={e.lives} size={16} />
+                  ) : (
+                    <span className="tnum font-display text-sm font-black">{e.score}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Next question preview — number of N, and the upcoming category. */}
+      {nextRound && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-5 flex w-full max-w-sm items-center gap-3 rounded-2xl bg-bg-raised/70 px-4 py-3"
+        >
+          {nextCategory && (
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white" style={{ background: nextCategory.color }}>
+              <ChevronRight size={20} />
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-xs font-bold uppercase tracking-wide text-ink-secondary">{t(locale, 'nextUp')}</span>
+            <span className="block truncate font-display text-base font-black">
+              {t(locale, 'questionOf', { current: nextRound, total: totalRounds })}
+              {nextCategory ? ` · ${nextCategory.nameAr}` : ''}
+            </span>
+          </span>
+        </motion.div>
+      )}
     </div>
   );
+}
+
+/** Top entries plus the player's own row if they're outside the top slice. */
+function standingsToShow(board: ReturnType<typeof useStore.getState>['leaderboard'], selfId: string | null) {
+  const top = board.slice(0, 5);
+  if (selfId && !top.some((e) => e.participantId === selfId)) {
+    const me = board.find((e) => e.participantId === selfId);
+    if (me) return [...top, me];
+  }
+  return top;
 }

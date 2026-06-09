@@ -18,6 +18,9 @@ const ar = {
   // gameplay
   round: 'جولة',
   roundOf: 'جولة {current} من {total}',
+  standings: 'الترتيب',
+  nextUp: 'السؤال التالي',
+  questionOf: 'السؤال {current} من {total}',
   getReady: 'استعد!',
   timeLeft: 'الوقت',
   answerLocked: 'سجّلنا إجابتك',

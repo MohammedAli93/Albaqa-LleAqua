@@ -391,6 +391,10 @@ export interface YouEliminatedPayload {
 export interface RoundCompletedPayload {
   roundIndex: number;
   nextInMs?: number;
+  /** The upcoming question's 1-based number (for "next: question X of Y"). */
+  nextRound?: number;
+  /** The upcoming question's category, so phones can preview what's next. */
+  nextCategory?: { nameAr: string; nameEn?: string; color: string; icon?: string };
 }
 
 export interface GameCompletedPayload {
