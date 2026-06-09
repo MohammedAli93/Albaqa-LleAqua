@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
-import { fetchCategoryGroups, type PickerGroup, type PickerCategory } from '../lib/categories.js';
+import { fetchCategoryGroups, type PickerGroup } from '../lib/categories.js';
 import { CategoryArt } from './CategoryArt.js';
 import { CategoryImage } from './CategoryImage.js';
 import { Spinner } from './Spinner.js';
@@ -47,15 +47,14 @@ export function CategoryPicker({
     );
   }
 
-  // Available = not claimed by someone else. Empty groups are dropped.
+  // Claimed categories stay VISIBLE but render greyed + locked (not pickable), so
+  // players can still see which ones exist. Only genuinely empty groups are dropped.
   const taken = claimedIds ?? new Set<string>();
-  const avail = (cats: PickerCategory[]) => cats.filter((c) => !taken.has(c.id));
-  const liveGroups = groups
-    .map((g) => ({ ...g, categories: avail(g.categories) }))
-    .filter((g) => g.categories.length > 0);
+  const liveGroups = groups.filter((g) => g.categories.length > 0);
+  const anyAvailable = liveGroups.some((g) => g.categories.some((c) => !taken.has(c.id)));
 
-  // No categories configured / all taken — never dead-end: offer a mixed start.
-  if (liveGroups.length === 0) {
+  // Nothing configured / everything already taken — never dead-end: offer mixed.
+  if (liveGroups.length === 0 || !anyAvailable) {
     return (
       <button
         onClick={() => onPick('')}
@@ -87,24 +86,35 @@ export function CategoryPicker({
           <p className="mt-8 text-center text-ink-secondary">{t(locale, 'allCategoriesTaken')}</p>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
-            {cats.map((c, i) => (
-              <motion.button
-                key={c.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.03, 0.3) }}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => onPick(c.id)}
-                className="group relative flex aspect-[5/4] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl px-3 py-3 text-center font-display text-base font-bold text-white shadow-card"
-                style={{ backgroundImage: `linear-gradient(140deg, ${c.color} 0%, ${shade(c.color)} 100%)` }}
-              >
-                <CategoryImage slug={c.slug} alt={c.nameAr} />
-                <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <span className="pointer-events-none absolute -bottom-5 -left-4 h-16 w-16 rounded-full bg-white/15 blur-xl" />
-                <CategoryArt slug={c.slug} className="relative h-10 w-10 drop-shadow" />
-                <span className="relative block leading-snug drop-shadow-sm">{c.nameAr}</span>
-              </motion.button>
-            ))}
+            {cats.map((c, i) => {
+              const isTaken = taken.has(c.id);
+              return (
+                <motion.button
+                  key={c.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                  whileTap={isTaken ? undefined : { scale: 0.96 }}
+                  onClick={() => { if (!isTaken) onPick(c.id); }}
+                  disabled={isTaken}
+                  aria-disabled={isTaken}
+                  className={`group relative flex aspect-[5/4] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl px-3 py-3 text-center font-display text-base font-bold text-white shadow-card ${isTaken ? 'cursor-not-allowed' : ''}`}
+                  style={{ backgroundImage: `linear-gradient(140deg, ${c.color} 0%, ${shade(c.color)} 100%)` }}
+                >
+                  <CategoryImage slug={c.slug} alt={c.nameAr} />
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                  <span className="pointer-events-none absolute -bottom-5 -left-4 h-16 w-16 rounded-full bg-white/15 blur-xl" />
+                  <CategoryArt slug={c.slug} className="relative h-10 w-10 drop-shadow" />
+                  <span className="relative block leading-snug drop-shadow-sm">{c.nameAr}</span>
+                  {isTaken && (
+                    <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 text-white">
+                      <Lock size={22} />
+                      <span className="text-sm font-bold">{locale === 'ar' ? 'مأخوذة' : 'Taken'}</span>
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
         )}
       </div>
