@@ -21,9 +21,10 @@ import { Login } from './screens/app/Login.js';
 import { Profile } from './screens/app/Profile.js';
 import { Home } from './screens/app/Home.js';
 import { Play } from './screens/app/Play.js';
+import { HostApp } from './host/App.js';
 
 export default function App() {
-  const { appView, account, phase, paused, locale, conn, set } = useStore();
+  const { appView, account, phase, paused, locale, conn, hostLaunch, set } = useStore();
   const booted = useRef(false);
 
   useWakeLock(phase === 'question' || phase === 'locked');
@@ -53,6 +54,12 @@ export default function App() {
     // logging in just saves their wins/profile.
     set({ appView: 'home' });
   }, [set, account]);
+
+  // ── Host mode (the "screen" engine, merged into one link) ──
+  // Full-bleed, responsive phone↔TV; brings its own background + particles.
+  if (appView === 'host') {
+    return <HostApp launch={hostLaunch} onExit={() => set({ appView: 'home', hostLaunch: null })} />;
+  }
 
   // ── App shell (front door) ──
   // Phone-first: on desktop the UI is a centered phone-width column, not stretched.

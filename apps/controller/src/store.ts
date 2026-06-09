@@ -26,7 +26,14 @@ import type { Locale } from '@tahaddi/i18n';
 import { loadAccount, type Account } from './lib/account.js';
 
 /** Top-level app surface, above the in-game flow. */
-export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game';
+export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game' | 'host';
+
+/** Config the landing hands to Host mode (type + mode already chosen). */
+export interface HostLaunch {
+  type: GameType;
+  mode: GameMode;
+  teamNames?: string[];
+}
 
 export type Conn = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 export type Phase = 'join' | 'lobby' | 'question' | 'locked' | 'reveal' | 'result' | 'eliminated' | 'finished' | 'seenjeem';
@@ -78,6 +85,8 @@ export interface ControllerState {
   // App shell (front door, above the in-game flow)
   appView: AppView;
   account: Account | null;
+  /** When entering Host mode from the landing — the chosen type + mode. */
+  hostLaunch: HostLaunch | null;
 
   // Seen-Jeem mode
   seenJeem: SeenJeemSnapshot | null;
@@ -127,6 +136,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   paused: false,
   appView: 'login',
   account: loadAccount(),
+  hostLaunch: null,
   seenJeem: null,
   myTeamId: null,
   perPlayerCategory: false,

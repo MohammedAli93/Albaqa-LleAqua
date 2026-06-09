@@ -8,7 +8,6 @@ import { GameType, GameMode } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
-import { SCREEN_URL } from '../../lib/config.js';
 import { COUNTRIES, CATEGORIES } from '../../lib/catalog.js';
 
 export function Home() {
@@ -17,12 +16,11 @@ export function Home() {
   // Two-step chooser: pick TYPE (فردي/فرق); فردي then picks MODE (نقاط/تصفيات).
   const [step, setStep] = useState<'type' | 'mode'>('type');
 
-  // Host a new game on the big screen (or fall back to join-by-code on phone).
+  // Host a new game — runs in-app (one link): enter Host mode with the chosen
+  // type + mode. The host gets a QR for friends to join; view scales phone↔TV.
   // No account required — players name themselves when they join.
   function launch(type: GameType, mode: GameMode) {
-    const params = new URLSearchParams({ type, mode });
-    if (SCREEN_URL) window.open(`${SCREEN_URL}/?${params.toString()}`, '_blank');
-    else set({ appView: 'game', phase: 'join' });
+    set({ appView: 'host', hostLaunch: { type, mode } });
   }
   const joinByCode = () => set({ appView: 'game', phase: 'join' });
   const scrollToPlay = () =>
