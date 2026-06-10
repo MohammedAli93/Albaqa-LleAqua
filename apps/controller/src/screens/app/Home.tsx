@@ -59,7 +59,7 @@ export function Home() {
       {/* ─────────── HERO (bold gradient, full-bleed responsive) ─────────── */}
       <section
         className="relative overflow-hidden px-6 pb-32 pt-10 text-center text-white lg:pb-40 lg:pt-16"
-        style={{ backgroundImage: 'linear-gradient(165deg, #4F46E5 0%, #6D28D9 48%, #DB2777 100%)' }}
+        style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
       >
         <div className="pointer-events-none absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/15 blur-3xl lg:h-72 lg:w-72" />
         <div className="pointer-events-none absolute -left-14 top-1/3 h-48 w-48 rounded-full bg-action/30 blur-3xl lg:h-80 lg:w-80" />
@@ -127,7 +127,7 @@ export function Home() {
               >
                 <BigCard
                   icon={User} title="فردي" tagline="فز عليهم لحالك 😎"
-                  grad="linear-gradient(150deg,#6366F1,#4F46E5)" onClick={() => setStep('mode')}
+                  grad="linear-gradient(150deg,#38BDF8,#0EA5E9)" onClick={() => setStep('mode')}
                 />
                 <BigCard
                   icon={Users} title="فِرَق" tagline="جمّع اخوياك واهزموهم 💪🏻"

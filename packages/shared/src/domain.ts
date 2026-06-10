@@ -179,7 +179,7 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   speedBonus: false,
   intermissionSec: 5,
   autoAdvance: true,
-  totalRounds: 45,
+  totalRounds: 35,
   scoringMode: ScoringMode.PLACEMENT,
 };
 
@@ -192,24 +192,24 @@ export function defaultScoringMode(mode: GameMode): ScoringMode {
 export const DEFAULT_TEAM_COUNT = 2;
 export const DEFAULT_PLAYERS_PER_TEAM = 4;
 
-/** لعبة النقاط — accumulate points over 45 rounds, placement scoring, no elimination. */
+/** لعبة النقاط — accumulate points over 35 rounds, placement scoring, no elimination. */
 export const POINTS_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
   mode: GameMode.POINTS,
   livesPerPlayer: 1, // unused in points mode (no elimination)
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
-  totalRounds: 45,
+  totalRounds: 35,
   intermissionSec: 5,
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.
- *  Capped at 45 rounds so a game that never eliminates down to one still ends. */
+ *  Capped at 35 rounds so a game that never eliminates down to one still ends. */
 export const ELIMINATION_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
   mode: GameMode.ELIMINATION,
   livesPerPlayer: 3,
   speedBonus: true,
   scoringMode: ScoringMode.SPEED, // points only matter for tie-breaks
-  totalRounds: 45,
+  totalRounds: 35,
 };

@@ -62,7 +62,7 @@ export function Winner() {
   return (
     <div
       className="relative grid min-h-dvh place-items-center overflow-hidden p-5 lg:h-full lg:p-0"
-      style={{ backgroundImage: 'linear-gradient(165deg, #4F46E5 0%, #6D28D9 48%, #DB2777 100%)' }}
+      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       <ConfettiRain />
       <AnimatePresence mode="wait">

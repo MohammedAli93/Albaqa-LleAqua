@@ -1,7 +1,7 @@
 /**
  * Shared Tailwind preset — "البقاء للأقوى" design system v3 (light).
- * Direction: bright, premium, friendly game-show. Light sky/lavender canvas,
- * indigo brand, teal + coral accents, amber prizes, strong contrast. Arabic-first
+ * Direction: bright, premium, friendly game-show. Light sky canvas,
+ * sky-blue brand, teal + coral accents, amber prizes, strong contrast. Arabic-first
  * (Cairo display / Tajawal body). Consumed by apps/screen, apps/controller, apps/admin.
  *
  * Token names are kept stable across the dark→light redesign so existing utility
@@ -16,8 +16,9 @@ module.exports = {
       colors: {
         // Canvas — light sky/lavender page with white raised surfaces
         bg: { base: '#F4F7FF', raised: '#FFFFFF', sunken: '#E8EEFC', overlay: '#FFFFFF' },
-        // Brand spectrum — indigo led, violet pop, teal accent
-        brand: { violet: '#6366F1', deep: '#4F46E5', indigo: '#4F46E5', magenta: '#7C3AED', cyan: '#14B8A6' },
+        // Brand spectrum — sky-blue led, light-sky pop, teal accent
+        // (token names kept stable so existing bg-brand-violet/deep/magenta classes adopt the new sky palette)
+        brand: { violet: '#0EA5E9', deep: '#0284C7', indigo: '#0284C7', magenta: '#38BDF8', cyan: '#14B8A6' },
         // Action (CTA) — coral → rose
         action: { DEFAULT: '#F43F5E', hot: '#FB7185' },
         // Accents (kept under the old "neon" key for class compatibility)
@@ -62,19 +63,19 @@ module.exports = {
       borderRadius: { xl2: '1.25rem', xl3: '1.75rem', xl4: '2.25rem' },
       boxShadow: {
         // Soft, light-theme elevation + subtle colored glows
-        glass: '0 8px 30px -8px rgba(79,70,229,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
-        glow: '0 16px 40px -14px rgba(79,70,229,0.40)',
+        glass: '0 8px 30px -8px rgba(2,132,199,0.14), inset 0 1px 0 rgba(255,255,255,0.7)',
+        glow: '0 16px 40px -14px rgba(14,165,233,0.40)',
         'glow-cyan': '0 16px 40px -14px rgba(20,184,166,0.40)',
         'glow-rose': '0 16px 40px -14px rgba(251,113,133,0.45)',
         gold: '0 16px 40px -14px rgba(245,158,11,0.45)',
         card: '0 24px 60px -32px rgba(15,23,42,0.28)',
       },
       backgroundImage: {
-        'gradient-brand': 'linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)',
+        'gradient-brand': 'linear-gradient(135deg, #38BDF8 0%, #0EA5E9 100%)',
         'gradient-action': 'linear-gradient(135deg, #FB7185 0%, #F43F5E 55%, #E11D48 100%)',
         'gradient-prize': 'linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
-        'gradient-cyber': 'linear-gradient(135deg, #4F46E5 0%, #6366F1 45%, #14B8A6 100%)',
-        'gradient-stage': 'radial-gradient(ellipse 80% 55% at 50% -8%, rgba(99,102,241,0.18) 0%, rgba(244,247,255,0) 62%)',
+        'gradient-cyber': 'linear-gradient(135deg, #0284C7 0%, #0EA5E9 45%, #22D3EE 100%)',
+        'gradient-stage': 'radial-gradient(ellipse 80% 55% at 50% -8%, rgba(14,165,233,0.18) 0%, rgba(244,247,255,0) 62%)',
         'gradient-card': 'linear-gradient(160deg, #FFFFFF 0%, #F4F7FF 100%)',
         'gradient-page': 'linear-gradient(180deg, #F8FAFF 0%, #EEF2FE 100%)',
       },
@@ -89,7 +90,7 @@ module.exports = {
         },
         shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
         pop: { '0%': { transform: 'scale(0.85)', opacity: '0' }, '60%': { transform: 'scale(1.04)' }, '100%': { transform: 'scale(1)', opacity: '1' } },
-        'glow-pulse': { '0%,100%': { boxShadow: '0 0 30px -14px rgba(79,70,229,0.5)' }, '50%': { boxShadow: '0 0 50px -10px rgba(79,70,229,0.7)' } },
+        'glow-pulse': { '0%,100%': { boxShadow: '0 0 30px -14px rgba(14,165,233,0.5)' }, '50%': { boxShadow: '0 0 50px -10px rgba(14,165,233,0.7)' } },
       },
       animation: {
         'gradient-pan': 'gradient-pan 8s ease infinite',

@@ -314,7 +314,7 @@ export async function startGame(gameId: string): Promise<void> {
       .filter((p) => p.status === ParticipantStatus.ACTIVE)
       .sort((a, b) => a.joinOrder - b.joinOrder)
       .map((p) => ({ id: p.id, categoryId: p.categoryId }));
-    const target = state.settings.totalRounds ?? 20;
+    const target = state.settings.totalRounds ?? 35;
     const { questionOrder, roundOwners } = await buildPerPlayerOrder(players, target);
     if (questionOrder.length >= 1) {
       state.questionOrder = questionOrder;

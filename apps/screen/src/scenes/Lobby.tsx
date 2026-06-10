@@ -15,7 +15,7 @@ export function Lobby() {
   return (
     <div
       className="safe relative flex min-h-dvh flex-col overflow-hidden text-white lg:h-full"
-      style={{ backgroundImage: 'linear-gradient(165deg, #4F46E5 0%, #6D28D9 48%, #DB2777 100%)' }}
+      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       {/* playful décor */}
       <div className="pointer-events-none absolute -right-24 -top-24 h-[40vh] w-[40vh] rounded-full bg-white/15 blur-3xl" />

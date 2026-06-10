@@ -29,25 +29,6 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Repeat a base list (reshuffling each fresh cycle) until it reaches `target`
- * length, so a game always runs its full round count even when the source pool
- * holds fewer than `target` distinct questions. The first cycle preserves the
- * caller's order; later cycles are reshuffled to vary the repeats.
- */
-function fillToTarget(base: string[], target: number): string[] {
-  if (base.length === 0) return [];
-  const out: string[] = [];
-  while (out.length < target) {
-    const cycle = out.length === 0 ? base : shuffle(base);
-    for (const id of cycle) {
-      if (out.length >= target) break;
-      out.push(id);
-    }
-  }
-  return out;
-}
-
-/**
  * Build the round question order for a category game: ensure the category has
  * enough questions (generating on demand), then draw a randomized set. Falls back
  * to an empty list (caller uses the package) if the category can't be filled.
@@ -117,16 +98,12 @@ export async function buildPerPlayerOrder(
       const p = players[(r + k) % players.length]!;
       const catId = playerCat.get(p.id);
       if (!catId) continue;
-      let pool = catPool.get(catId)!;
+      const pool = catPool.get(catId)!;
       if (pool.length === 0) continue; // this category has no questions at all
-      let idx = catCursor.get(catId)!;
-      if (idx >= pool.length) {
-        // Recycle: the pool is smaller than the round count, so reshuffle and reuse
-        // it rather than stalling — the game still reaches targetRounds.
-        pool = shuffle(pool);
-        catPool.set(catId, pool);
-        idx = 0;
-      }
+      const idx = catCursor.get(catId)!;
+      // No recycling: once a category's distinct questions are used up, skip it so
+      // a question never repeats. The game ends a little early rather than repeat.
+      if (idx >= pool.length) continue;
       questionOrder.push(pool[idx]!);
       roundOwners.push(p.id);
       catCursor.set(catId, idx + 1);
@@ -178,18 +155,20 @@ export async function createRoom(
   let totalRounds: number;
   if (settings.perPlayerCategory) {
     questionOrder = [];
-    totalRounds = settings.totalRounds ?? 45;
+    totalRounds = settings.totalRounds ?? 35;
   } else {
     let base = packageOrder;
     if (settings.categoryId) {
-      const desired = settings.totalRounds ?? 45;
+      const desired = settings.totalRounds ?? 35;
       const catOrder = await categoryQuestionOrder(settings.categoryId, desired);
       if (catOrder.length >= 4) base = catOrder;
     }
-    // Always run the full requested round count: when the pool has fewer distinct
-    // questions than totalRounds, questions are recycled so the game still reaches 45.
-    totalRounds = settings.totalRounds ?? base.length;
-    questionOrder = fillToTarget(base, totalRounds);
+    // Draw only distinct questions — never recycle — so a question never repeats in
+    // a game. If the pool is smaller than the requested count the game simply runs
+    // fewer rounds. `base` is already shuffled & distinct.
+    const requested = settings.totalRounds ?? base.length;
+    questionOrder = base.slice(0, requested);
+    totalRounds = questionOrder.length;
   }
 
   const game = await prisma.game.create({

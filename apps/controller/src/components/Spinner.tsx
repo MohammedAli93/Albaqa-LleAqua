@@ -24,7 +24,7 @@ export function Spinner({
           style={{
             width: size,
             height: size,
-            background: 'conic-gradient(from 0deg, transparent 0%, var(--brand-deep, #4F46E5) 85%, transparent 100%)',
+            background: 'conic-gradient(from 0deg, transparent 0%, var(--brand-deep, #0284C7) 85%, transparent 100%)',
             WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${Math.max(3, size * 0.11)}px), #000 0)`,
             mask: `radial-gradient(farthest-side, transparent calc(100% - ${Math.max(3, size * 0.11)}px), #000 0)`,
           }}
