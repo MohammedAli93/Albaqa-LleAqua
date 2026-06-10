@@ -215,7 +215,13 @@ export const useStore = create<ScreenState>((set) => ({
           return { paused: false };
         case ServerEvent.GAME_COMPLETED: {
           const p = payload as GameCompletedPayload;
-          return { status: 'COMPLETED', winner: p, leaderboard: p.finalLeaderboard, phase: 'idle' };
+          return {
+            status: 'COMPLETED',
+            winner: p,
+            leaderboard: p.finalLeaderboard,
+            teams: p.teams ?? s.teams,
+            phase: 'idle',
+          };
         }
         case ServerEvent.SJ_STATE:
           return { status: 'ACTIVE', seenJeem: payload as SeenJeemSnapshot };

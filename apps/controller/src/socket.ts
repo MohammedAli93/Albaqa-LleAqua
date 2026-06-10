@@ -57,6 +57,12 @@ export function joinGame(nickname: string, avatarId: string): Promise<PlayerJoin
             avatarId,
           };
           saveSession(session);
+          // Critical: bind the session token to the LIVE socket so a transient
+          // mobile drop (screen lock / app switch) re-authenticates on auto-reconnect
+          // instead of coming back as an anonymous socket and getting dropped after
+          // the grace window. Without this, players vanish mid-game though they never
+          // left the link.
+          if (socket) socket.auth = { ...(socket.auth as Record<string, unknown>), sessionToken: res.data.sessionToken };
           useStore.getState().set({ participantId: res.data.participantId, nickname, avatarId, phase: 'lobby' });
           resolve(res.data);
         } else {

@@ -400,6 +400,8 @@ export interface RoundCompletedPayload {
 export interface GameCompletedPayload {
   winner: PublicParticipant | null;
   winnerTeam: TeamPublic | null;
+  /** TEAMS mode: every team with its final score + members (winner and losers). */
+  teams?: TeamPublic[];
   finalLeaderboard: RankedEntry[];
   stats: { totalRounds: number; durationSec: number; totalPlayers: number };
 }

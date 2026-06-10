@@ -741,18 +741,17 @@ export async function completeGame(
   await saveRoom(state);
 
   const winner = winnerId ? state.participants[winnerId] : undefined;
-  const winnerTeam = winnerTeamId ? state.teams[winnerTeamId] : undefined;
+  const isTeams = Object.keys(state.teams).length > 0;
+  // Authoritative final team table (scores + members) so the result screen never
+  // falls back to stale/zeroed team data.
+  const teams = isTeams ? publicTeams(state) : undefined;
+  const winnerTeam = winnerTeamId
+    ? teams?.find((t) => t.id === winnerTeamId) ?? null
+    : null;
   const payload: GameCompletedPayload = {
     winner: winner ? toPublicParticipant(winner) : null,
-    winnerTeam: winnerTeam
-      ? {
-          id: winnerTeam.id,
-          name: winnerTeam.name,
-          color: winnerTeam.color,
-          score: winnerTeam.score,
-          memberIds: Object.values(state.participants).filter((p) => p.teamId === winnerTeam.id).map((p) => p.id),
-        }
-      : null,
+    winnerTeam,
+    teams,
     finalLeaderboard: leaderboard,
     stats: { totalRounds: state.roundIndex + 1, durationSec, totalPlayers: Object.keys(state.participants).length },
   };

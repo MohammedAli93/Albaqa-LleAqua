@@ -102,13 +102,21 @@ export function registerPlayNamespace(playNs: Namespace): void {
 
     socket.on('disconnect', async () => {
       if (!ctx.participantId) return;
-      // Grace window: mark disconnected, broadcast left only if they don't return.
+      // Grace window: mark disconnected. Whether we then fully remove them depends
+      // on game phase.
       await engine.markDisconnected(ctx.gameId, ctx.participantId);
       const grace = env.GAME_RECONNECT_GRACE_SEC * 1000;
       setTimeout(async () => {
         const state = await getRoom(ctx.gameId);
         const p = state?.participants[ctx.participantId!];
-        if (p && p.status === 'DISCONNECTED' && p.disconnectedAt && Date.now() - p.disconnectedAt >= grace) {
+        if (!p || p.status !== 'DISCONNECTED' || !p.disconnectedAt) return;
+        if (Date.now() - p.disconnectedAt < grace) return;
+        // Only auto-remove while still in the LOBBY (clears pre-game ghosts). Once a
+        // game is ACTIVE/PAUSED a paying player who dropped (mobile screen-lock,
+        // tunnel, app switch) must stay reconnectable for the whole game — removing
+        // them would make them un-rejoinable and wipe them from their team. They keep
+        // their DISCONNECTED status and rebind the moment they return.
+        if (state!.status === 'LOBBY') {
           await engine.leave(ctx.gameId, ctx.participantId!);
         }
       }, grace + 500);
