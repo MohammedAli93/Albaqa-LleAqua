@@ -82,10 +82,7 @@ export function Home() {
             البقاء للأقوى
           </motion.h1>
           <p className="mx-auto mt-3 max-w-[18rem] font-display text-lg font-bold leading-relaxed text-white/90 sm:max-w-md sm:text-2xl">
-            الجواب عليك، والسؤال علينا 🎯
-          </p>
-          <p className="mx-auto mt-1 max-w-[18rem] text-sm text-white/75 sm:max-w-lg sm:text-base">
-            +50 فئة · أسئلة لا تنتهي · العبوها مع أصحابكم على الشاشة الكبيرة
+            لتجربة اجمل ألعبها على شاشة التلفزيون 😍
           </p>
 
           <motion.button
