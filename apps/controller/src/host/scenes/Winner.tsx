@@ -124,15 +124,15 @@ function ChampionFocus({
           <div className="grid h-24 w-24 place-items-center rounded-full shadow-gold lg:h-36 lg:w-36" style={{ background: team.color }}>
             <Crown color="white" className="h-12 w-12 lg:h-20 lg:w-20" />
           </div>
-          <h2 className="max-w-full break-words font-display text-screen-name font-black" style={{ color: team.color }}>{team.name}</h2>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black" style={{ color: team.color }}>{team.name}</h2>
           <p className="tnum font-display text-screen-score font-black text-white drop-shadow"><CountUp value={team.score} /> {t(L, 'points')}</p>
         </>
       ) : winner ? (
         <>
-          <div className="scale-110 lg:scale-[1.6]">
+          <div className="scale-110 lg:scale-[1.35]">
             <Avatar avatarId={winner.avatarId} size={120} />
           </div>
-          <h2 className="max-w-full break-words font-display text-screen-name font-black text-gold-gradient">{winner.nickname}</h2>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black text-gold-gradient">{winner.nickname}</h2>
           {isElim ? (
             <Hearts lives={winner.lives} size={48} />
           ) : (
@@ -289,9 +289,9 @@ function Headline({ title }: { title: string }) {
       className="mb-5 flex flex-col items-center gap-1 lg:mb-8"
     >
       <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
-        <Trophy className="h-[1.05em] w-[1.05em] text-screen-champion text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
+        <Trophy className="h-[1.05em] w-[1.05em] text-[clamp(3rem,5.5vw,6rem)] text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
       </motion.div>
-      <h1 className="font-display text-screen-champion font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
+      <h1 className="font-display text-[clamp(3rem,5.5vw,6rem)] font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
         {title}
       </h1>
     </motion.div>
