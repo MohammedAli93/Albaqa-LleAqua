@@ -1,13 +1,36 @@
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Skull } from 'lucide-react';
+import { Crown, Skull, Check } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
+import type { RevealAnswerer } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
+import type { Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
 
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** How long the correct-answer + 1st/2nd/3rd recap holds before the standings. */
+const RECAP_MS = 3800;
+
 export function Scoreboard() {
-  const { leaderboard, eliminatedThisRound, teams, mode, locale } = useStore();
+  const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, topAnswerers } = useStore();
+
+  // Recap first: show the correct answer + who answered 1st/2nd/3rd, then slide to
+  // the standings. (The next question's 3-2-1 follows the standings.)
+  const hasRecap = !!correctOptionId && !!question;
+  const [stage, setStage] = useState<'recap' | 'standings'>(hasRecap ? 'recap' : 'standings');
+  useEffect(() => {
+    if (stage !== 'recap') return;
+    const id = window.setTimeout(() => setStage('standings'), RECAP_MS);
+    return () => window.clearTimeout(id);
+  }, [stage]);
+
+  if (stage === 'recap' && hasRecap) {
+    const correct = question!.options.find((o) => o.id === correctOptionId);
+    return <Recap correctText={correct?.textAr ?? ''} answerers={topAnswerers} locale={locale} />;
+  }
 
   if (teams.length > 0) return <TeamBoard />;
 
@@ -65,6 +88,50 @@ export function Scoreboard() {
             );
           })}
         </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/** Reveal recap: the correct answer, then the 1st / 2nd / 3rd fastest answerers. */
+function Recap({ correctText, answerers, locale }: { correctText: string; answerers: RevealAnswerer[]; locale: Locale }) {
+  return (
+    <div className="safe grid min-h-dvh place-items-center lg:h-full" dir="rtl">
+      <div className="flex w-full max-w-3xl flex-col items-center gap-6 px-5 text-center lg:gap-8">
+        {/* Correct answer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+          className="w-full"
+        >
+          <p className="mb-3 font-display text-screen-status font-bold text-ink-secondary">{t(locale, 'correctAnswer')}</p>
+          <div className="flex items-center justify-center gap-3 rounded-xl3 bg-success/15 px-6 py-5 ring-2 ring-success lg:py-7">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-success text-white lg:h-12 lg:w-12">
+              <Check size={26} />
+            </span>
+            <span className="font-display text-screen-name font-black text-ink-primary">{correctText}</span>
+          </div>
+        </motion.div>
+
+        {/* 1st / 2nd / 3rd */}
+        {answerers.length > 0 && (
+          <div className="flex w-full flex-col gap-3">
+            {answerers.map((a, i) => (
+              <motion.div
+                key={a.participantId}
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.25 + i * 0.18, type: 'spring', stiffness: 220, damping: 20 }}
+                className={`flex items-center gap-4 rounded-xl2 p-3.5 lg:p-4 ${i === 0 ? 'glass-strong ring-2 ring-prize-gold shadow-gold' : 'glass'}`}
+              >
+                <span className="text-3xl lg:text-4xl">{MEDALS[i] ?? a.place}</span>
+                <Avatar avatarId={a.avatarId} size={52} />
+                <span className="flex-1 truncate text-start font-display text-screen-rankname font-black">{a.nickname}</span>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

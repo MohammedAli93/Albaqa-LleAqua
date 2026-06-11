@@ -336,6 +336,12 @@ export interface QuestionShowPayload {
   roundId: string;
   question: PublicQuestion;
   endsAt: number;
+  /**
+   * When answering actually opens (after the 3-2-1 "get ready" pre-roll). Clients
+   * show the countdown until this instant, then the live question + timer. Absent
+   * on older servers → treat as "already started".
+   */
+  startsAt?: number;
   /** Per-player-category mode: whose category this round belongs to. */
   turnPlayer?: { nickname: string; avatarId: string };
 }
@@ -350,10 +356,21 @@ export interface AnswerReceivedPayload {
   totalActive: number;
 }
 
+/** A player who answered correctly, with their podium place (1st/2nd/3rd…). */
+export interface RevealAnswerer {
+  participantId: string;
+  nickname: string;
+  avatarId: string;
+  /** Podium place among correct answers (1 = fastest correct). */
+  place: number;
+}
+
 export interface QuestionRevealPayload {
   roundId: string;
   correctOptionId: string;
   distribution: Record<string, number>;
+  /** Fastest correct answers, ranked — drives the "1st / 2nd / 3rd" reveal. */
+  topAnswerers?: RevealAnswerer[];
   explanationAr?: string;
   explanationEn?: string;
 }

@@ -177,7 +177,9 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   questionTimerSec: 15,
   livesPerPlayer: 1,
   speedBonus: false,
-  intermissionSec: 5,
+  // Between-round window: holds the correct-answer + 1st/2nd/3rd recap, then the
+  // standings, before the next question's 3-2-1 pre-roll.
+  intermissionSec: 7,
   autoAdvance: true,
   totalRounds: 35,
   scoringMode: ScoringMode.PLACEMENT,
@@ -200,7 +202,7 @@ export const POINTS_SETTINGS: GameSettings = {
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
   totalRounds: 35,
-  intermissionSec: 5,
+  intermissionSec: 7,
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.

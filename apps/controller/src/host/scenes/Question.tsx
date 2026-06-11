@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Users, Zap, Crown } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
+import type { Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
 import { ConfettiBurst } from '../components/Confetti.js';
@@ -13,18 +14,50 @@ import { useCountdown } from '../hooks/useCountdown.js';
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
+/** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
+function GetReady({ msLeft, locale }: { msLeft: number; locale: Locale }) {
+  const n = Math.max(1, Math.ceil(msLeft / 1000));
+  return (
+    <div
+      className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full"
+      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
+    >
+      <div className="flex flex-col items-center gap-4 text-white lg:gap-7">
+        <p className="font-display text-screen-title font-bold text-white/90 drop-shadow">{t(locale, 'getReady')}</p>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={n}
+            initial={{ scale: 0.3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.8, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 16 }}
+            className="font-display font-black text-gold-gradient"
+            style={{ fontSize: 'clamp(8rem, 26vw, 22rem)', lineHeight: 1, filter: 'drop-shadow(0 8px 40px rgba(245,197,24,0.6))' }}
+          >
+            {n}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
 export function Question() {
   const {
-    question, phase, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
+    question, phase, startsAt, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
     correctOptionId, distribution, heroes, teams, leaderboard, mode, locale,
   } = useStore();
 
   const collecting = phase === 'collecting';
   const remaining = useCountdown(endsAt, collecting);
+  const preMs = useCountdown(startsAt, collecting);
+  const inPreroll = collecting && !!startsAt && preMs > 0;
   const revealing = phase === 'reveal';
   const isTeams = teams.length > 0;
   const isElimination = mode === GameMode.ELIMINATION;
 
+  // 3-2-1 lead-in before the question opens for answering.
+  if (inPreroll) return <GetReady msLeft={preMs} locale={locale} />;
   if (!question) return null;
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 

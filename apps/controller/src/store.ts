@@ -59,6 +59,8 @@ export interface ControllerState {
 
   question: PublicQuestion | null;
   roundId: string | null;
+  /** When answering opens (after the 3-2-1 pre-roll); null = already open. */
+  startsAt: number | null;
   endsAt: number | null;
   roundTotalMs: number;
   selectedOptionId: string | null; // optimistic
@@ -117,6 +119,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   participants: [],
   question: null,
   roundId: null,
+  startsAt: null,
   endsAt: null,
   roundTotalMs: 15000,
   selectedOptionId: null,
@@ -185,13 +188,15 @@ export const useStore = create<ControllerState>((set, get) => ({
         case ServerEvent.QUESTION_SHOW: {
           if (s.myStatus === 'ELIMINATED') return { phase: 'eliminated' };
           const p = payload as QuestionShowPayload;
+          const startsAt = p.startsAt ?? Date.now();
           return {
             phase: 'question',
             question: p.question,
             roundId: p.roundId,
             round: p.round,
+            startsAt,
             endsAt: p.endsAt,
-            roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
+            roundTotalMs: Math.max(1000, p.endsAt - startsAt),
             selectedOptionId: null,
             hasAnswered: false,
             correctOptionId: null,

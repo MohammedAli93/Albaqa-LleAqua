@@ -19,6 +19,7 @@ import {
   type AnswerReceivedPayload,
   type TeamPublic,
   type RoundHero,
+  type RevealAnswerer,
   type TeamScoredPayload,
   type SeenJeemSnapshot,
   type SjCellResolvedPayload,
@@ -63,6 +64,8 @@ export interface ScreenState {
   question: PublicQuestion | null;
   /** Per-player-category mode: whose category this round belongs to. */
   turnPlayer: { nickname: string; avatarId: string } | null;
+  /** When answering opens (after the 3-2-1 pre-roll); null = no pending question. */
+  startsAt: number | null;
   endsAt: number | null;
   roundTotalMs: number;
   remainingMs: number;
@@ -73,6 +76,8 @@ export interface ScreenState {
   // reveal
   correctOptionId: string | null;
   distribution: Record<string, number>;
+  /** Fastest correct answers this round (1st/2nd/3rd), shown on the reveal. */
+  topAnswerers: RevealAnswerer[];
 
   eliminatedThisRound: string[];
   winner: GameCompletedPayload | null;
@@ -107,6 +112,7 @@ export const useStore = create<ScreenState>((set) => ({
   roundId: null,
   question: null,
   turnPlayer: null,
+  startsAt: null,
   endsAt: null,
   roundTotalMs: 15000,
   remainingMs: 0,
@@ -115,6 +121,7 @@ export const useStore = create<ScreenState>((set) => ({
   phase: 'idle',
   correctOptionId: null,
   distribution: {},
+  topAnswerers: [],
   eliminatedThisRound: [],
   winner: null,
   paused: false,
@@ -166,19 +173,22 @@ export const useStore = create<ScreenState>((set) => ({
           return { status: 'ACTIVE', paused: false };
         case ServerEvent.QUESTION_SHOW: {
           const p = payload as QuestionShowPayload;
+          const startsAt = p.startsAt ?? Date.now();
           return {
             status: 'ACTIVE',
             round: p.round,
             roundId: p.roundId,
             question: p.question,
             turnPlayer: p.turnPlayer ?? null,
+            startsAt,
             endsAt: p.endsAt,
-            roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
+            roundTotalMs: Math.max(1000, p.endsAt - startsAt),
             remainingMs: Math.max(0, p.endsAt - Date.now()),
             answeredCount: 0,
             phase: 'collecting',
             correctOptionId: null,
             distribution: {},
+            topAnswerers: [],
             eliminatedThisRound: [],
             heroes: [],
             paused: false,
@@ -201,7 +211,7 @@ export const useStore = create<ScreenState>((set) => ({
           return { phase: 'locked', remainingMs: 0 };
         case ServerEvent.QUESTION_REVEAL: {
           const p = payload as QuestionRevealPayload;
-          return { phase: 'reveal', correctOptionId: p.correctOptionId, distribution: p.distribution };
+          return { phase: 'reveal', correctOptionId: p.correctOptionId, distribution: p.distribution, topAnswerers: p.topAnswerers ?? [] };
         }
         case ServerEvent.SCORE_UPDATE: {
           const p = payload as ScoreUpdatePayload;

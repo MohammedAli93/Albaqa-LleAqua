@@ -56,6 +56,9 @@ export function initEngine(e: GameEmitter): void {
   setEmitter(e); // shared with the Seen-Jeem orchestrator
 }
 
+/** "Get ready" pre-roll before every question opens for answering (3-2-1). */
+const GET_READY_MS = 3000;
+
 // ─────────────────────────────── Join / leave ───────────────────────────────
 
 export interface JoinResult {
@@ -396,7 +399,12 @@ export async function startNextRound(gameId: string): Promise<void> {
     }
   }
 
-  const startedAt = Date.now();
+  // 3-2-1 "get ready" pre-roll: answering opens GET_READY_MS after the question is
+  // pushed, so every round (including the first) leads in with a countdown. The
+  // answer window + the resolution timer are measured from `startedAt`, so the
+  // pre-roll never eats into anyone's answering time.
+  const now = Date.now();
+  const startedAt = now + GET_READY_MS;
   const timeLimitSec = loaded.timeLimitSec || state.settings.questionTimerSec;
   const endsAt = startedAt + timeLimitSec * 1000;
   const roundId = nanoid(16);
@@ -437,6 +445,7 @@ export async function startNextRound(gameId: string): Promise<void> {
     round: nextIndex + 1,
     roundId,
     question: loaded.publicQuestion,
+    startsAt: startedAt,
     endsAt,
     ...(owner ? { turnPlayer: { nickname: owner.nickname, avatarId: owner.avatarId } } : {}),
   });
@@ -466,6 +475,12 @@ export async function submitAnswer(
   const { result, shouldResolve, received } = await withRoomLock(gameId, async () => {
     const state = await mustGetRoom(gameId);
     const round = fsm.assertAnswerable(state, roundId);
+
+    // Answering hasn't opened yet — still in the 3-2-1 pre-roll. Reject so a fast
+    // client can't bank a 0ms response before the question is live.
+    if (Date.now() < round.startedAt) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'Round has not started yet');
+    }
 
     const participant = state.participants[participantId];
     if (!participant || participant.status !== ParticipantStatus.ACTIVE) {
@@ -572,11 +587,22 @@ export async function resolveRound(gameId: string): Promise<void> {
     for (const o of outcomes) {
       if (o.selectedOptionId) distribution[o.selectedOptionId] = (distribution[o.selectedOptionId] ?? 0) + 1;
     }
+    // Podium: the fastest correct answers, ranked 1st / 2nd / 3rd for the reveal.
+    const topAnswerers = outcomes
+      .filter((o) => o.isCorrect)
+      .sort((a, b) => a.responseMs - b.responseMs)
+      .slice(0, 3)
+      .map((o, i) => {
+        const p = state.participants[o.participantId]!;
+        return { participantId: o.participantId, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };
+      });
+
     const loaded = await loadQuestion(round.questionId).catch(() => null);
     emitter.toRoom(gameId, ServerEvent.QUESTION_REVEAL, {
       roundId: round.roundId,
       correctOptionId: round.correctOptionId,
       distribution,
+      topAnswerers,
       explanationAr: loaded?.explanationAr,
       explanationEn: loaded?.explanationEn,
     });
