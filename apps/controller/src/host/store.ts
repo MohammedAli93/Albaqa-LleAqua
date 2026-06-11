@@ -51,6 +51,8 @@ export interface ScreenState {
   status: RoomSnapshot['game']['status'];
   type: RoomSnapshot['game']['type'];
   mode: RoomSnapshot['game']['mode'];
+  /** Per-player-category mode: each player picks their own category in the lobby. */
+  perPlayerCategory: boolean;
   round: number;
   totalRounds: number;
   participants: PublicParticipant[];
@@ -97,6 +99,7 @@ export const useStore = create<ScreenState>((set) => ({
   status: 'LOBBY',
   type: 'INDIVIDUAL',
   mode: 'POINTS',
+  perPlayerCategory: false,
   round: 0,
   totalRounds: 0,
   participants: [],
@@ -134,6 +137,7 @@ export const useStore = create<ScreenState>((set) => ({
             status: snap.game.status,
             type: snap.game.type,
             mode: snap.game.mode,
+            perPlayerCategory: snap.game.perPlayerCategory ?? false,
             round: snap.game.round,
             totalRounds: snap.game.totalRounds,
             participants: snap.participants,

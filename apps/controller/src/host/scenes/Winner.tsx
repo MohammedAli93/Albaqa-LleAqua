@@ -71,9 +71,10 @@ export function Winner() {
 // ─────────────────────────────── Individual ──────────────────────────────────
 
 /**
- * Solo result: 1st place is the champion — a big, unmistakable hero. 2nd, 3rd,
- * 4th… follow in a clear ranked list. Points mode shows scores; elimination shows
- * hearts / a skull.
+ * Solo result: ONE ranked list, top to bottom. 1st place is the champion — shown
+ * as a big, unmistakable gold card at the head of the list (large avatar + name +
+ * "Champion") and then 2nd, 3rd, 4th… follow as normal rows beneath it. The
+ * champion stays IN the ranking (clearly marked first), per client request.
  */
 function PlayerResult({ leaderboard, isElim }: { leaderboard: RankedEntry[]; isElim: boolean }) {
   const champ = leaderboard[0];
@@ -81,68 +82,74 @@ function PlayerResult({ leaderboard, isElim }: { leaderboard: RankedEntry[]; isE
   if (!champ) return null;
 
   return (
-    <div className="grid w-full max-w-6xl items-center gap-6 lg:grid-cols-[1fr_1.1fr] lg:gap-12">
-      {/* Champion hero */}
+    <div className="mx-auto flex w-full max-w-2xl flex-col items-center lg:max-w-3xl">
+      {/* Trophy headline */}
       <motion.div
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', stiffness: 150, damping: 18 }}
-        className="flex flex-col items-center gap-3 text-center lg:gap-5"
+        className="mb-4 flex flex-col items-center gap-1 text-center lg:mb-6"
       >
-        <motion.div animate={{ y: [0, -12, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
-          <Trophy className="h-[1.1em] w-[1.1em] text-screen-champion text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
+        <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
+          <Trophy className="h-[1.1em] w-[1.1em] text-screen-title text-prize-gold" style={{ filter: 'drop-shadow(0 0 30px rgba(245,197,24,0.9))' }} />
         </motion.div>
-        <h1 className="font-display text-screen-champion font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
-          {t(L, 'champion')}
-        </h1>
-        <div className="scale-110 lg:scale-[1.6]">
-          <Avatar avatarId={champ.avatarId} size={120} />
-        </div>
-        <h2 className="max-w-full break-words font-display text-screen-name font-black text-gold-gradient">{champ.nickname}</h2>
-        {isElim ? (
-          <Hearts lives={champ.lives} size={48} />
-        ) : (
-          <p className="tnum font-display text-screen-score font-black text-white">
-            <CountUp value={champ.score} /> {t(L, 'points')}
-          </p>
-        )}
-        <p className="font-display text-screen-status font-bold text-white animate-pulse-glow">{t(L, 'congratulations')}</p>
+        <h2 className="font-display text-screen-title font-black text-white drop-shadow">{t(L, 'finalRanking')}</h2>
       </motion.div>
 
-      {/* The rest of the field */}
-      {rest.length > 0 && (
-        <div className="mx-auto flex w-full max-w-2xl flex-col">
-          <h3 className="mb-4 text-center font-display text-screen-title font-black text-white drop-shadow lg:mb-6">{t(L, 'finalRanking')}</h3>
-          <div className="flex flex-col gap-2.5 lg:gap-3">
-            {rest.map((e, i) => {
-              const out = e.status === 'ELIMINATED';
-              return (
-                <motion.div
-                  key={e.participantId}
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: Math.min(i * 0.06, 0.5) }}
-                  className="glass flex items-center gap-3 rounded-xl2 p-3 lg:gap-4 lg:p-4"
-                >
-                  <RankBadge rank={e.rank} />
-                  <Avatar avatarId={e.avatarId} size={52} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
-                    {isElim && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
-                  </div>
-                  {isElim ? (
-                    out ? <Skull className="shrink-0 text-danger" size={28} /> : <Hearts lives={e.lives} size={26} />
-                  ) : (
-                    <span className="tnum font-display text-screen-score font-black">
-                      {e.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
-                    </span>
-                  )}
-                </motion.div>
-              );
-            })}
+      <div className="flex w-full flex-col gap-2.5 lg:gap-3">
+        {/* #1 — the champion, oversized and gold, but still the first row of the list */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 150, damping: 16 }}
+          className="glass-strong flex items-center gap-4 rounded-xl3 p-5 shadow-gold ring-2 ring-prize-gold lg:gap-6 lg:p-7"
+        >
+          <span className="text-5xl lg:text-6xl">🥇</span>
+          <div className="scale-105 lg:scale-110">
+            <Avatar avatarId={champ.avatarId} size={84} />
           </div>
-        </div>
-      )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="font-display text-screen-status font-black uppercase tracking-wide text-gold-gradient">{t(L, 'champion')}</span>
+            <span className="truncate font-display text-screen-name font-black text-gold-gradient">{champ.nickname}</span>
+          </div>
+          {isElim ? (
+            <Hearts lives={champ.lives} size={40} />
+          ) : (
+            <span className="tnum font-display text-screen-score font-black">
+              <CountUp value={champ.score} /> <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
+            </span>
+          )}
+        </motion.div>
+
+        {/* 2nd, 3rd, 4th … */}
+        {rest.map((e, i) => {
+          const out = e.status === 'ELIMINATED';
+          return (
+            <motion.div
+              key={e.participantId}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: Math.min(0.1 + i * 0.06, 0.6) }}
+              className="glass flex items-center gap-3 rounded-xl2 p-3 lg:gap-4 lg:p-4"
+            >
+              <RankBadge rank={e.rank} />
+              <Avatar avatarId={e.avatarId} size={52} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                {isElim && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
+              </div>
+              {isElim ? (
+                out ? <Skull className="shrink-0 text-danger" size={28} /> : <Hearts lives={e.lives} size={26} />
+              ) : (
+                <span className="tnum font-display text-screen-score font-black">
+                  {e.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
+                </span>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+      <p className="mt-5 font-display text-screen-status font-bold text-white animate-pulse-glow">{t(L, 'congratulations')}</p>
     </div>
   );
 }

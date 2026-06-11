@@ -68,6 +68,11 @@ const ART: Record<string, string> = {
   'true-false': '✅',
 };
 
+/** The emoji glyph for a taxonomy slug (used to build the cartoon Twemoji sticker). */
+export function categoryEmoji(slug: string): string {
+  return ART[slug] ?? '🎯';
+}
+
 export function CategoryArt({ slug, className }: { slug: string; className?: string }) {
   const glyph = ART[slug] ?? '🎯';
   return (
