@@ -45,9 +45,9 @@ export function Answer() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
         {round > 0 && totalRounds > 0 && (
-          <p className="font-display text-sm font-black uppercase tracking-wide text-brand-deep">
+          <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
-          </p>
+          </span>
         )}
         {question.category && (
           <div className="rounded-full px-4 py-1 text-sm font-bold text-white" style={{ background: question.category.color }}>

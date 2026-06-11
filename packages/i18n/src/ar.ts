@@ -46,6 +46,8 @@ const ar = {
   winningTeam: 'الفريق الفائز',
   points: 'نقطة',
   gameOver: 'انتهت اللعبة',
+  youWon: 'فزت! 🎉',
+  youFinished: 'ترتيبك #{rank}',
   congratulations: 'مبروك! 🎉',
   playAgain: 'العب مرة ثانية',
   // generic

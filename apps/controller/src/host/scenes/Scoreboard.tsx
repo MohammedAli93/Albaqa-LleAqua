@@ -14,8 +14,18 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 /** How long the correct-answer + 1st/2nd/3rd recap holds before the standings. */
 const RECAP_MS = 3800;
 
+/** Round chip shown between questions — solid fill so it's readable on the light stage. */
+function RoundChip({ round, totalRounds, locale }: { round: number; totalRounds: number; locale: Locale }) {
+  if (round <= 0 || totalRounds <= 0) return null;
+  return (
+    <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-screen-meta font-black text-white shadow-glow">
+      {t(locale, 'roundOf', { current: round, total: totalRounds })}
+    </span>
+  );
+}
+
 export function Scoreboard() {
-  const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, topAnswerers } = useStore();
+  const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, topAnswerers, round, totalRounds } = useStore();
 
   // Recap first: show the correct answer + who answered 1st/2nd/3rd, then slide to
   // the standings. (The next question's 3-2-1 follows the standings.)
@@ -38,9 +48,12 @@ export function Scoreboard() {
   const eliminated = new Set(eliminatedThisRound);
   return (
     <div className="safe flex min-h-dvh flex-col lg:h-full">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-8">
-        {t(locale, 'leaderboard')}
-      </h2>
+      <div className="mb-5 flex flex-col items-center gap-2.5 lg:mb-8">
+        <RoundChip round={round} totalRounds={totalRounds} locale={locale} />
+        <h2 className="text-center font-display text-screen-title font-black text-gradient">
+          {t(locale, 'leaderboard')}
+        </h2>
+      </div>
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-2.5 lg:gap-3.5 lg:overflow-hidden">
         <AnimatePresence>
           {leaderboard.map((e) => {
@@ -139,15 +152,18 @@ function Recap({ correctText, answerers, locale }: { correctText: string; answer
 
 /** Team-vs-team scoreboard: one card per team with total score + members. */
 function TeamBoard() {
-  const { teams, leaderboard, locale } = useStore();
+  const { teams, leaderboard, locale, round, totalRounds } = useStore();
   const ranked = [...teams].sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, ...ranked.map((t) => t.score));
 
   return (
     <div className="safe flex min-h-dvh flex-col lg:h-full">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-8">
-        {t(locale, 'leaderboard')}
-      </h2>
+      <div className="mb-5 flex flex-col items-center gap-2.5 lg:mb-8">
+        <RoundChip round={round} totalRounds={totalRounds} locale={locale} />
+        <h2 className="text-center font-display text-screen-title font-black text-gradient">
+          {t(locale, 'leaderboard')}
+        </h2>
+      </div>
       <div className="mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
         {ranked.map((team, idx) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);

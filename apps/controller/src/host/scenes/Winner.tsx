@@ -209,7 +209,7 @@ function Headline({ title }: { title: string }) {
       <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
         <Trophy className="h-[1.05em] w-[1.05em] text-[clamp(3rem,5.5vw,6rem)] text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
       </motion.div>
-      <h1 className="font-display text-[clamp(3rem,5.5vw,6rem)] font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
+      <h1 className="w-full text-center font-display text-[clamp(3rem,5.5vw,6rem)] font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
         {title}
       </h1>
     </motion.div>

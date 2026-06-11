@@ -7,8 +7,8 @@ import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
 
-// Results are presented in English to match the big screen (client request).
-const L = 'en' as const;
+// Results are presented in Arabic to match the big screen (client request 2026-06-12).
+const L = 'ar' as const;
 const MEDALS = ['🥇', '🥈', '🥉'];
 const CONFETTI = ['#F59E0B', '#0EA5E9', '#22C55E', '#FB7185', '#7C3AED', '#38BDF8'];
 
@@ -63,7 +63,7 @@ export function Finished() {
             <motion.div animate={{ y: [0, -7, 0], rotate: [-4, 4, -4] }} transition={{ duration: 2.6, repeat: Infinity }}>
               <Trophy size={64} className="text-prize-gold" style={{ filter: 'drop-shadow(0 0 22px rgba(245,197,24,0.85))' }} />
             </motion.div>
-            <p className="font-display text-4xl font-black text-gold-gradient">You won!</p>
+            <p className="font-display text-4xl font-black text-gold-gradient">{t(L, 'youWon')}</p>
             <p className="font-display text-base font-bold text-ink-secondary">{t(L, 'champion')}</p>
             {isTeams && myTeam && (
               <p className="font-display text-2xl font-extrabold" style={{ color: myTeam.color }}>{myTeam.name}</p>
@@ -76,8 +76,8 @@ export function Finished() {
             {!isTeams && myRank > 0 && (
               <div className="mt-0.5 flex items-center gap-2">
                 {myRank <= 3 && <span className="text-2xl">{MEDALS[myRank - 1]}</span>}
-                <p className="font-display text-lg text-ink-secondary">
-                  You finished <b className="tnum text-ink-primary">#{myRank}</b>
+                <p className="font-display text-lg font-bold text-ink-primary">
+                  {t(L, 'youFinished', { rank: myRank })}
                 </p>
               </div>
             )}
@@ -88,10 +88,7 @@ export function Finished() {
         )}
       </motion.div>
 
-      {/* ── Podium (individual, top 3) ── */}
-      {!isTeams && board.length > 0 && <PhonePodium top3={board.slice(0, 3)} isElim={isElim} meId={participantId} />}
-
-      {/* ── Final ranking ── */}
+      {/* ── Final ranking (plain list — no podium, client request 2026-06-12) ── */}
       <div className="relative z-10 mt-6 w-full max-w-sm">
         <p className="mb-3 text-center font-display text-base font-black text-gradient">{t(L, 'finalRanking')}</p>
         <div className="space-y-2">
@@ -133,66 +130,6 @@ export function Finished() {
               })}
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Compact 2nd–1st–3rd podium for the phone. */
-function PhonePodium({ top3, isElim, meId }: { top3: RankedEntry[]; isElim: boolean; meId: string | null }) {
-  const [first, second, third] = top3;
-  const slots = [
-    second && { e: second, place: 2 as const },
-    first && { e: first, place: 1 as const },
-    third && { e: third, place: 3 as const },
-  ].filter(Boolean) as { e: RankedEntry; place: 1 | 2 | 3 }[];
-
-  const cfg = {
-    1: { ped: 'h-20', face: 'linear-gradient(180deg,#FDE68A,#F59E0B)', ring: 'ring-2 ring-prize-gold', av: 60, rise: 0.4 },
-    2: { ped: 'h-14', face: 'linear-gradient(180deg,#E5E7EB,#9CA3AF)', ring: 'ring-1 ring-ink-muted/30', av: 46, rise: 0.18 },
-    3: { ped: 'h-11', face: 'linear-gradient(180deg,#FCD9B6,#C2772F)', ring: 'ring-1 ring-ink-muted/30', av: 42, rise: 0.28 },
-  } as const;
-
-  return (
-    <div className="relative z-10 mt-7 flex w-full max-w-sm items-end justify-center gap-2.5">
-      {slots.map(({ e, place }) => {
-        const c = cfg[place];
-        const champ = place === 1;
-        const mine = e.participantId === meId;
-        return (
-          <div key={e.participantId} className="flex flex-1 flex-col items-center justify-end">
-            {champ && (
-              <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }} transition={{ opacity: { delay: 0.5 }, scale: { delay: 0.5, type: 'spring', stiffness: 200 }, y: { duration: 2.4, repeat: Infinity } }}>
-                <Crown size={26} className="text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.9))' }} />
-              </motion.div>
-            )}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.4, y: 16 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ delay: c.rise + 0.2, type: 'spring', stiffness: 220, damping: 16 }}
-              className={`rounded-full ${c.ring}`}
-            >
-              <Avatar avatarId={e.avatarId} size={c.av} />
-            </motion.div>
-            <span className={`mt-1.5 max-w-full truncate font-display text-xs font-black ${champ ? 'text-gold-gradient' : ''}`} dir="auto">
-              {e.nickname}{mine && ' *'}
-            </span>
-            {isElim ? (
-              <Hearts lives={e.lives} size={12} />
-            ) : (
-              <span className="tnum font-display text-xs font-bold text-ink-secondary">{e.score}</span>
-            )}
-            <motion.div
-              initial={{ scaleY: 0 }}
-              animate={{ scaleY: 1 }}
-              transition={{ delay: c.rise, type: 'spring', stiffness: 120, damping: 18 }}
-              style={{ transformOrigin: 'bottom', backgroundImage: c.face }}
-              className={`mt-2 grid w-full place-items-center rounded-t-xl shadow-card ${c.ped}`}
-            >
-              <span className="font-display text-2xl font-black text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.25)' }}>{place}</span>
-            </motion.div>
-          </div>
-        );
-      })}
     </div>
   );
 }
