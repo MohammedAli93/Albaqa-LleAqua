@@ -7,6 +7,7 @@ import {
   type PlayerAnswerAck,
 } from '@tahaddi/shared';
 import { API_URL, saveSession, type Session } from './lib/config.js';
+import { syncClock } from './lib/clock.js';
 import { useStore } from './store.js';
 
 let socket: Socket | null = null;
@@ -23,6 +24,9 @@ export function connect(roomCode: string, sessionToken?: string): Socket {
   const { set, applyServerEvent } = useStore.getState();
   socket.on('connect', () => {
     set({ conn: 'connected' });
+    // Sync our clock to the server so the 3-2-1 pre-roll reveals the question at
+    // the same true instant as every other device (no TV-ahead-of-phone drift).
+    syncClock(socket!);
     // Self-heal a per-player category pick across reconnects: if we already chose a
     // category in the lobby but the original emit may have been lost to a drop,
     // re-assert it now. Idempotent server-side (it just re-stores the same value).

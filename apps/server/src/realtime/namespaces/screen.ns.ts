@@ -57,6 +57,10 @@ export function registerScreenNamespace(screenNs: Namespace): void {
       }
     }
 
+    // Clock sync: reply with server wall-clock so the host screen can offset its
+    // pre-roll/timer to true server time (keeps every device's reveal in lockstep).
+    on(socket, ClientEvent.TIME_SYNC, EmptySchema, async () => ({ serverTime: Date.now() }));
+
     on(socket, ClientEvent.GAME_START, EmptySchema, async () => {
       await engine.startGame(ctx.gameId);
       return { ok: true };

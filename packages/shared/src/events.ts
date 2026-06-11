@@ -36,6 +36,9 @@ export const ClientEvent = {
   PLAYER_PICK_CATEGORY: 'player:pickCategory',
   PLAYER_ANSWER: 'player:answer',
   PLAYER_HEARTBEAT: 'player:heartbeat',
+  /** Clock sync: client pings, server acks its wall-clock so the client can
+   *  compute its offset and run the pre-roll/timer off true server time. */
+  TIME_SYNC: 'time:sync',
   PLAYER_LEAVE: 'player:leave',
   GAME_START: 'game:start',
   ROUND_NEXT: 'round:next',
@@ -301,6 +304,7 @@ export const CLIENT_EVENT_SCHEMAS = {
   [ClientEvent.PLAYER_PICK_CATEGORY]: PickCategorySchema,
   [ClientEvent.PLAYER_ANSWER]: PlayerAnswerSchema,
   [ClientEvent.PLAYER_HEARTBEAT]: EmptySchema,
+  [ClientEvent.TIME_SYNC]: EmptySchema,
   [ClientEvent.PLAYER_LEAVE]: EmptySchema,
   [ClientEvent.GAME_START]: EmptySchema,
   [ClientEvent.ROUND_NEXT]: EmptySchema,

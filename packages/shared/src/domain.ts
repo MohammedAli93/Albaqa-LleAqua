@@ -181,7 +181,7 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   // standings, before the next question's 3-2-1 pre-roll.
   intermissionSec: 7,
   autoAdvance: true,
-  totalRounds: 35,
+  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
   scoringMode: ScoringMode.PLACEMENT,
 };
 
@@ -201,7 +201,7 @@ export const POINTS_SETTINGS: GameSettings = {
   livesPerPlayer: 1, // unused in points mode (no elimination)
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
-  totalRounds: 35,
+  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
   intermissionSec: 7,
 };
 
@@ -213,5 +213,5 @@ export const ELIMINATION_SETTINGS: GameSettings = {
   livesPerPlayer: 3,
   speedBonus: true,
   scoringMode: ScoringMode.SPEED, // points only matter for tie-breaks
-  totalRounds: 35,
+  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
 };

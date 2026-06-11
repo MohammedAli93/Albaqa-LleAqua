@@ -6,21 +6,24 @@ import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Hearts } from '../components/Hearts.js';
 import { submitAnswer } from '../socket.js';
+import { serverNow } from '../lib/clock.js';
 import { haptic } from '../hooks/useDevice.js';
 
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 export function Answer() {
-  const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, locale } = useStore();
+  const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, round, totalRounds, locale } = useStore();
 
-  // Tick while in the 3-2-1 pre-roll so the countdown number updates.
-  const [now, setNow] = useState(() => Date.now());
+  // Tick while in the 3-2-1 pre-roll so the countdown number updates. Uses
+  // serverNow() (server-synced clock) so the phone reveals the question at the
+  // exact same instant as the big screen — no "screen shows it first" drift.
+  const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    if (!startsAt || Date.now() >= startsAt) return;
+    if (!startsAt || serverNow() >= startsAt) return;
     const id = window.setInterval(() => {
-      setNow(Date.now());
-      if (Date.now() >= startsAt) window.clearInterval(id);
+      setNow(serverNow());
+      if (serverNow() >= startsAt) window.clearInterval(id);
     }, 150);
     return () => window.clearInterval(id);
   }, [startsAt]);
@@ -41,6 +44,11 @@ export function Answer() {
     const n = Math.max(1, Math.ceil((startsAt! - now) / 1000));
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
+        {round > 0 && totalRounds > 0 && (
+          <p className="font-display text-sm font-black uppercase tracking-wide text-brand-deep">
+            {t(locale, 'roundOf', { current: round, total: totalRounds })}
+          </p>
+        )}
         {question.category && (
           <div className="rounded-full px-4 py-1 text-sm font-bold text-white" style={{ background: question.category.color }}>
             {question.category.nameAr}
@@ -64,7 +72,7 @@ export function Answer() {
   // of a per-frame React countdown — no re-renders of the whole question/options
   // tree 60×/sec. Keyed by roundId so it restarts cleanly for each new question.
   const totalMs = roundTotalMs || 1;
-  const remainingMs = endsAt ? Math.max(0, endsAt - Date.now()) : totalMs;
+  const remainingMs = endsAt ? Math.max(0, endsAt - serverNow()) : totalMs;
   const startPct = Math.max(0, Math.min(1, remainingMs / totalMs));
 
   return (

@@ -2,6 +2,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { ClientEvent, ServerEvent } from '@tahaddi/shared';
 import { API_URL } from './lib/config.js';
+import { syncClock } from '../lib/clock.js';
 import { useStore } from './store.js';
 
 let socket: Socket | null = null;
@@ -16,7 +17,12 @@ export function connectHost(hostToken: string, roomCode: string): Socket {
 
   const { setConn, applyServerEvent } = useStore.getState();
 
-  socket.on('connect', () => setConn('connected'));
+  socket.on('connect', () => {
+    setConn('connected');
+    // Match the players' clock to the server so the host screen and the phones
+    // count down off the same true time and reveal the question together.
+    syncClock(socket!);
+  });
   socket.io.on('reconnect_attempt', () => setConn('reconnecting'));
   socket.on('disconnect', () => setConn('reconnecting'));
 

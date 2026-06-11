@@ -95,6 +95,10 @@ export function registerPlayNamespace(playNs: Namespace): void {
 
     on(socket, ClientEvent.PLAYER_HEARTBEAT, EmptySchema, async () => ({ serverTs: Date.now() }));
 
+    // Clock sync: reply with server wall-clock so the controller can offset its
+    // pre-roll/timer to true server time (keeps every device's reveal in lockstep).
+    on(socket, ClientEvent.TIME_SYNC, EmptySchema, async () => ({ serverTime: Date.now() }));
+
     on(socket, ClientEvent.PLAYER_LEAVE, EmptySchema, async () => {
       if (ctx.participantId) await engine.leave(ctx.gameId, ctx.participantId);
       return { ok: true };

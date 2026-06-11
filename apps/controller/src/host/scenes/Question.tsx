@@ -15,7 +15,7 @@ const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 /** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
-function GetReady({ msLeft, locale }: { msLeft: number; locale: Locale }) {
+function GetReady({ msLeft, round, totalRounds, locale }: { msLeft: number; round: number; totalRounds: number; locale: Locale }) {
   const n = Math.max(1, Math.ceil(msLeft / 1000));
   return (
     <div
@@ -23,6 +23,11 @@ function GetReady({ msLeft, locale }: { msLeft: number; locale: Locale }) {
       style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       <div className="flex flex-col items-center gap-4 text-white lg:gap-7">
+        {round > 0 && totalRounds > 0 && (
+          <span className="glass rounded-xl2 px-5 py-2 font-display text-screen-status font-black text-white drop-shadow">
+            {t(locale, 'roundOf', { current: round, total: totalRounds })}
+          </span>
+        )}
         <p className="font-display text-screen-title font-bold text-white/90 drop-shadow">{t(locale, 'getReady')}</p>
         <AnimatePresence mode="wait">
           <motion.span
@@ -57,7 +62,7 @@ export function Question() {
   const isElimination = mode === GameMode.ELIMINATION;
 
   // 3-2-1 lead-in before the question opens for answering.
-  if (inPreroll) return <GetReady msLeft={preMs} locale={locale} />;
+  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} locale={locale} />;
   if (!question) return null;
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
