@@ -37,7 +37,7 @@ export function CategoryPicker({
   }, []);
 
   if (failed) {
-    return <p className="mt-10 text-center text-ink-secondary">{t(locale, 'error')}</p>;
+    return <p className="mt-10 text-center font-semibold text-ink-primary">{t(locale, 'error')}</p>;
   }
   if (!groups) {
     return (
@@ -71,17 +71,17 @@ export function CategoryPicker({
       <div className="mt-4 pb-8">
         <button
           onClick={() => setOpenGroup(null)}
-          className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-bg-raised/70 px-4 py-2 font-display text-sm font-bold text-ink-secondary"
+          className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-bg-raised/70 px-4 py-2 font-display text-sm font-bold text-ink-primary"
         >
           <ChevronLeft size={18} />
           {t(locale, 'back')}
         </button>
         <div className="mb-3 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full" style={{ background: openGroup.color }} />
-          <h2 className="font-display text-xl font-black">{openGroup.nameAr}</h2>
+          <h2 className="font-display text-xl font-black text-ink-primary">{openGroup.nameAr}</h2>
         </div>
         {cats.length === 0 ? (
-          <p className="mt-8 text-center text-ink-secondary">{t(locale, 'allCategoriesTaken')}</p>
+          <p className="mt-8 text-center font-semibold text-ink-primary">{t(locale, 'allCategoriesTaken')}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {cats.map((c, i) => (
@@ -163,7 +163,7 @@ function Tile({
       {/* bold label band */}
       <span className="absolute inset-x-2 bottom-2 rounded-2xl bg-white/92 px-1 py-1.5 text-center font-display text-sm font-black leading-tight text-ink-primary shadow-sm sm:text-base">
         {label}
-        {sub && <span className="block text-[0.65rem] font-bold text-ink-muted">{sub}</span>}
+        {sub && <span className="block text-[0.65rem] font-bold text-ink-secondary">{sub}</span>}
       </span>
       {taken && (
         <span className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-black/60 text-white">

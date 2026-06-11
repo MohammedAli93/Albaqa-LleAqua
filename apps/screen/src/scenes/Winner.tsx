@@ -28,7 +28,8 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   return <span className={className}>{n}</span>;
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+// #1 wears the trophy 🏆 (the البطل), #2/#3 the silver/bronze medals.
+const MEDALS = ['🏆', '🥈', '🥉'];
 function RankBadge({ rank, size = 'md' }: { rank: number; size?: 'md' | 'lg' }) {
   const cls = size === 'lg' ? 'text-4xl lg:text-5xl' : 'text-2xl lg:text-3xl';
   if (rank <= 3) return <span className={cls}>{MEDALS[rank - 1]}</span>;
@@ -120,20 +121,20 @@ function Champion({
   locale: Locale;
 }) {
   return (
-    <div className="flex w-full max-w-4xl flex-col items-center gap-3 text-center lg:gap-5">
+    <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 text-center lg:gap-5">
       {/* 🏆 البطل — the headline, top of the layout, biggest thing on screen */}
       <div className="flex flex-col items-center gap-2 lg:gap-3">
         <motion.div
           animate={{ y: [0, -12, 0], rotate: [-3, 3, -3] }}
           transition={{ duration: 3, repeat: Infinity }}
         >
-          <Trophy className="h-[1.1em] w-[1.1em] text-screen-champion text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
+          <Trophy className="h-[1.1em] w-[1.1em] text-[clamp(3rem,5.5vw,6rem)] text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
         </motion.div>
         <motion.h1
           initial={{ scale: 0.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 14 }}
-          className="font-display text-screen-champion font-black text-gold-gradient"
+          className="font-display text-[clamp(3rem,5.5vw,6rem)] font-black text-gold-gradient"
           style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}
         >
           {isTeams ? t(locale, 'winningTeam') : t(locale, 'champion')}
@@ -145,15 +146,15 @@ function Champion({
           <div className="grid h-24 w-24 place-items-center rounded-full shadow-gold lg:h-36 lg:w-36" style={{ background: team.color }}>
             <Crown color="white" className="h-12 w-12 lg:h-20 lg:w-20" />
           </div>
-          <h2 className="max-w-full break-words font-display text-screen-name font-black" style={{ color: team.color }}>{team.name}</h2>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black" style={{ color: team.color }}>{team.name}</h2>
           <p className="tnum font-display text-screen-score font-black"><CountUp value={team.score} /> {t(locale, 'points')}</p>
         </>
       ) : winner ? (
         <>
-          <div className="scale-110 lg:scale-[1.7]">
+          <div className="scale-110 lg:scale-[1.35]">
             <Avatar avatarId={winner.avatarId} size={120} />
           </div>
-          <h2 className="max-w-full break-words font-display text-screen-name font-black text-gold-gradient">{winner.nickname}</h2>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black text-gold-gradient">{winner.nickname}</h2>
           {isElim ? (
             <Hearts lives={winner.lives} size={48} />
           ) : (
@@ -190,7 +191,11 @@ function PlayerRanking({ leaderboard, isElim, locale }: { leaderboard: RankedEnt
               <Avatar avatarId={e.avatarId} size={52} />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
-                {isElim && <span className="font-display text-screen-meta text-ink-muted">{champ ? t(locale, 'champion') : t(locale, 'betterLuck')}</span>}
+                {champ ? (
+                  <span className="font-display text-screen-meta font-black text-prize-gold">{t(locale, 'champion')} 🏆</span>
+                ) : isElim ? (
+                  <span className="font-display text-screen-meta text-ink-muted">{t(locale, 'betterLuck')}</span>
+                ) : null}
               </div>
               {isElim ? (
                 out ? <Skull className="shrink-0 text-danger" size={28} /> : <Hearts lives={e.lives} size={26} />
@@ -226,7 +231,12 @@ function TeamRanking({ teams, leaderboard, locale }: { teams: TeamPublic[]; lead
             >
               <div className="flex items-center gap-3 lg:gap-4">
                 <RankBadge rank={i + 1} size="lg" />
-                <span className="min-w-0 flex-1 truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
+                  <span className={`font-display text-screen-meta font-black ${champ ? 'text-prize-gold' : 'text-ink-muted'}`}>
+                    {champ ? `${t(locale, 'champion')} 🏆` : t(locale, 'betterLuck')}
+                  </span>
+                </div>
                 {champ && <Crown className="shrink-0 text-prize-gold" />}
                 <span className="tnum font-display text-screen-score font-black">{team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(locale, 'points')}</span></span>
               </div>

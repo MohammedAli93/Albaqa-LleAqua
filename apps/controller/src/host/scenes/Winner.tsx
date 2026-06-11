@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Skull, Trophy } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
-import type { RankedEntry, TeamPublic } from '@tahaddi/shared';
+import type { RankedEntry, TeamPublic, PublicParticipant } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
@@ -30,15 +30,25 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   return <span className={className}>{n}</span>;
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+const MEDALS = ['🏆', '🥈', '🥉'];
 
 /**
- * End-game showcase — a celebratory 1st/2nd/3rd PODIUM as the hero, confetti, a
- * spotlight on the champion, then the rest of the field. Three variants: individual
+ * End-game showcase (client-requested flow): the room FIRST sees the champion
+ * celebration — 🏆 Champion + name — and ONLY AFTER that the full ranking
+ * (1st/2nd/3rd podium). The two stages auto-cycle. Three variants: individual
  * points, individual elimination, teams.
  */
 export function Winner() {
   const { winner, leaderboard, teams, type, mode } = useStore();
+  const [stage, setStage] = useState<'champion' | 'ranking'>('champion');
+
+  // Champion holds a beat first, then the ranking lingers longer, then repeat.
+  useEffect(() => {
+    const hold = stage === 'champion' ? 5500 : 9000;
+    const id = window.setTimeout(() => setStage((s) => (s === 'champion' ? 'ranking' : 'champion')), hold);
+    return () => window.clearTimeout(id);
+  }, [stage]);
+
   if (!winner) return null;
   const isTeams = type === GameType.TEAMS;
   const isElim = mode === GameMode.ELIMINATION;
@@ -52,11 +62,88 @@ export function Winner() {
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[60vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
       <div aria-hidden className="pointer-events-none absolute bottom-[-10%] left-1/2 h-[40vh] w-[80vw] -translate-x-1/2 rounded-full bg-prize-gold/20 blur-[120px]" />
       <ConfettiRain />
-      {isTeams ? (
-        <TeamResult teams={teams} leaderboard={leaderboard} winnerTeam={winner.winnerTeam} />
-      ) : (
-        <PlayerResult leaderboard={leaderboard} isElim={isElim} />
-      )}
+
+      <AnimatePresence mode="wait">
+        {stage === 'champion' ? (
+          <motion.div
+            key="champion"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 18 }}
+            className="relative z-10 w-full"
+          >
+            <ChampionFocus winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="ranking"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.4 }}
+            className="relative z-10 w-full"
+          >
+            {isTeams ? (
+              <TeamResult teams={teams} leaderboard={leaderboard} winnerTeam={winner.winnerTeam} />
+            ) : (
+              <PlayerResult leaderboard={leaderboard} isElim={isElim} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Stage indicator dots */}
+      <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
+        {(['champion', 'ranking'] as const).map((s) => (
+          <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-prize-gold' : 'w-2.5 bg-white/40'}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Stage 1 — the climax. The room sees 🏆 Champion + the winner's name BEFORE any
+ * ranking, so the celebration lands before the leaderboard.
+ */
+function ChampionFocus({
+  winner, team, isTeams, isElim,
+}: {
+  winner: PublicParticipant | null;
+  team: TeamPublic | null;
+  isTeams: boolean;
+  isElim: boolean;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 text-center lg:gap-5">
+      <Headline title={isTeams ? t(L, 'winningTeam') : t(L, 'champion')} />
+
+      {isTeams && team ? (
+        <>
+          <div className="grid h-24 w-24 place-items-center rounded-full shadow-gold lg:h-36 lg:w-36" style={{ background: team.color }}>
+            <Crown color="white" className="h-12 w-12 lg:h-20 lg:w-20" />
+          </div>
+          <h2 className="max-w-full break-words font-display text-screen-name font-black" style={{ color: team.color }}>{team.name}</h2>
+          <p className="tnum font-display text-screen-score font-black text-white drop-shadow"><CountUp value={team.score} /> {t(L, 'points')}</p>
+        </>
+      ) : winner ? (
+        <>
+          <div className="scale-110 lg:scale-[1.6]">
+            <Avatar avatarId={winner.avatarId} size={120} />
+          </div>
+          <h2 className="max-w-full break-words font-display text-screen-name font-black text-gold-gradient">{winner.nickname}</h2>
+          {isElim ? (
+            <Hearts lives={winner.lives} size={48} />
+          ) : (
+            <p className="tnum font-display text-screen-score font-black text-white drop-shadow"><CountUp value={winner.score} /> {t(L, 'points')}</p>
+          )}
+        </>
+      ) : null}
+
+      <p className="mt-1 font-display text-screen-status font-bold text-white animate-pulse-glow">
+        {t(L, 'congratulations')}
+      </p>
     </div>
   );
 }
@@ -69,8 +156,8 @@ function PlayerResult({ leaderboard, isElim }: { leaderboard: RankedEntry[]; isE
   if (top3.length === 0) return null;
 
   return (
-    <div className="relative z-10 flex w-full max-w-5xl flex-col items-center">
-      <Headline title={t(L, 'champion')} />
+    <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center">
+      <Headline title={t(L, 'finalRanking')} />
       <Podium top3={top3} isElim={isElim} />
 
       {rest.length > 0 && (
@@ -88,7 +175,10 @@ function PlayerResult({ leaderboard, isElim }: { leaderboard: RankedEntry[]; isE
                 >
                   <span className="tnum w-9 text-center font-display text-screen-ranknum font-black text-ink-muted">{e.rank}</span>
                   <Avatar avatarId={e.avatarId} size={48} />
-                  <span className="min-w-0 flex-1 truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                    {isElim && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
+                  </div>
                   {isElim ? (
                     out ? <Skull className="shrink-0 text-danger" size={26} /> : <Hearts lives={e.lives} size={24} />
                   ) : (
@@ -243,8 +333,8 @@ function TeamResult({
   const membersOf = (teamId: string) => leaderboard.filter((e) => e.teamId === teamId);
 
   return (
-    <div className="relative z-10 flex w-full max-w-5xl flex-col items-center">
-      <Headline title={t(L, 'champion')} />
+    <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center">
+      <Headline title={t(L, 'finalRanking')} />
 
       {/* Towers: winner tall + gold, losers shorter */}
       <div className="flex w-full max-w-4xl items-end justify-center gap-4 lg:gap-8">

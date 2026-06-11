@@ -81,14 +81,14 @@ function CategoryChooser() {
       <div className="grid min-h-dvh place-items-center px-6 text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex w-full flex-col items-center gap-6">
           <Avatar avatarId={avatarId} size={104} selected />
-          <p className="max-w-full break-words font-display text-3xl font-bold" dir="auto">{nickname}</p>
+          <p className="max-w-full break-words font-display text-3xl font-bold text-ink-primary" dir="auto">{nickname}</p>
           <button
             onClick={() => setStarted(true)}
             className="btn-cta w-full rounded-2xl py-5 text-2xl font-black"
           >
             {t(locale, 'pickYourCategory')}
           </button>
-          <p className="text-sm text-ink-secondary">{t(locale, 'pickCategoryHint')}</p>
+          <p className="text-sm font-semibold text-ink-primary">{t(locale, 'pickCategoryHint')}</p>
         </motion.div>
       </div>
     );
@@ -97,7 +97,7 @@ function CategoryChooser() {
   // Step 1/2 — the guided group → sub-category picker.
   return (
     <div className="flex min-h-dvh flex-col px-5 py-6">
-      <h1 className="font-display text-3xl font-black">{t(locale, 'pickYourCategory')}</h1>
+      <h1 className="font-display text-3xl font-black text-ink-primary">{t(locale, 'pickYourCategory')}</h1>
       {err && <p className="mt-2 text-sm font-semibold text-danger">{err}</p>}
       <CategoryPicker onPick={choose} claimedIds={claimedIds} />
     </div>
@@ -125,7 +125,7 @@ function TeamPicker() {
 
   return (
     <div className="flex min-h-dvh flex-col px-5 py-8">
-      <h1 className="font-display text-3xl font-black">{t(locale, 'chooseTeam')}</h1>
+      <h1 className="font-display text-3xl font-black text-ink-primary">{t(locale, 'chooseTeam')}</h1>
 
       <div className="mt-6 space-y-3">
         {teams.map((team, i) => {
@@ -154,7 +154,7 @@ function TeamPicker() {
                 <span className="block truncate font-display text-xl font-extrabold" style={{ color: team.color }}>
                   {team.name}
                 </span>
-                <span className="block text-sm text-ink-secondary">
+                <span className="block text-sm font-semibold text-ink-primary">
                   {t(locale, 'playerCount', { count })}
                 </span>
               </span>
@@ -174,7 +174,7 @@ function TeamPicker() {
             <Spinner size={30} label={t(locale, 'waitingHostStart')} />
           </div>
         ) : (
-          <p className="text-ink-secondary">{t(locale, 'chooseTeam')}</p>
+          <p className="font-semibold text-ink-primary">{t(locale, 'chooseTeam')}</p>
         )}
       </div>
     </div>

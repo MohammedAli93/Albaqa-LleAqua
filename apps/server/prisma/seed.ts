@@ -12,6 +12,7 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 import argon2 from 'argon2';
 import { GROUPS, CATEGORIES } from './taxonomy.js';
 import { QUESTION_BANK } from './questionBank.js';
+import { isAnswerLeak } from './questionFilter.js';
 
 const prisma = new PrismaClient();
 
@@ -81,11 +82,18 @@ async function main() {
   // so re-running updates in place. The apps read these from the DB at runtime —
   // no AI/API involved in serving questions.
   let totalQuestions = 0;
+  let skippedLeaks = 0;
   const sampleForPackage: string[] = []; // a mixed sample backs the fallback "demo" package
   for (const [slug, questions] of Object.entries(QUESTION_BANK)) {
     const categoryId = categories[slug];
     if (!categoryId) continue; // bank slug not in taxonomy — skip
     for (const q of questions) {
+      // Skip "answer-leak" questions — where the correct answer is spelled out in
+      // the prompt itself (client request: such questions must be filtered out).
+      if (isAnswerLeak(q.ar, q.o[q.c] ?? '')) {
+        skippedLeaks++;
+        continue;
+      }
       const optionDefs = q.o.map((text, i) => ({ id: String.fromCharCode(97 + i), textAr: text }));
       const data = {
         type: 'MULTIPLE_CHOICE' as const,
@@ -113,6 +121,24 @@ async function main() {
   }
   const createdQuestionIds = sampleForPackage;
   console.log(`  ✓ questions: ${totalQuestions} (${Object.keys(QUESTION_BANK).length} categories)`);
+  console.log(`  ⊘ filtered ${skippedLeaks} answer-leak questions (answer visible in prompt)`);
+
+  // Clean up any answer-leak questions left over from earlier seeds: soft-delete
+  // them so live games (which filter `deletedAt: null`) never serve them again.
+  const liveQuestions = await prisma.question.findMany({
+    where: { deletedAt: null },
+    select: { id: true, promptAr: true, options: true, correctOptionId: true },
+  });
+  let purgedLeaks = 0;
+  for (const q of liveQuestions) {
+    const opts = (q.options as unknown as { id: string; textAr: string }[]) ?? [];
+    const correct = opts.find((o) => o.id === q.correctOptionId)?.textAr ?? '';
+    if (isAnswerLeak(q.promptAr, correct)) {
+      await prisma.question.update({ where: { id: q.id }, data: { deletedAt: new Date() } });
+      purgedLeaks++;
+    }
+  }
+  if (purgedLeaks > 0) console.log(`  ⊘ soft-deleted ${purgedLeaks} pre-existing answer-leak questions`);
 
   // ── Demo package ──────────────────────────────────────────────────────────────
   const pkg = await prisma.package.upsert({
