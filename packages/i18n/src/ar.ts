@@ -42,7 +42,7 @@ const ar = {
   champion: 'البطل',
   you: 'أنت',
   finalRanking: 'الترتيب النهائي',
-  betterLuck: 'حظ أوفر المرة الجاية',
+  betterLuck: 'حظ سعيد المرة القادمة',
   winningTeam: 'الفريق الفائز',
   points: 'نقطة',
   gameOver: 'انتهت اللعبة',

@@ -177,9 +177,9 @@ function PlayerResult({ leaderboard, isElim }: { leaderboard: RankedEntry[]; isE
                 <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
                 {champ ? (
                   <span className="font-display text-screen-meta font-black text-prize-gold">{t(L, 'champion')} 🏆</span>
-                ) : isElim ? (
+                ) : (
                   <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
-                ) : null}
+                )}
               </div>
               {isElim ? (
                 out ? <Skull className="shrink-0 text-danger" size={26} /> : <Hearts lives={e.lives} size={24} />
@@ -255,10 +255,14 @@ function TeamResult({
               {champ && <Crown className="shrink-0 text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.8))' }} />}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
-                {members.length > 0 && (
-                  <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
-                    {members.map((m) => m.nickname).join('، ')}
-                  </span>
+                {champ ? (
+                  members.length > 0 && (
+                    <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
+                      {members.map((m) => m.nickname).join('، ')}
+                    </span>
+                  )
+                ) : (
+                  <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
                 )}
               </div>
               <span className="tnum font-display text-screen-score font-black">
