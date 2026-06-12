@@ -24,7 +24,7 @@ function GetReady({ msLeft, round, totalRounds, locale }: { msLeft: number; roun
     >
       <div className="flex flex-col items-center gap-4 text-white lg:gap-7">
         {round > 0 && totalRounds > 0 && (
-          <span className="glass rounded-xl2 px-5 py-2 font-display text-screen-status font-black text-white drop-shadow">
+          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
           </span>
         )}
