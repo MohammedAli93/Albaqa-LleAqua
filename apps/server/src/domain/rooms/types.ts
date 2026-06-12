@@ -24,6 +24,11 @@ export interface LiveParticipant {
   score: number;
   lives: number;
   joinOrder: number;
+  /** Tiebreakers for an equal-score finish (INDIVIDUAL POINTS): more correct
+   *  answers wins, then the faster cumulative correct-answer time. So a tie is
+   *  decided by merit (more right / answered quicker), never by join order. */
+  correctCount: number;
+  speedMs: number;
   teamId?: string;
   /** Per-player-category mode: this player's chosen category id. */
   categoryId?: string;

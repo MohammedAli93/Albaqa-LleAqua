@@ -81,7 +81,7 @@ export function Finished() {
 
   return (
     <div
-      className="safe relative grid min-h-dvh place-items-center overflow-y-auto overflow-x-hidden p-5"
+      className="safe relative grid h-dvh place-items-center overflow-hidden p-5"
       style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[60vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
@@ -196,7 +196,8 @@ function PlayerResult({ leaderboard, isElim, meId }: { leaderboard: RankedEntry[
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center">
       <Headline title={t(L, 'finalRanking')} />
-      <div className="flex w-full flex-col gap-2.5">
+      <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
+
         {leaderboard.map((e, i) => {
           const out = e.status === 'ELIMINATED';
           const champ = e.rank === 1 && !out;
@@ -255,7 +256,8 @@ function TeamResult({
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center">
       <Headline title={t(L, 'finalRanking')} />
-      <div className="flex w-full flex-col gap-2.5">
+      <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
+
         {ranked.map((team, i) => {
           const champ = i === 0;
           const mine = team.id === myTeamId;

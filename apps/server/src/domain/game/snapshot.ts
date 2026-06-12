@@ -60,7 +60,14 @@ export function buildLeaderboard(
   const isElimination = state.type === GameType.INDIVIDUAL && state.mode === GameMode.ELIMINATION;
   const ranked = isElimination
     ? [...visibleParticipants(state)].sort(compareSurvival)
-    : [...visibleParticipants(state)].sort((a, b) => b.score - a.score || a.joinOrder - b.joinOrder);
+    : [...visibleParticipants(state)].sort(
+        (a, b) =>
+          b.score - a.score ||
+          // Equal score → decide by merit: more correct, then faster overall.
+          (b.correctCount ?? 0) - (a.correctCount ?? 0) ||
+          (a.speedMs ?? 0) - (b.speedMs ?? 0) ||
+          a.joinOrder - b.joinOrder,
+      );
   return ranked.map((p, i) => ({
     participantId: p.id,
     nickname: p.nickname,

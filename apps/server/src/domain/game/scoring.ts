@@ -172,7 +172,13 @@ export function applyResolution(
   // INDIVIDUAL: award personal points (POINTS mode only; elimination awards none).
   for (const o of scored.outcomes) {
     const p = state.participants[o.participantId];
-    if (p) p.score += o.pointsAwarded;
+    if (!p) continue;
+    p.score += o.pointsAwarded;
+    // Track merit-based tiebreakers for an equal-score finish.
+    if (o.isCorrect) {
+      p.correctCount = (p.correctCount ?? 0) + 1;
+      p.speedMs = (p.speedMs ?? 0) + o.responseMs;
+    }
   }
 
   const eliminatedIds: string[] = [];

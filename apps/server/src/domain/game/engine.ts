@@ -115,6 +115,8 @@ export async function join(
       score: 0,
       lives: state.settings.livesPerPlayer,
       joinOrder,
+      correctCount: 0,
+      speedMs: 0,
       sessionTokenHash,
       socketId,
     };

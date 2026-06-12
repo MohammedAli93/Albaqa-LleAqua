@@ -19,6 +19,8 @@ export function makeParticipant(id: string, over: Partial<LiveParticipant> = {})
     score: 0,
     lives: 1,
     joinOrder: 0,
+    correctCount: 0,
+    speedMs: 0,
     sessionTokenHash: `hash-${id}`,
     ...over,
   };

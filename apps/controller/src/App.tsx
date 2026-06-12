@@ -100,7 +100,10 @@ export default function App() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          className="mx-auto w-full max-w-md"
+          // Phone-width column for the in-game flow, but the end-game showcase is
+          // full-bleed so on desktop the celebration fills the screen like the TV
+          // (instead of a narrow mobile strip).
+          className={phase === 'finished' ? 'w-full' : 'mx-auto w-full max-w-md'}
         >
           {phase === 'join' && <Join />}
           {phase === 'lobby' && <Lobby />}
