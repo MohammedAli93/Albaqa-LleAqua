@@ -86,22 +86,9 @@ export function Finished() {
         .findIndex((tm) => tm.id === myTeamId) + 1
     : board.find((e) => e.participantId === participantId)?.rank ?? 0;
 
-  // The LOSER never sees the champion or the leaderboard — only "حظ سعيد + their
-  // rank" (client request). The winner gets the celebration ↔ ranking cycle.
-  if (!iWon) {
-    return (
-      <div
-        className="safe relative grid h-dvh place-items-center overflow-hidden p-5"
-        style={{ backgroundImage: 'linear-gradient(165deg, #0F2A47 0%, #15436E 55%, #1E5A8F 100%)' }}
-      >
-        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[55vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/10 blur-[120px]" />
-        <div className="relative z-10 w-full">
-          <LoserFocus myRank={myRank} />
-        </div>
-      </div>
-    );
-  }
-
+  // Both winner and loser see stage 1 (their own headline) THEN the ranking, on a
+  // loop. Winner stage 1 = "أنت البطل" celebration (+ confetti); loser stage 1 =
+  // "حظ سعيد + ترتيبك #N" (no confetti). Stage 2 = the full ranking for both.
   return (
     <div
       className="safe relative grid h-dvh place-items-center overflow-hidden p-5"
@@ -109,7 +96,7 @@ export function Finished() {
     >
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[60vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
       <div aria-hidden className="pointer-events-none absolute bottom-[-10%] left-1/2 h-[40vh] w-[80vw] -translate-x-1/2 rounded-full bg-prize-gold/20 blur-[120px]" />
-      <Confetti />
+      {iWon && <Confetti />}
 
       <AnimatePresence mode="wait">
         {stage === 'champion' ? (
@@ -121,7 +108,11 @@ export function Finished() {
             transition={{ type: 'spring', stiffness: 150, damping: 18 }}
             className="relative z-10 w-full"
           >
-            <ChampionFocus winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} />
+            {iWon ? (
+              <ChampionFocus winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} />
+            ) : (
+              <LoserFocus myRank={myRank} />
+            )}
           </motion.div>
         ) : (
           <motion.div
