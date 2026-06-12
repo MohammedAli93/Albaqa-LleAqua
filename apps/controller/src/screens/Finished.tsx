@@ -261,7 +261,7 @@ function PlayerResult({ leaderboard, isElim, meId, championId }: { leaderboard: 
               <Avatar avatarId={e.avatarId} size={52} />
               <div className="flex min-w-0 flex-1 flex-col">
                 {champ ? (
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-5 lg:gap-7">
                     <span className="truncate font-display text-screen-rankname font-bold" dir="auto">
                       {e.nickname}
                       {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
@@ -330,27 +330,36 @@ function TeamResult({
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: Math.min(0.15 + i * 0.08, 1.4) }}
-              className={`glass-strong flex items-center gap-3 rounded-xl2 p-3.5 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : mine ? 'ring-2 ring-brand-deep' : ''}`}
+              className={`glass-strong flex flex-col gap-2.5 rounded-xl2 p-3.5 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : mine ? 'ring-2 ring-brand-deep' : ''}`}
               style={{ borderInlineStart: `7px solid ${team.color}` }}
             >
-              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
-              {champ && <Crown className="shrink-0 text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.8))' }} />}
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>
-                  {team.name}
-                  {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
-                </span>
-                {/* Player names for BOTH teams (winner and loser). */}
-                {members.length > 0 && (
-                  <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
-                    {members.map((m) => m.nickname).join('، ')}
+              {/* Header: rank · team name · status (its own colour) · score */}
+              <div className="flex items-center gap-3">
+                <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
+                {champ && <Crown className="shrink-0 text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.8))' }} />}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>
+                    {team.name}
+                    {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
                   </span>
-                )}
-                {!champ && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
+                  {champ ? (
+                    <span className="shrink-0 font-display text-screen-meta font-black text-prize-gold">{t(L, 'champion')} 🏆</span>
+                  ) : (
+                    <span className="shrink-0 font-display text-screen-meta font-black" style={{ color: '#E11D48' }}>{t(L, 'betterLuck')} 🙏🏻</span>
+                  )}
+                </div>
+                <span className="tnum shrink-0 font-display text-screen-score font-black">
+                  {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
+                </span>
               </div>
-              <span className="tnum font-display text-screen-score font-black">
-                {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
-              </span>
+              {/* Members — one player per row */}
+              {members.length > 0 && (
+                <div className="flex flex-col gap-1 ps-[3.25rem]">
+                  {members.map((m) => (
+                    <span key={m.participantId} className="truncate font-display text-screen-meta font-semibold text-ink-secondary">{m.nickname}</span>
+                  ))}
+                </div>
+              )}
             </motion.div>
           );
         })}
