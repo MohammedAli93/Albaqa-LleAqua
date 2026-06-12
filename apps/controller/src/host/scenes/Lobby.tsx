@@ -18,7 +18,7 @@ export function Lobby() {
 
   return (
     <div
-      className="safe relative flex min-h-dvh flex-col overflow-hidden text-white lg:h-full"
+      className="safe relative flex min-h-dvh flex-col overflow-x-hidden overflow-y-auto text-white lg:h-full"
       style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       {/* playful décor */}
@@ -65,7 +65,7 @@ export function Lobby() {
               {t(locale, 'waitingForPlayers')}
             </div>
           ) : isTeams ? (
-            <div className="grid auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:overflow-hidden">
+            <div className="grid auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col">
               {teams.map((team) => {
                 const members = roster.filter((p) => team.memberIds.includes(p.id));
                 return (
@@ -96,7 +96,7 @@ export function Lobby() {
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-3 lg:gap-4 lg:overflow-hidden">
+            <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-3 lg:gap-4">
               <AnimatePresence>
                 {roster.map((p) => (
                   <motion.div
@@ -118,7 +118,8 @@ export function Lobby() {
         </div>
       </div>
 
-      <footer className="relative flex justify-center pt-6">
+      {/* Sticky so the Start button is always reachable, even with a full lobby. */}
+      <footer className="sticky bottom-0 z-20 mt-4 flex justify-center bg-gradient-to-t from-black/30 via-black/10 to-transparent pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-5">
         <button
           onClick={() => host.start().catch(() => {})}
           disabled={roster.length < 2}
