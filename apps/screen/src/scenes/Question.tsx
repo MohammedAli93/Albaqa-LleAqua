@@ -43,7 +43,9 @@ export function Question() {
           <Brand />
           <div className="flex items-center gap-2 lg:gap-3">
             <span className="glass rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold text-ink-secondary lg:px-5 lg:py-2">
-              {t(locale, 'roundOf', { current: round, total: totalRounds })}
+              {isElimination
+                ? t(locale, 'roundNum', { current: round })
+                : t(locale, 'roundOf', { current: round, total: totalRounds })}
             </span>
             <span className="glass flex items-center gap-2 rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold lg:px-5 lg:py-2">
               <Users className="text-brand-cyan" />

@@ -35,6 +35,7 @@ import {
   activeParticipants,
   topContenders,
   decideTiebreak,
+  compareSurvival,
 } from './scoring.js';
 import {
   buildSnapshot,
@@ -380,6 +381,10 @@ export async function startNextRound(gameId: string): Promise<void> {
     return;
   }
 
+  // ELIMINATION never ends on a question count — keep the duel supplied with
+  // questions until a single survivor remains.
+  await ensureEliminationQuestion(state);
+
   const nextIndex = state.roundIndex + 1;
 
   if (nextIndex >= state.questionOrder.length) {
@@ -685,6 +690,10 @@ export async function resolveRound(gameId: string): Promise<void> {
       return;
     }
 
+    // ELIMINATION keeps playing to the last survivor — top up the order now so the
+    // "next up" preview below points at a real question (no decisive tiebreak).
+    await ensureEliminationQuestion(state);
+
     // Intermission → next round.
     round.phase = RoundPhase.INTERMISSION;
     await saveRoom(state);
@@ -736,6 +745,16 @@ export async function resolveRound(gameId: string): Promise<void> {
  */
 async function concludeGame(gameId: string): Promise<void> {
   const state = await mustGetRoom(gameId);
+
+  // ELIMINATION is decided purely by survival — the round loop already ran until a
+  // single player held lives, so there is no tiebreak / decisive question. Crown
+  // the last survivor (survival ranking handles the rare all-out-at-once edge).
+  if (state.mode === GameMode.ELIMINATION && state.type === GameType.INDIVIDUAL) {
+    const winner = [...Object.values(state.participants)].sort(compareSurvival)[0];
+    await finishWithWinner(gameId, winner?.id, undefined);
+    return;
+  }
+
   const c = topContenders(state);
   if (c.unique) {
     await finishWithWinner(gameId, c.winnerId, c.winnerTeamId);
@@ -770,6 +789,12 @@ async function scheduleTiebreak(gameId: string): Promise<void> {
  *  when the package is fully spent. */
 async function pickTiebreakQuestion(state: RoomState): Promise<string> {
   const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
+  return pickPackageQuestion(state, used);
+}
+
+/** Pick a package question not in `used`; once the bank is fully spent, fall back
+ *  to any package question (recycling) so the round loop never runs dry. */
+async function pickPackageQuestion(state: RoomState, used: Set<string>): Promise<string> {
   const pkgQs = await prisma.packageQuestion.findMany({
     where: { packageId: state.packageId },
     orderBy: { order: 'asc' },
@@ -779,6 +804,21 @@ async function pickTiebreakQuestion(state: RoomState): Promise<string> {
   const fresh = ids.filter((id) => !used.has(id));
   const pool = fresh.length ? fresh : ids;
   return pool[Math.floor(Math.random() * pool.length)] ?? state.questionOrder[state.questionOrder.length - 1]!;
+}
+
+/**
+ * ELIMINATION runs to the last survivor, not to a fixed question count. If the
+ * scripted order is about to run dry while 2+ players are still alive, append
+ * another question (an unused one; recycle the bank only once it's exhausted) so
+ * the duel always has a next question — no sudden-death "decisive question".
+ * No-op for other modes, and once a single survivor remains.
+ */
+async function ensureEliminationQuestion(state: RoomState): Promise<void> {
+  if (state.mode !== GameMode.ELIMINATION || state.type !== GameType.INDIVIDUAL) return;
+  if (state.roundIndex + 1 < state.questionOrder.length) return; // a scripted Q is still queued
+  if (activeParticipants(state).length <= 1) return; // game is about to end on its own
+  const next = await pickPackageQuestion(state, new Set(state.questionOrder));
+  state.questionOrder.push(next);
 }
 
 /** Fire one sudden-death question (decided in resolveTiebreakRound). */

@@ -15,7 +15,7 @@ const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 /** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
-function GetReady({ msLeft, round, totalRounds, isTiebreak, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; locale: Locale }) {
+function GetReady({ msLeft, round, totalRounds, isTiebreak, isElimination, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; isElimination: boolean; locale: Locale }) {
   const n = Math.max(1, Math.ceil(msLeft / 1000));
   return (
     <div
@@ -26,6 +26,10 @@ function GetReady({ msLeft, round, totalRounds, isTiebreak, locale }: { msLeft: 
         {isTiebreak ? (
           <span className="rounded-full bg-prize-gold px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-gold">
             {t(locale, 'tieBreaker')} ⚡
+          </span>
+        ) : isElimination && round > 0 ? (
+          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
+            {t(locale, 'roundNum', { current: round })}
           </span>
         ) : round > 0 && totalRounds > 0 ? (
           <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
@@ -66,7 +70,7 @@ export function Question() {
   const isElimination = mode === GameMode.ELIMINATION;
 
   // 3-2-1 lead-in before the question opens for answering.
-  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} isTiebreak={isTiebreak} locale={locale} />;
+  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} isTiebreak={isTiebreak} isElimination={isElimination} locale={locale} />;
   if (!question) return null;
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
@@ -85,7 +89,11 @@ export function Question() {
           <Brand />
           <div className="flex items-center gap-2 lg:gap-3">
             <span className={`rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-black lg:px-5 lg:py-2 ${isTiebreak ? 'bg-prize-gold text-brand-deep shadow-gold' : 'glass text-ink-secondary'}`}>
-              {isTiebreak ? `${t(locale, 'tieBreaker')} ⚡` : t(locale, 'roundOf', { current: round, total: totalRounds })}
+              {isTiebreak
+                ? `${t(locale, 'tieBreaker')} ⚡`
+                : isElimination
+                  ? t(locale, 'roundNum', { current: round })
+                  : t(locale, 'roundOf', { current: round, total: totalRounds })}
             </span>
             <span className="glass flex items-center gap-2 rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold lg:px-5 lg:py-2">
               <Users className="text-brand-cyan" />

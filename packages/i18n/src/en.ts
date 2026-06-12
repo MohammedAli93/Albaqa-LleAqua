@@ -16,6 +16,8 @@ const en: typeof ar = {
   enterRoomCode: 'Type the room code',
   round: 'Round',
   roundOf: 'Round {current} of {total}',
+  // ELIMINATION: open-ended — play to the last survivor, so no fixed total.
+  roundNum: 'Question {current}',
   tieBreaker: 'Tie-breaker',
   tieBreak: "It's a tie! Sudden death",
   standings: 'Standings',

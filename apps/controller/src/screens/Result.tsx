@@ -137,7 +137,9 @@ export function Result() {
           <span className="min-w-0 flex-1">
             <span className="block font-display text-xs font-bold uppercase tracking-wide text-ink-secondary">{t(locale, 'nextUp')}</span>
             <span className="block truncate font-display text-base font-black text-ink-primary">
-              {t(locale, 'questionOf', { current: nextRound, total: totalRounds })}
+              {isElimination
+                ? t(locale, 'roundNum', { current: nextRound })
+                : t(locale, 'questionOf', { current: nextRound, total: totalRounds })}
               {nextCategory ? ` · ${nextCategory.nameAr}` : ''}
             </span>
           </span>

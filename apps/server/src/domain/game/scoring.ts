@@ -251,8 +251,10 @@ export function compareSurvival(a: LiveParticipant, b: LiveParticipant): number 
 /**
  * Determine whether the game is over and who won.
  *  - POINTS: never eliminates — ends when the rounds run out; highest total wins.
- *  - ELIMINATION (INDIVIDUAL only): ends at ≤1 active player, or when rounds run out;
- *    the winner is the last survivor (survival ranking, NOT score).
+ *  - ELIMINATION (INDIVIDUAL only): ends ONLY when ≤1 player is still alive — the
+ *    last survivor wins. The question count is irrelevant: the round loop keeps
+ *    feeding questions (recycling the bank if needed) until a single player holds
+ *    lives, so there is never a sudden-death "decisive question".
  *  - TEAMS: always points-based — ends when rounds run out; highest team score wins.
  */
 export function evaluateWinCondition(state: RoomState, questionsExhausted: boolean): WinCondition {
@@ -267,8 +269,9 @@ export function evaluateWinCondition(state: RoomState, questionsExhausted: boole
     return { isOver: true, winnerId: pickTopParticipant(Object.values(state.participants))?.id };
   }
 
+  // ELIMINATION: play to the last survivor, regardless of how many questions remain.
   const active = activeParticipants(state);
-  if (active.length <= 1 || questionsExhausted) {
+  if (active.length <= 1) {
     const winner = [...Object.values(state.participants)].sort(compareSurvival)[0];
     return { isOver: true, winnerId: winner?.id };
   }

@@ -245,13 +245,13 @@ describe('evaluateWinCondition', () => {
     expect(evaluateWinCondition(state, false).isOver).toBe(false);
   });
 
-  it('elimination: on exhaustion the winner is the survivor with most lives (not score)', () => {
+  it('elimination: question exhaustion does NOT end the game — it plays to the last survivor', () => {
     const p1 = makeParticipant('p1', { lives: 1, score: 10 });
-    const p2 = makeParticipant('p2', { lives: 3, score: 0 }); // fewer points, more lives → wins
+    const p2 = makeParticipant('p2', { lives: 3, score: 0 }); // still two players alive
     const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION });
-    const win = evaluateWinCondition(state, true);
-    expect(win.isOver).toBe(true);
-    expect(win.winnerId).toBe('p2');
+    // Even with the scripted questions exhausted, two survivors → keep dueling
+    // (the engine recycles questions; there is no sudden-death decisive question).
+    expect(evaluateWinCondition(state, true).isOver).toBe(false);
   });
 
   it('points: only ends on question exhaustion, highest score wins', () => {

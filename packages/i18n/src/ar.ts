@@ -18,6 +18,8 @@ const ar = {
   // gameplay
   round: 'جولة',
   roundOf: 'جولة {current} من {total}',
+  // ELIMINATION: open-ended — play to the last survivor, so no fixed total.
+  roundNum: 'السؤال {current}',
   tieBreaker: 'سؤال حاسم',
   tieBreak: 'تعادل! سؤال حاسم',
   standings: 'الترتيب',

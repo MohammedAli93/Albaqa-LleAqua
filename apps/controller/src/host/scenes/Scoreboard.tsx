@@ -15,11 +15,15 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 const RECAP_MS = 3800;
 
 /** Round chip shown between questions — solid fill so it's readable on the light stage. */
-function RoundChip({ round, totalRounds, locale }: { round: number; totalRounds: number; locale: Locale }) {
-  if (round <= 0 || totalRounds <= 0) return null;
+function RoundChip({ round, totalRounds, isElimination, locale }: { round: number; totalRounds: number; isElimination?: boolean; locale: Locale }) {
+  if (round <= 0) return null;
+  // ELIMINATION is open-ended (play to the last survivor) → no fixed total.
+  if (!isElimination && totalRounds <= 0) return null;
   return (
     <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-screen-meta font-black text-white shadow-glow">
-      {t(locale, 'roundOf', { current: round, total: totalRounds })}
+      {isElimination
+        ? t(locale, 'roundNum', { current: round })
+        : t(locale, 'roundOf', { current: round, total: totalRounds })}
     </span>
   );
 }
@@ -49,7 +53,7 @@ export function Scoreboard() {
   return (
     <div className="safe flex min-h-dvh flex-col lg:h-full">
       <div className="mb-5 flex flex-col items-center gap-2.5 lg:mb-8">
-        <RoundChip round={round} totalRounds={totalRounds} locale={locale} />
+        <RoundChip round={round} totalRounds={totalRounds} isElimination={isElimination} locale={locale} />
         <h2 className="text-center font-display text-screen-title font-black text-gradient">
           {t(locale, 'leaderboard')}
         </h2>

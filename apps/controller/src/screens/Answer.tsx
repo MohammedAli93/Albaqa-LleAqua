@@ -51,6 +51,10 @@ export function Answer() {
           <span className="rounded-full bg-prize-gold px-5 py-1.5 font-display text-sm font-black text-brand-deep shadow-glow">
             {t(locale, 'tieBreaker')} ⚡
           </span>
+        ) : isElimination && round > 0 ? (
+          <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
+            {t(locale, 'roundNum', { current: round })}
+          </span>
         ) : round > 0 && totalRounds > 0 ? (
           <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
