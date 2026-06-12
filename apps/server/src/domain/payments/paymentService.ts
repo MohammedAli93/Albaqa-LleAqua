@@ -89,6 +89,26 @@ export async function getOrder(orderId: string) {
   return order;
 }
 
+/**
+ * DEV/TEST ONLY: grant the paid unlock to a player without a real payment, by
+ * recording a PAID order. The caller (route) MUST gate this to non-production.
+ * Idempotent — does nothing if the account is already unlocked.
+ */
+export async function devGrantUnlock(playerId: string): Promise<void> {
+  const product = await prisma.product.findUnique({ where: { sku: PAID_UNLOCK_SKU } });
+  if (!product) throw new AppError(ErrorCode.NOT_FOUND, 'Unlock product not available');
+  if (await hasPaidUnlock(playerId)) return;
+  await prisma.order.create({
+    data: {
+      ownerId: playerId,
+      productId: product.id,
+      amountMinor: product.priceMinor,
+      currency: product.currency,
+      status: 'PAID',
+    },
+  });
+}
+
 /** Active products for the storefront (e.g. the paid unlock), price included. */
 export async function listActiveProducts() {
   return prisma.product.findMany({

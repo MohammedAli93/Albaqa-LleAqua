@@ -78,6 +78,30 @@ export function Upgrade() {
     setStage('error');
   }
 
+  // DEV ONLY (Vite dev build): unlock without paying, for testing. The matching
+  // server route 404s in production, so this is safe even if the build slips out.
+  async function devGrant(): Promise<void> {
+    if (!account || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api('/api/v1/payments/dev/grant-unlock', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${account.token}` },
+      });
+      const me = await api<PlayerProfile>('/api/v1/player/me', {
+        headers: { Authorization: `Bearer ${account.token}` },
+      });
+      const updated: Account = { ...me, token: account.token };
+      saveAccount(updated);
+      set({ account: updated });
+      setStage('success');
+    } catch (e) {
+      setErr(mapErr(e instanceof Error ? e.message : 'ERROR', locale));
+    }
+    setBusy(false);
+  }
+
   async function buy(): Promise<void> {
     if (!account || busy) return;
     setBusy(true);
@@ -177,6 +201,17 @@ export function Upgrade() {
             {busy ? <Loader2 className="animate-spin" size={22} /> : <Lock size={20} />}
             {busy ? 'لحظة…' : 'فعّل النسخة الكاملة'}
           </motion.button>
+        )}
+
+        {/* DEV-only test shortcut (never rendered in a production build). */}
+        {import.meta.env.DEV && account && !alreadyUnlocked && stage !== 'confirming' && (
+          <button
+            onClick={devGrant}
+            disabled={busy}
+            className="mt-3 w-full rounded-2xl border border-dashed border-ink-muted/40 py-3 text-sm font-bold text-ink-muted disabled:opacity-40"
+          >
+            تفعيل تجريبي بدون دفع (وضع التطوير)
+          </button>
         )}
       </div>
     </div>

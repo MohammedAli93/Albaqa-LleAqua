@@ -8,6 +8,7 @@ import { ok } from '../respond.js';
 import * as payments from '../../domain/payments/paymentService.js';
 import { listProviders } from '../../domain/payments/registry.js';
 import { verifyPlayerToken } from '../../domain/auth/tokens.js';
+import { env } from '../../config/env.js';
 
 export const paymentsRouter: ExpressRouter = Router();
 
@@ -43,6 +44,17 @@ paymentsRouter.post(
     const playerId = requirePlayerId(req.headers.authorization);
     const { provider, returnUrl } = valid<typeof UnlockCheckoutSchema>(req);
     ok(res, await payments.createUnlockCheckout(provider as PaymentProviderId, playerId, returnUrl));
+  }),
+);
+
+/** DEV/TEST ONLY: grant the unlock without paying. 404s in production. */
+paymentsRouter.post(
+  '/dev/grant-unlock',
+  asyncHandler(async (req, res) => {
+    if (env.NODE_ENV === 'production') throw new AppError(ErrorCode.NOT_FOUND, 'Not found');
+    const playerId = requirePlayerId(req.headers.authorization);
+    await payments.devGrantUnlock(playerId);
+    ok(res, { granted: true });
   }),
 );
 
