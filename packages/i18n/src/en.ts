@@ -42,8 +42,6 @@ const en: typeof ar = {
   winningTeam: 'Winning team',
   points: 'pts',
   gameOver: 'Game over',
-  youWon: 'You won! 🎉',
-  youFinished: 'You finished #{rank}',
   congratulations: 'Congrats! 🎉',
   playAgain: 'Play again',
   loading: 'One sec…',
