@@ -76,15 +76,17 @@ export function Finished() {
   const board = winner.finalLeaderboard ?? leaderboard;
   const rankedTeams = winner.teams ?? teams;
   const championTid = winner.winnerTeam?.id ?? null;
-  const iWon = isTeams
-    ? !!championTid && myTeamId === championTid
-    : winner.winner?.id === participantId;
-  // My own final position — for the loser's "حظ سعيد + ترتيبك #N" screen.
+  const championPid = winner.winner?.id ?? null;
+  const iWon = isTeams ? !!championTid && myTeamId === championTid : championPid === participantId;
+  // My own final position — computed from the SAME floated order the ranking uses
+  // (champion first), so the loser's "ترتيبك #N" matches the board exactly.
   const myRank = isTeams
     ? [...rankedTeams]
         .sort((a, b) => Number(b.id === championTid) - Number(a.id === championTid) || b.score - a.score)
         .findIndex((tm) => tm.id === myTeamId) + 1
-    : board.find((e) => e.participantId === participantId)?.rank ?? 0;
+    : [...board]
+        .sort((a, b) => Number(b.participantId === championPid) - Number(a.participantId === championPid))
+        .findIndex((e) => e.participantId === participantId) + 1;
 
   // Both winner and loser see stage 1 (their own headline) THEN the ranking, on a
   // loop. Winner stage 1 = "أنت البطل" celebration (+ confetti); loser stage 1 =
@@ -255,7 +257,7 @@ function PlayerResult({ leaderboard, isElim, meId, championId }: { leaderboard: 
               transition={{ delay: Math.min(0.15 + i * 0.07, 1.4) }}
               className={`glass-strong flex items-center gap-3 rounded-xl2 p-3 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : mine ? 'ring-2 ring-brand-deep' : ''}`}
             >
-              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{e.rank}</span>
+              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
               <Avatar avatarId={e.avatarId} size={52} />
               <div className="flex min-w-0 flex-1 flex-col">
                 {champ ? (
@@ -341,15 +343,13 @@ function TeamResult({
                   {team.name}
                   {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
                 </span>
-                {champ ? (
-                  members.length > 0 && (
-                    <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
-                      {members.map((m) => m.nickname).join('، ')}
-                    </span>
-                  )
-                ) : (
-                  <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
+                {/* Player names for BOTH teams (winner and loser). */}
+                {members.length > 0 && (
+                  <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
+                    {members.map((m) => m.nickname).join('، ')}
+                  </span>
                 )}
+                {!champ && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
               </div>
               <span className="tnum font-display text-screen-score font-black">
                 {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>

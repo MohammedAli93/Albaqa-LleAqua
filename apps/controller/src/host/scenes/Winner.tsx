@@ -83,9 +83,9 @@ export function Winner() {
             className="relative z-10 w-full"
           >
             {isTeams ? (
-              <TeamResult teams={teams} leaderboard={leaderboard} winnerTeam={winner.winnerTeam} championId={winner.winnerTeam?.id ?? null} />
+              <TeamResult teams={teams} leaderboard={winner.finalLeaderboard ?? leaderboard} winnerTeam={winner.winnerTeam} championId={winner.winnerTeam?.id ?? null} />
             ) : (
-              <PlayerResult leaderboard={leaderboard} isElim={isElim} championId={winner.winner?.id ?? null} />
+              <PlayerResult leaderboard={winner.finalLeaderboard ?? leaderboard} isElim={isElim} championId={winner.winner?.id ?? null} />
             )}
           </motion.div>
         )}
@@ -177,7 +177,7 @@ function PlayerResult({ leaderboard, isElim, championId }: { leaderboard: Ranked
               transition={{ delay: Math.min(0.15 + i * 0.07, 1.4) }}
               className={`glass-strong flex items-center gap-3 rounded-xl2 p-3 lg:gap-4 lg:p-4 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : ''}`}
             >
-              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{e.rank}</span>
+              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
               <Avatar avatarId={e.avatarId} size={52} />
               <div className="flex min-w-0 flex-1 flex-col">
                 {champ ? (
@@ -277,15 +277,13 @@ function TeamResult({
               {champ && <Crown className="shrink-0 text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.8))' }} />}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
-                {champ ? (
-                  members.length > 0 && (
-                    <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
-                      {members.map((m) => m.nickname).join('، ')}
-                    </span>
-                  )
-                ) : (
-                  <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
+                {/* Player names for BOTH teams (winner and loser). */}
+                {members.length > 0 && (
+                  <span className="truncate font-display text-screen-meta font-semibold text-ink-muted">
+                    {members.map((m) => m.nickname).join('، ')}
+                  </span>
                 )}
+                {!champ && <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>}
               </div>
               <span className="tnum font-display text-screen-score font-black">
                 {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
