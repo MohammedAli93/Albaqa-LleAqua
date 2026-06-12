@@ -15,17 +15,20 @@ const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7']
 export function Answer() {
   const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, round, totalRounds, isTiebreak, locale } = useStore();
 
-  // Tick while in the 3-2-1 pre-roll so the countdown number updates. Uses
-  // serverNow() (server-synced clock) so the phone reveals the question at the
-  // exact same instant as the big screen — no "screen shows it first" drift.
+  // Tick the 3-2-1 pre-roll on requestAnimationFrame (≈16ms), the SAME cadence as
+  // the big screen — not a coarse 150ms interval. Combined with the server-synced
+  // serverNow() clock, the phone flips to the live question at the exact same
+  // instant as the screen (the ~150ms polling gap was why the TV showed it first).
   const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
-    if (!startsAt || serverNow() >= startsAt) return;
-    const id = window.setInterval(() => {
+    if (!startsAt) return;
+    let raf = 0;
+    const loop = () => {
       setNow(serverNow());
-      if (serverNow() >= startsAt) window.clearInterval(id);
-    }, 150);
-    return () => window.clearInterval(id);
+      if (serverNow() < startsAt) raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => cancelAnimationFrame(raf);
   }, [startsAt]);
 
   if (!question || !roundId) return null;

@@ -180,11 +180,21 @@ function PlayerResult({ leaderboard, isElim, championId }: { leaderboard: Ranked
               <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{e.rank}</span>
               <Avatar avatarId={e.avatarId} size={52} />
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
                 {champ ? (
-                  <span className="font-display text-screen-meta font-black text-prize-gold">{t(L, 'champion')} 🏆</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="shrink-0 font-display text-screen-meta font-black text-prize-gold"
+                      style={{ display: 'inline-block', transform: 'rotate(-8deg)' }}
+                    >
+                      {t(L, 'champion')} 🏆
+                    </span>
+                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                  </div>
                 ) : (
-                  <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
+                  <>
+                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                    <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
+                  </>
                 )}
               </div>
               {isElim ? (
