@@ -110,9 +110,9 @@ export function Finished() {
             className="relative z-10 w-full"
           >
             {isTeams ? (
-              <TeamResult teams={rankedTeams} leaderboard={board} winnerTeam={winner.winnerTeam} myTeamId={myTeamId} />
+              <TeamResult teams={rankedTeams} leaderboard={board} winnerTeam={winner.winnerTeam} myTeamId={myTeamId} championId={winner.winnerTeam?.id ?? null} />
             ) : (
-              <PlayerResult leaderboard={board} isElim={isElim} meId={participantId} />
+              <PlayerResult leaderboard={board} isElim={isElim} meId={participantId} championId={winner.winner?.id ?? null} />
             )}
           </motion.div>
         )}
@@ -190,17 +190,22 @@ function Headline({ title }: { title: string }) {
 
 // ─────────────────────────────── Individual ──────────────────────────────────
 
-function PlayerResult({ leaderboard, isElim, meId }: { leaderboard: RankedEntry[]; isElim: boolean; meId: string | null }) {
+function PlayerResult({ leaderboard, isElim, meId, championId }: { leaderboard: RankedEntry[]; isElim: boolean; meId: string | null; championId: string | null }) {
   if (leaderboard.length === 0) return null;
+  // The champion is whoever the server DECLARED the winner (a sudden-death winner
+  // may not be the top scorer) — float them to the top and label only them.
+  const rows = championId
+    ? [...leaderboard].sort((a, b) => Number(b.participantId === championId) - Number(a.participantId === championId))
+    : leaderboard;
 
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center">
       <Headline title={t(L, 'finalRanking')} />
       <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
 
-        {leaderboard.map((e, i) => {
+        {rows.map((e, i) => {
           const out = e.status === 'ELIMINATED';
-          const champ = e.rank === 1 && !out;
+          const champ = championId ? e.participantId === championId : e.rank === 1 && !out;
           const mine = e.participantId === meId;
           return (
             <motion.div
@@ -241,15 +246,20 @@ function PlayerResult({ leaderboard, isElim, meId }: { leaderboard: RankedEntry[
 // ──────────────────────────────── Teams ──────────────────────────────────────
 
 function TeamResult({
-  teams, leaderboard, winnerTeam, myTeamId,
+  teams, leaderboard, winnerTeam, myTeamId, championId,
 }: {
   teams: TeamPublic[];
   leaderboard: RankedEntry[];
   winnerTeam: TeamPublic | null;
   myTeamId: string | null;
+  championId: string | null;
 }) {
   const all = teams.length > 0 ? teams : winnerTeam ? [winnerTeam] : [];
-  const ranked = [...all].sort((a, b) => b.score - a.score);
+  // Declared winning team first (a tie-break winner may not be the top scorer),
+  // then by score.
+  const ranked = [...all].sort(
+    (a, b) => Number(b.id === championId) - Number(a.id === championId) || b.score - a.score,
+  );
   if (ranked.length === 0) return null;
   const membersOf = (teamId: string) => leaderboard.filter((e) => e.teamId === teamId);
 
@@ -259,7 +269,7 @@ function TeamResult({
       <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
 
         {ranked.map((team, i) => {
-          const champ = i === 0;
+          const champ = championId ? team.id === championId : i === 0;
           const mine = team.id === myTeamId;
           const members = membersOf(team.id);
           return (

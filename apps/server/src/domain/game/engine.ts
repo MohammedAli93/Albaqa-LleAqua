@@ -934,7 +934,7 @@ export async function completeGame(
 
   state.status = GameStatus.COMPLETED;
   const durationSec = Math.round((Date.now() - (state.startedAt ?? Date.now())) / 1000);
-  const leaderboard = buildLeaderboard(state);
+  let leaderboard = buildLeaderboard(state);
 
   // Pick winner if not provided (force-end path).
   if (!winnerId && !winnerTeamId) {
@@ -944,6 +944,18 @@ export async function completeGame(
       const w = state.participants[winnerId];
       if (w) w.status = ParticipantStatus.WINNER;
     }
+  }
+
+  // The declared champion ALWAYS sits at rank 1, even when a sudden-death winner
+  // isn't the top scorer (both ended on the same points). Otherwise the ranking
+  // would label the score-leader "البطل" while the champion screen shows someone
+  // else — two different champions on screen.
+  if (winnerId || winnerTeamId) {
+    const isWinner = (e: (typeof leaderboard)[number]) =>
+      (winnerId && e.participantId === winnerId) || (winnerTeamId && e.teamId === winnerTeamId);
+    leaderboard = [...leaderboard]
+      .sort((a, b) => Number(isWinner(b)) - Number(isWinner(a)))
+      .map((e, i) => ({ ...e, rank: i + 1 }));
   }
 
   // Flush final participant state + result.
