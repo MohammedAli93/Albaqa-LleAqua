@@ -76,6 +76,8 @@ export interface ControllerState {
   // Round position + standings shown on the phone between questions.
   round: number;
   totalRounds: number;
+  /** Current question is a sudden-death tie-breaker (shown after an equal-score end). */
+  isTiebreak: boolean;
   leaderboard: RankedEntry[];
   /** The upcoming question's 1-based number + category (from ROUND_COMPLETED). */
   nextRound: number | null;
@@ -132,6 +134,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   lastResult: null,
   round: 0,
   totalRounds: 0,
+  isTiebreak: false,
   leaderboard: [],
   nextRound: null,
   nextCategory: null,
@@ -194,6 +197,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             question: p.question,
             roundId: p.roundId,
             round: p.round,
+            isTiebreak: p.tiebreak ?? false,
             startsAt,
             endsAt: p.endsAt,
             roundTotalMs: Math.max(1000, p.endsAt - startsAt),

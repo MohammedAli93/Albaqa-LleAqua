@@ -18,6 +18,8 @@ const ar = {
   // gameplay
   round: 'جولة',
   roundOf: 'جولة {current} من {total}',
+  tieBreaker: 'سؤال حاسم',
+  tieBreak: 'تعادل! سؤال حاسم',
   standings: 'الترتيب',
   nextUp: 'السؤال التالي',
   questionOf: 'السؤال {current} من {total}',

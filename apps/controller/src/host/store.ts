@@ -56,6 +56,8 @@ export interface ScreenState {
   perPlayerCategory: boolean;
   round: number;
   totalRounds: number;
+  /** Current question is a sudden-death tie-breaker (shown after an equal-score end). */
+  isTiebreak: boolean;
   participants: PublicParticipant[];
   leaderboard: RankedEntry[];
 
@@ -107,6 +109,7 @@ export const useStore = create<ScreenState>((set) => ({
   perPlayerCategory: false,
   round: 0,
   totalRounds: 0,
+  isTiebreak: false,
   participants: [],
   leaderboard: [],
   roundId: null,
@@ -179,6 +182,7 @@ export const useStore = create<ScreenState>((set) => ({
             round: p.round,
             roundId: p.roundId,
             question: p.question,
+            isTiebreak: p.tiebreak ?? false,
             turnPlayer: p.turnPlayer ?? null,
             startsAt,
             endsAt: p.endsAt,

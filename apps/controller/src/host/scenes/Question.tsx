@@ -15,7 +15,7 @@ const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 /** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
-function GetReady({ msLeft, round, totalRounds, locale }: { msLeft: number; round: number; totalRounds: number; locale: Locale }) {
+function GetReady({ msLeft, round, totalRounds, isTiebreak, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; locale: Locale }) {
   const n = Math.max(1, Math.ceil(msLeft / 1000));
   return (
     <div
@@ -23,11 +23,15 @@ function GetReady({ msLeft, round, totalRounds, locale }: { msLeft: number; roun
       style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
     >
       <div className="flex flex-col items-center gap-4 text-white lg:gap-7">
-        {round > 0 && totalRounds > 0 && (
+        {isTiebreak ? (
+          <span className="rounded-full bg-prize-gold px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-gold">
+            {t(locale, 'tieBreaker')} ⚡
+          </span>
+        ) : round > 0 && totalRounds > 0 ? (
           <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
           </span>
-        )}
+        ) : null}
         <p className="font-display text-screen-title font-bold text-white/90 drop-shadow">{t(locale, 'getReady')}</p>
         <AnimatePresence mode="wait">
           <motion.span
@@ -49,7 +53,7 @@ function GetReady({ msLeft, round, totalRounds, locale }: { msLeft: number; roun
 
 export function Question() {
   const {
-    question, phase, startsAt, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
+    question, phase, startsAt, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds, isTiebreak,
     correctOptionId, distribution, heroes, teams, leaderboard, mode, locale,
   } = useStore();
 
@@ -62,7 +66,7 @@ export function Question() {
   const isElimination = mode === GameMode.ELIMINATION;
 
   // 3-2-1 lead-in before the question opens for answering.
-  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} locale={locale} />;
+  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} isTiebreak={isTiebreak} locale={locale} />;
   if (!question) return null;
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
@@ -80,8 +84,8 @@ export function Question() {
         <div className="flex items-center justify-between gap-3">
           <Brand />
           <div className="flex items-center gap-2 lg:gap-3">
-            <span className="glass rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold text-ink-secondary lg:px-5 lg:py-2">
-              {t(locale, 'roundOf', { current: round, total: totalRounds })}
+            <span className={`rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-black lg:px-5 lg:py-2 ${isTiebreak ? 'bg-prize-gold text-brand-deep shadow-gold' : 'glass text-ink-secondary'}`}>
+              {isTiebreak ? `${t(locale, 'tieBreaker')} ⚡` : t(locale, 'roundOf', { current: round, total: totalRounds })}
             </span>
             <span className="glass flex items-center gap-2 rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold lg:px-5 lg:py-2">
               <Users className="text-brand-cyan" />

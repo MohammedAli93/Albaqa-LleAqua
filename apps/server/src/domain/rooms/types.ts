@@ -71,6 +71,9 @@ export interface LiveRound {
   speedBonus: boolean;
   /** participantId -> { optionId, serverTs } collected during COLLECTING. */
   answers: Record<string, { optionId: string; serverTs: number }>;
+  /** Sudden-death overtime round: decided by fastest correct among the tied
+   *  contenders, not by normal scoring. */
+  isTiebreak?: boolean;
 }
 
 // ───────────────────────── Seen-Jeem live state (server-only) ───────────────
@@ -158,4 +161,10 @@ export interface RoomState {
   startedAt?: number;
   /** Stored remaining time when paused, to restore on resume. */
   pausedRemainingMs?: number;
+  /** Set while the game is in sudden-death overtime: the still-tied contenders
+   *  (participant ids, or team ids when isTeam). Cleared once a winner emerges. */
+  tiebreak?: { contenders: string[]; isTeam: boolean };
+  /** Question ids already spent on tiebreak rounds (so overtime doesn't repeat
+   *  a question while fresh ones remain in the package). */
+  usedTiebreakIds?: string[];
 }

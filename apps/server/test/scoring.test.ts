@@ -6,6 +6,8 @@ import {
   applyResolution,
   evaluateWinCondition,
   activeParticipants,
+  topContenders,
+  decideTiebreak,
 } from '../src/domain/game/scoring.js';
 import type { LiveTeam } from '../src/domain/rooms/types.js';
 import { makeParticipant, makeRound, makeRoom } from './fixtures.js';
@@ -271,5 +273,95 @@ describe('activeParticipants', () => {
       makeParticipant('p3', { status: ParticipantStatus.DISCONNECTED }),
     ]);
     expect(activeParticipants(state)).toHaveLength(1);
+  });
+});
+
+describe('topContenders — tie detection', () => {
+  it('individual points: unique top → no tie', () => {
+    const state = makeRoom([
+      makeParticipant('p1', { score: 5 }),
+      makeParticipant('p2', { score: 3 }),
+    ]);
+    const c = topContenders(state);
+    expect(c.unique).toBe(true);
+    expect(c.winnerId).toBe('p1');
+  });
+
+  it('individual points: equal top score → sudden-death contenders', () => {
+    const state = makeRoom([
+      makeParticipant('p1', { score: 3 }),
+      makeParticipant('p2', { score: 3 }),
+      makeParticipant('p3', { score: 1 }),
+    ]);
+    const c = topContenders(state);
+    expect(c.unique).toBe(false);
+    expect(c.contenders.sort()).toEqual(['p1', 'p2']);
+    expect(c.isTeam).toBe(false);
+  });
+
+  it('teams: equal team score → team contenders', () => {
+    const teams: Record<string, LiveTeam> = {
+      t1: { id: 't1', name: 'A', color: '#f00', score: 4, winMs: 0, lives: 0, capacity: null },
+      t2: { id: 't2', name: 'B', color: '#00f', score: 4, winMs: 0, lives: 0, capacity: null },
+    };
+    const state = makeRoom([], { type: GameType.TEAMS, teams });
+    const c = topContenders(state);
+    expect(c.unique).toBe(false);
+    expect(c.isTeam).toBe(true);
+    expect(c.contenders.sort()).toEqual(['t1', 't2']);
+  });
+});
+
+describe('decideTiebreak — fastest correct wins', () => {
+  const correctId = 'a';
+  it('unique fastest correct contender wins', () => {
+    const state = makeRoom([makeParticipant('p1'), makeParticipant('p2')], {
+      tiebreak: { contenders: ['p1', 'p2'], isTeam: false },
+    });
+    const round = makeRound({
+      startedAt: 1_000_000,
+      correctOptionId: correctId,
+      answers: {
+        p1: { optionId: 'a', serverTs: 1_002_000 }, // correct, 2s
+        p2: { optionId: 'a', serverTs: 1_004_000 }, // correct, 4s
+      },
+    });
+    const d = decideTiebreak(state, round);
+    expect(d.decided).toBe(true);
+    expect(d.winnerId).toBe('p1');
+  });
+
+  it('nobody correct → replay with same contenders', () => {
+    const state = makeRoom([makeParticipant('p1'), makeParticipant('p2')], {
+      tiebreak: { contenders: ['p1', 'p2'], isTeam: false },
+    });
+    const round = makeRound({
+      startedAt: 1_000_000,
+      correctOptionId: correctId,
+      answers: {
+        p1: { optionId: 'b', serverTs: 1_002_000 },
+        p2: { optionId: 'c', serverTs: 1_003_000 },
+      },
+    });
+    const d = decideTiebreak(state, round);
+    expect(d.decided).toBe(false);
+    expect(d.contenders.sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('only one contender answered correctly → they win', () => {
+    const state = makeRoom([makeParticipant('p1'), makeParticipant('p2')], {
+      tiebreak: { contenders: ['p1', 'p2'], isTeam: false },
+    });
+    const round = makeRound({
+      startedAt: 1_000_000,
+      correctOptionId: correctId,
+      answers: {
+        p1: { optionId: 'b', serverTs: 1_002_000 }, // wrong
+        p2: { optionId: 'a', serverTs: 1_005_000 }, // correct
+      },
+    });
+    const d = decideTiebreak(state, round);
+    expect(d.decided).toBe(true);
+    expect(d.winnerId).toBe('p2');
   });
 });

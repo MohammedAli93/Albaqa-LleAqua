@@ -16,6 +16,8 @@ const en: typeof ar = {
   enterRoomCode: 'Type the room code',
   round: 'Round',
   roundOf: 'Round {current} of {total}',
+  tieBreaker: 'Tie-breaker',
+  tieBreak: "It's a tie! Sudden death",
   standings: 'Standings',
   nextUp: 'Next question',
   questionOf: 'Question {current} of {total}',

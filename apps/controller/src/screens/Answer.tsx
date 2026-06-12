@@ -13,7 +13,7 @@ const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
 const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
 
 export function Answer() {
-  const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, round, totalRounds, locale } = useStore();
+  const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, round, totalRounds, isTiebreak, locale } = useStore();
 
   // Tick while in the 3-2-1 pre-roll so the countdown number updates. Uses
   // serverNow() (server-synced clock) so the phone reveals the question at the
@@ -44,11 +44,15 @@ export function Answer() {
     const n = Math.max(1, Math.ceil((startsAt! - now) / 1000));
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
-        {round > 0 && totalRounds > 0 && (
+        {isTiebreak ? (
+          <span className="rounded-full bg-prize-gold px-5 py-1.5 font-display text-sm font-black text-brand-deep shadow-glow">
+            {t(locale, 'tieBreaker')} ⚡
+          </span>
+        ) : round > 0 && totalRounds > 0 ? (
           <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
           </span>
-        )}
+        ) : null}
         {question.category && (
           <div className="rounded-full px-4 py-1 text-sm font-bold text-white" style={{ background: question.category.color }}>
             {question.category.nameAr}

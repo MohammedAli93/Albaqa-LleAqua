@@ -348,6 +348,9 @@ export interface QuestionShowPayload {
   startsAt?: number;
   /** Per-player-category mode: whose category this round belongs to. */
   turnPlayer?: { nickname: string; avatarId: string };
+  /** Sudden-death overtime question (shown after a tie). Clients label it
+   *  "tie-breaker" instead of "round X of Y". */
+  tiebreak?: boolean;
 }
 
 export interface TimerTickPayload {
@@ -416,6 +419,8 @@ export interface RoundCompletedPayload {
   nextRound?: number;
   /** The upcoming question's category, so phones can preview what's next. */
   nextCategory?: { nameAr: string; nameEn?: string; color: string; icon?: string };
+  /** The next question is a sudden-death tie-breaker (after an equal-score end). */
+  tiebreak?: boolean;
 }
 
 export interface GameCompletedPayload {

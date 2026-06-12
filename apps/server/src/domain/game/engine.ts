@@ -24,7 +24,7 @@ import { withRoomLock, acquireRoomLock } from './lock.js';
 import { setEmitter } from './emitterRef.js';
 import { startSeenJeem } from './seenJeemEngine.js';
 import { getRoom, saveRoom, deleteRoom } from '../rooms/roomStore.js';
-import type { RoomState, LiveParticipant, LiveTeam } from '../rooms/types.js';
+import type { RoomState, LiveParticipant, LiveTeam, LiveRound } from '../rooms/types.js';
 import { hashCapabilityToken, generateCapabilityToken } from '../auth/tokens.js';
 import { loadQuestion } from '../content/questionLoader.js';
 import { isValidAvatarId } from '@tahaddi/shared';
@@ -33,6 +33,8 @@ import {
   applyResolution,
   evaluateWinCondition,
   activeParticipants,
+  topContenders,
+  decideTiebreak,
 } from './scoring.js';
 import {
   buildSnapshot,
@@ -370,10 +372,19 @@ function shuffleArr<T>(arr: T[]): T[] {
 
 export async function startNextRound(gameId: string): Promise<void> {
   const state = await mustGetRoom(gameId);
+
+  // In sudden-death overtime the "next round" is always a tiebreaker question
+  // (also covers a host who advances manually instead of auto-advance).
+  if (state.tiebreak) {
+    await startTiebreakRound(gameId);
+    return;
+  }
+
   const nextIndex = state.roundIndex + 1;
 
   if (nextIndex >= state.questionOrder.length) {
-    await completeGame(gameId, true);
+    // Out of scripted rounds → decide the winner, or open overtime on a tie.
+    await concludeGame(gameId);
     return;
   }
 
@@ -541,6 +552,14 @@ export async function resolveRound(gameId: string): Promise<void> {
     round.phase = RoundPhase.LOCKED;
     emitter.toRoom(gameId, ServerEvent.ANSWER_LOCKED, { roundId: round.roundId });
 
+    // Sudden-death overtime resolves on its own terms (fastest correct contender),
+    // not via normal scoring/elimination.
+    if (round.isTiebreak) {
+      await resolveTiebreakRound(gameId, state, round);
+      await release();
+      return;
+    }
+
     // Pure scoring.
     const scored = scoreRound(state, round);
     const { outcomes, heroes } = scored;
@@ -656,12 +675,13 @@ export async function resolveRound(gameId: string): Promise<void> {
 
     await saveRoom(state);
 
-    // Win condition?
+    // Win condition? Route through concludeGame so a tie opens sudden-death
+    // overtime instead of crowning someone by join order.
     const questionsExhausted = state.roundIndex + 1 >= state.questionOrder.length;
     const win = evaluateWinCondition(state, questionsExhausted);
     if (win.isOver) {
       await release();
-      await finishWithWinner(gameId, win.winnerId, win.winnerTeamId);
+      await concludeGame(gameId);
       return;
     }
 
@@ -705,6 +725,187 @@ export async function resolveRound(gameId: string): Promise<void> {
     await release();
     throw err;
   }
+}
+
+// ─────────────────────────────── Sudden death ────────────────────────────────
+
+/**
+ * The scripted rounds are done. If the top is a tie, we do NOT crown anyone by
+ * join order — we open sudden-death overtime among the tied contenders and play
+ * decisive questions until exactly one wins (a single player, or a single team).
+ */
+async function concludeGame(gameId: string): Promise<void> {
+  const state = await mustGetRoom(gameId);
+  const c = topContenders(state);
+  if (c.unique) {
+    await finishWithWinner(gameId, c.winnerId, c.winnerTeamId);
+    return;
+  }
+  state.tiebreak = { contenders: c.contenders, isTeam: c.isTeam };
+  await saveRoom(state);
+  await scheduleTiebreak(gameId);
+}
+
+/** Announce the tie, then auto-advance into the next decisive question. */
+async function scheduleTiebreak(gameId: string): Promise<void> {
+  const state = await mustGetRoom(gameId);
+  const nextInMs = state.settings.intermissionSec * 1000;
+  emitter.toRoom(gameId, ServerEvent.ROUND_COMPLETED, {
+    roundIndex: state.roundIndex + 1,
+    nextInMs: state.settings.autoAdvance ? nextInMs : undefined,
+    tiebreak: true,
+  });
+  if (!state.settings.autoAdvance) return; // host advances manually → startNextRound
+  setTimeout(
+    () =>
+      void (async () => {
+        const cur = await getRoom(gameId);
+        if (cur?.status === GameStatus.ACTIVE) await startTiebreakRound(gameId);
+      })().catch((err) => logger.error({ err, gameId }, 'tiebreak advance failed')),
+    nextInMs,
+  );
+}
+
+/** A package question not yet used (scripted or prior tiebreak); reuse one only
+ *  when the package is fully spent. */
+async function pickTiebreakQuestion(state: RoomState): Promise<string> {
+  const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
+  const pkgQs = await prisma.packageQuestion.findMany({
+    where: { packageId: state.packageId },
+    orderBy: { order: 'asc' },
+    select: { questionId: true },
+  });
+  const ids = pkgQs.map((q) => q.questionId);
+  const fresh = ids.filter((id) => !used.has(id));
+  const pool = fresh.length ? fresh : ids;
+  return pool[Math.floor(Math.random() * pool.length)] ?? state.questionOrder[state.questionOrder.length - 1]!;
+}
+
+/** Fire one sudden-death question (decided in resolveTiebreakRound). */
+async function startTiebreakRound(gameId: string): Promise<void> {
+  const state = await mustGetRoom(gameId);
+  if (!state.tiebreak) return;
+  const questionId = await pickTiebreakQuestion(state);
+  const loaded = await loadQuestion(questionId);
+
+  const now = Date.now();
+  const startedAt = now + GET_READY_MS;
+  const timeLimitSec = loaded.timeLimitSec || state.settings.questionTimerSec;
+  const endsAt = startedAt + timeLimitSec * 1000;
+  const roundId = nanoid(16);
+  const nextIndex = state.roundIndex + 1;
+
+  await prisma.round.create({
+    data: {
+      id: roundId,
+      gameId,
+      index: nextIndex,
+      questionId,
+      startedAt: new Date(startedAt),
+      correctOptionId: loaded.correctOptionId,
+    },
+  });
+
+  state.roundIndex = nextIndex;
+  state.lastHeroes = undefined;
+  (state.usedTiebreakIds ??= []).push(questionId);
+  state.currentRound = {
+    roundId,
+    index: nextIndex,
+    questionId,
+    correctOptionId: loaded.correctOptionId,
+    question: loaded.publicQuestion,
+    startedAt,
+    endsAt,
+    phase: RoundPhase.COLLECTING,
+    timeLimitSec,
+    basePoints: loaded.basePoints,
+    speedBonus: loaded.speedBonus,
+    answers: {},
+    isTiebreak: true,
+  };
+  await saveRoom(state);
+
+  emitter.toRoom(gameId, ServerEvent.QUESTION_SHOW, {
+    round: nextIndex + 1,
+    roundId,
+    question: loaded.publicQuestion,
+    startsAt: startedAt,
+    endsAt,
+    tiebreak: true,
+  });
+
+  scheduleTicks(gameId, endsAt, (remainingMs) =>
+    emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId, remainingMs }),
+  );
+  scheduleRoundEnd(gameId, endsAt, () =>
+    void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'tiebreak resolve failed')),
+  );
+}
+
+/** Reveal + decide a sudden-death round. Caller holds the room lock. */
+async function resolveTiebreakRound(gameId: string, state: RoomState, round: LiveRound): Promise<void> {
+  round.phase = RoundPhase.RESOLVING;
+
+  const distribution: Record<string, number> = {};
+  for (const ans of Object.values(round.answers)) {
+    distribution[ans.optionId] = (distribution[ans.optionId] ?? 0) + 1;
+  }
+  // The contender participant ids (expand team contenders to their members).
+  const contenderPids = new Set(
+    state.tiebreak?.isTeam
+      ? Object.values(state.participants)
+          .filter((p) => p.teamId && state.tiebreak!.contenders.includes(p.teamId))
+          .map((p) => p.id)
+      : state.tiebreak?.contenders ?? [],
+  );
+  const topAnswerers = Object.entries(round.answers)
+    .filter(([pid, ans]) => contenderPids.has(pid) && ans.optionId === round.correctOptionId)
+    .map(([pid, ans]) => ({ pid, ms: ans.serverTs - round.startedAt }))
+    .sort((a, b) => a.ms - b.ms)
+    .slice(0, 3)
+    .map((x, i) => {
+      const p = state.participants[x.pid]!;
+      return { participantId: x.pid, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };
+    });
+
+  const loaded = await loadQuestion(round.questionId).catch(() => null);
+  emitter.toRoom(gameId, ServerEvent.QUESTION_REVEAL, {
+    roundId: round.roundId,
+    correctOptionId: round.correctOptionId,
+    distribution,
+    topAnswerers,
+    explanationAr: loaded?.explanationAr,
+    explanationEn: loaded?.explanationEn,
+  });
+
+  for (const pid of contenderPids) {
+    const p = state.participants[pid];
+    const ans = round.answers[pid];
+    if (p?.socketId) {
+      emitter.toSocket(p.socketId, ServerEvent.ANSWER_RESULT, {
+        roundId: round.roundId,
+        isCorrect: !!ans && ans.optionId === round.correctOptionId,
+        pointsAwarded: 0,
+        newScore: p.score,
+        livesLeft: p.lives,
+      });
+    }
+  }
+
+  const decision = decideTiebreak(state, round);
+  if (decision.decided) {
+    state.tiebreak = undefined;
+    await saveRoom(state);
+    await finishWithWinner(gameId, decision.winnerId, decision.winnerTeamId);
+    return;
+  }
+
+  // Still tied → narrow to those still level and play another decisive question.
+  state.tiebreak = { contenders: decision.contenders, isTeam: decision.isTeam };
+  round.phase = RoundPhase.INTERMISSION;
+  await saveRoom(state);
+  await scheduleTiebreak(gameId);
 }
 
 // ──────────────────────────────── Complete ──────────────────────────────────

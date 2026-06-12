@@ -279,6 +279,110 @@ function pickTopParticipant(list: LiveParticipant[]): LiveParticipant | undefine
   return [...list].sort((a, b) => b.score - a.score || a.joinOrder - b.joinOrder)[0];
 }
 
+// ─────────────────────────────── Sudden death ────────────────────────────────
+
+export interface Contenders {
+  /** true when a single winner is already decided (no tie at the top). */
+  unique: boolean;
+  winnerId?: string;
+  winnerTeamId?: string;
+  /** The tied-for-first ids (participant ids, or team ids when isTeam). */
+  contenders: string[];
+  isTeam: boolean;
+}
+
+/**
+ * Who's tied for first at the moment the game would end. If exactly one leader,
+ * `unique` is true and the winner is set. Otherwise `contenders` lists everyone
+ * tied for the top — they go to a sudden-death tiebreaker.
+ *  - TEAMS: tie on team score.
+ *  - INDIVIDUAL POINTS: tie on player score.
+ *  - INDIVIDUAL ELIMINATION: among the survivors (most lives) — tie on lives.
+ */
+export function topContenders(state: RoomState): Contenders {
+  if (state.type === GameType.TEAMS) {
+    const teams = Object.values(state.teams);
+    const max = Math.max(0, ...teams.map((t) => t.score));
+    const leaders = teams.filter((t) => t.score === max);
+    return leaders.length <= 1
+      ? { unique: true, winnerTeamId: leaders[0]?.id, contenders: [], isTeam: true }
+      : { unique: false, contenders: leaders.map((t) => t.id), isTeam: true };
+  }
+
+  if (state.mode === GameMode.ELIMINATION) {
+    const alive = Object.values(state.participants).filter((p) => p.status === ParticipantStatus.ACTIVE);
+    const pool = alive.length > 0 ? alive : visibleSurvivors(state);
+    const maxLives = Math.max(0, ...pool.map((p) => p.lives));
+    const leaders = pool.filter((p) => p.lives === maxLives);
+    return leaders.length <= 1
+      ? { unique: true, winnerId: leaders[0]?.id, contenders: [], isTeam: false }
+      : { unique: false, contenders: leaders.map((p) => p.id), isTeam: false };
+  }
+
+  // INDIVIDUAL POINTS
+  const players = visibleSurvivors(state);
+  const max = Math.max(0, ...players.map((p) => p.score));
+  const leaders = players.filter((p) => p.score === max);
+  return leaders.length <= 1
+    ? { unique: true, winnerId: leaders[0]?.id, contenders: [], isTeam: false }
+    : { unique: false, contenders: leaders.map((p) => p.id), isTeam: false };
+}
+
+function visibleSurvivors(state: RoomState): LiveParticipant[] {
+  return Object.values(state.participants).filter((p) => p.status !== ParticipantStatus.LEFT);
+}
+
+export interface TiebreakDecision {
+  decided: boolean;
+  winnerId?: string;
+  winnerTeamId?: string;
+  /** When undecided, the narrowed contender set to replay (those still tied). */
+  contenders: string[];
+  isTeam: boolean;
+}
+
+/**
+ * Decide a sudden-death round: the contender who answered correctly the FASTEST
+ * wins. If nobody got it right, replay with the same contenders. If two are tied
+ * on the exact fastest time (practically never), replay among just those.
+ */
+export function decideTiebreak(state: RoomState, round: LiveRound): TiebreakDecision {
+  const tb = state.tiebreak;
+  if (!tb) return { decided: false, contenders: [], isTeam: false };
+  const correctId = round.correctOptionId;
+
+  if (tb.isTeam) {
+    // Each team's fastest correct member time.
+    const best = new Map<string, number>();
+    for (const [pid, ans] of Object.entries(round.answers)) {
+      const p = state.participants[pid];
+      if (!p?.teamId || !tb.contenders.includes(p.teamId) || ans.optionId !== correctId) continue;
+      const ms = ans.serverTs - round.startedAt;
+      const cur = best.get(p.teamId);
+      if (cur === undefined || ms < cur) best.set(p.teamId, ms);
+    }
+    const ranked = [...best.entries()].sort((a, b) => a[1] - b[1]);
+    if (ranked.length === 0) return { decided: false, contenders: tb.contenders, isTeam: true };
+    if (ranked.length === 1 || ranked[0]![1] < ranked[1]![1]) {
+      return { decided: true, winnerTeamId: ranked[0]![0], contenders: [], isTeam: true };
+    }
+    const top = ranked[0]![1];
+    return { decided: false, contenders: ranked.filter(([, ms]) => ms === top).map(([id]) => id), isTeam: true };
+  }
+
+  const correct = tb.contenders
+    .map((id) => ({ id, ans: round.answers[id] }))
+    .filter((x) => x.ans && x.ans.optionId === correctId)
+    .map((x) => ({ id: x.id, ms: x.ans!.serverTs - round.startedAt }))
+    .sort((a, b) => a.ms - b.ms);
+  if (correct.length === 0) return { decided: false, contenders: tb.contenders, isTeam: false };
+  if (correct.length === 1 || correct[0]!.ms < correct[1]!.ms) {
+    return { decided: true, winnerId: correct[0]!.id, contenders: [], isTeam: false };
+  }
+  const top = correct[0]!.ms;
+  return { decided: false, contenders: correct.filter((c) => c.ms === top).map((c) => c.id), isTeam: false };
+}
+
 function pickTopTeam(list: LiveTeam[]): LiveTeam | undefined {
   // Highest score wins; on an equal-score tie the FASTER team wins (lower cumulative
   // buzz time across the rounds it won).
