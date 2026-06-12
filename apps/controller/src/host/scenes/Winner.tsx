@@ -182,13 +182,10 @@ function PlayerResult({ leaderboard, isElim, championId }: { leaderboard: Ranked
               <div className="flex min-w-0 flex-1 flex-col">
                 {champ ? (
                   <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="shrink-0 font-display text-screen-meta font-black text-prize-gold"
-                      style={{ display: 'inline-block', transform: 'rotate(-8deg)' }}
-                    >
+                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
+                    <span className="shrink-0 font-display text-screen-meta font-black text-prize-gold">
                       {t(L, 'champion')} 🏆
                     </span>
-                    <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
                   </div>
                 ) : (
                   <>
