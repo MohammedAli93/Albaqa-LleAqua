@@ -44,7 +44,7 @@ import {
   publicTeams,
 } from './snapshot.js';
 import * as fsm from './fsm.js';
-import { buildPerPlayerOrder } from '../rooms/roomService.js';
+import { buildPerPlayerOrder, pickCategoryQuestion } from '../rooms/roomService.js';
 import {
   scheduleRoundEnd,
   clearRoundTimer,
@@ -809,16 +809,44 @@ async function pickPackageQuestion(state: RoomState, used: Set<string>): Promise
 /**
  * ELIMINATION runs to the last survivor, not to a fixed question count. If the
  * scripted order is about to run dry while 2+ players are still alive, append
- * another question (an unused one; recycle the bank only once it's exhausted) so
- * the duel always has a next question — no sudden-death "decisive question".
+ * another question (an unused one; recycle only once the source is spent) so the
+ * duel always has a next question — no sudden-death "decisive question".
+ *
+ * The appended question stays within the game's configured category so the topic
+ * doesn't drift once the scripted rounds are used up:
+ *   - per-player-category → continue the round-robin among the SURVIVORS, drawing
+ *     from each one's own category (an eliminated player's category stops coming up);
+ *   - single category      → keep drawing from that category;
+ *   - curated package      → draw from the package (already mixed by design).
  * No-op for other modes, and once a single survivor remains.
  */
 async function ensureEliminationQuestion(state: RoomState): Promise<void> {
   if (state.mode !== GameMode.ELIMINATION || state.type !== GameType.INDIVIDUAL) return;
   if (state.roundIndex + 1 < state.questionOrder.length) return; // a scripted Q is still queued
-  if (activeParticipants(state).length <= 1) return; // game is about to end on its own
-  const next = await pickPackageQuestion(state, new Set(state.questionOrder));
-  state.questionOrder.push(next);
+  const active = activeParticipants(state);
+  if (active.length <= 1) return; // game is about to end on its own
+
+  const used = new Set(state.questionOrder);
+  const nextIndex = state.questionOrder.length;
+  let nextId: string | null = null;
+  let ownerId: string | undefined;
+
+  if (state.settings.perPlayerCategory) {
+    // Rotate through the survivors (join order) and draw from the owner's category.
+    const survivors = active.sort((a, b) => a.joinOrder - b.joinOrder);
+    const owner = survivors[nextIndex % survivors.length]!;
+    ownerId = owner.id;
+    if (owner.categoryId) nextId = await pickCategoryQuestion(owner.categoryId, used);
+  } else if (state.settings.categoryId) {
+    nextId = await pickCategoryQuestion(state.settings.categoryId, used);
+  }
+
+  // Fall back to the package (mixed categories) if no category-scoped question.
+  if (!nextId) nextId = await pickPackageQuestion(state, used);
+
+  state.questionOrder.push(nextId);
+  // Keep roundOwners aligned with questionOrder in per-player mode.
+  if (state.settings.perPlayerCategory && ownerId) (state.roundOwners ??= []).push(ownerId);
 }
 
 /** Fire one sudden-death question (decided in resolveTiebreakRound). */

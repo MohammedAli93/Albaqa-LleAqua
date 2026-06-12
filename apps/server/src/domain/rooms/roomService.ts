@@ -45,6 +45,24 @@ async function categoryQuestionOrder(categoryId: string, desiredRounds: number):
   return shuffle(rows.map((r) => r.id)).slice(0, desiredRounds);
 }
 
+/**
+ * Pick one question from a single category, preferring ids not in `exclude`;
+ * recycle within the category once its distinct questions are spent. Returns null
+ * if the category has no usable questions. Used to extend an ELIMINATION game
+ * past its scripted order WITHOUT drifting into other categories.
+ */
+export async function pickCategoryQuestion(categoryId: string, exclude: Set<string>): Promise<string | null> {
+  const rows = await prisma.question.findMany({
+    where: { categoryId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+    select: { id: true },
+  });
+  const ids = rows.map((r) => r.id);
+  if (ids.length === 0) return null;
+  const fresh = ids.filter((id) => !exclude.has(id));
+  const pool = fresh.length ? fresh : ids; // recycle only once the category is spent
+  return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
 /** Fallback category for players who never picked one (per-player mode). */
 async function defaultCategoryId(): Promise<string | null> {
   const bySlug = await prisma.category.findFirst({ where: { slug: 'general', deletedAt: null }, select: { id: true } });

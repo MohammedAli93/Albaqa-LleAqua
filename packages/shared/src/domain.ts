@@ -206,7 +206,9 @@ export const POINTS_SETTINGS: GameSettings = {
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.
- *  Capped at 35 rounds so a game that never eliminates down to one still ends. */
+ *  Plays to the last survivor: the engine keeps drawing questions (recycling the
+ *  category/package) until one player holds lives, so `totalRounds` is only the
+ *  scripted minimum, not a cap. */
 export const ELIMINATION_SETTINGS: GameSettings = {
   ...DEFAULT_GAME_SETTINGS,
   mode: GameMode.ELIMINATION,
