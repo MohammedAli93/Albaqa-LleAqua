@@ -39,11 +39,15 @@ export function Home() {
         <span className="font-display text-xl font-black text-gradient lg:text-2xl">البقاء للأقوى</span>
         {account ? (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-full bg-bg-raised/80 py-1 pe-3 ps-1 shadow-glass">
+            <button
+              onClick={() => set({ appView: 'profile' })}
+              className="flex items-center gap-2 rounded-full bg-bg-raised/80 py-1 pe-3 ps-1 shadow-glass transition active:scale-95"
+              aria-label="الملف الشخصي"
+            >
               <Avatar avatarId={account.avatarId} size={30} />
               <span className="max-w-[7rem] truncate text-sm font-bold">{account.username}</span>
               {country && <span className="text-sm">{country.flag}</span>}
-            </div>
+            </button>
             <button
               onClick={() => { clearAccount(); set({ account: null }); }}
               className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-bg-sunken hover:text-ink-secondary"

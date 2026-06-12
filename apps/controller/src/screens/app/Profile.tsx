@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Sparkles, Check, ChevronRight } from 'lucide-react';
 import { AVATARS, type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
@@ -37,10 +38,38 @@ export function Profile() {
 
   return (
     <div className="flex min-h-dvh flex-col px-6 py-8">
+      {account?.country && (
+        <button
+          onClick={() => set({ appView: 'home' })}
+          className="mb-4 inline-flex items-center gap-1.5 self-start rounded-full bg-bg-sunken px-4 py-2 font-display text-sm font-bold text-ink-secondary"
+        >
+          <ChevronRight size={16} /> رجوع
+        </button>
+      )}
       <h1 className="font-display text-4xl font-bold text-gradient">
         أهلاً {account?.username}
       </h1>
       <p className="mt-2 text-ink-secondary">اختر صورتك ودولتك</p>
+
+      {/* Subscription status — the always-available entry to the upgrade flow. */}
+      {account?.paidUnlocked ? (
+        <div className="mt-5 flex items-center gap-2 rounded-2xl bg-success/10 px-4 py-3 font-display font-bold text-success">
+          <Check size={20} /> النسخة الكاملة مفعّلة
+        </div>
+      ) : (
+        <button
+          onClick={() => set({ appView: 'upgrade' })}
+          className="mt-5 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start text-white shadow-card"
+          style={{ backgroundImage: 'linear-gradient(150deg,#F59E0B,#F43F5E)' }}
+        >
+          <Sparkles size={22} />
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-lg font-black">ترقية إلى النسخة الكاملة</span>
+            <span className="block text-sm text-white/85">٣٥ سؤالاً + اختيار الفئات</span>
+          </span>
+          <ChevronRight size={20} className="rotate-180" />
+        </button>
+      )}
 
       <div className="mt-6 space-y-6">
         <div>
