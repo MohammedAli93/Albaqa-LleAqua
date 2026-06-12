@@ -75,9 +75,32 @@ export function Finished() {
   const isElim = gameMode === GameMode.ELIMINATION;
   const board = winner.finalLeaderboard ?? leaderboard;
   const rankedTeams = winner.teams ?? teams;
+  const championTid = winner.winnerTeam?.id ?? null;
   const iWon = isTeams
-    ? !!winner.winnerTeam && myTeamId === winner.winnerTeam.id
+    ? !!championTid && myTeamId === championTid
     : winner.winner?.id === participantId;
+  // My own final position — for the loser's "حظ سعيد + ترتيبك #N" screen.
+  const myRank = isTeams
+    ? [...rankedTeams]
+        .sort((a, b) => Number(b.id === championTid) - Number(a.id === championTid) || b.score - a.score)
+        .findIndex((tm) => tm.id === myTeamId) + 1
+    : board.find((e) => e.participantId === participantId)?.rank ?? 0;
+
+  // The LOSER never sees the champion or the leaderboard — only "حظ سعيد + their
+  // rank" (client request). The winner gets the celebration ↔ ranking cycle.
+  if (!iWon) {
+    return (
+      <div
+        className="safe relative grid h-dvh place-items-center overflow-hidden p-5"
+        style={{ backgroundImage: 'linear-gradient(165deg, #0F2A47 0%, #15436E 55%, #1E5A8F 100%)' }}
+      >
+        <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[55vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/10 blur-[120px]" />
+        <div className="relative z-10 w-full">
+          <LoserFocus myRank={myRank} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -86,7 +109,7 @@ export function Finished() {
     >
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[60vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
       <div aria-hidden className="pointer-events-none absolute bottom-[-10%] left-1/2 h-[40vh] w-[80vw] -translate-x-1/2 rounded-full bg-prize-gold/20 blur-[120px]" />
-      {iWon && <Confetti />}
+      <Confetti />
 
       <AnimatePresence mode="wait">
         {stage === 'champion' ? (
@@ -139,7 +162,7 @@ function ChampionFocus({
 }) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 text-center">
-      <Headline title={isTeams ? t(L, 'winningTeam') : t(L, 'champion')} />
+      <Headline title={isTeams ? t(L, 'winningTeam') : t(L, 'youAreChampion')} />
 
       {isTeams && team ? (
         <>
@@ -166,6 +189,32 @@ function ChampionFocus({
       <p className="mt-1 font-display text-screen-status font-bold text-white animate-pulse-glow">
         {t(L, 'congratulations')}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The LOSER's screen — never shows the champion (client request): just a calm
+ * "better luck next time" + the player's own final rank.
+ */
+function LoserFocus({ myRank }: { myRank: number }) {
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -8, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 170, damping: 16 }}
+      >
+        <span className="text-[clamp(3.5rem,16vw,7rem)]">🍀</span>
+      </motion.div>
+      <h1 className="max-w-full font-display text-[clamp(2rem,9vw,4rem)] font-black text-white drop-shadow">
+        {t(L, 'betterLuck')}
+      </h1>
+      {myRank > 0 && (
+        <span className="rounded-full bg-white/95 px-7 py-2.5 font-display text-screen-status font-black text-brand-deep shadow-card">
+          {t(L, 'yourRank', { rank: myRank })}
+        </span>
+      )}
     </div>
   );
 }

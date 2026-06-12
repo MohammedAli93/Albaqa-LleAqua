@@ -38,6 +38,8 @@ const en: typeof ar = {
   scoreboard: 'Results',
   winner: 'Winner',
   champion: 'Champion',
+  youAreChampion: 'You are the champion! 🏆',
+  yourRank: 'Your rank #{rank}',
   you: 'You',
   finalRanking: 'Final ranking',
   betterLuck: 'Better luck next time',

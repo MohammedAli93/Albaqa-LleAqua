@@ -895,7 +895,20 @@ async function resolveTiebreakRound(gameId: string, state: RoomState, round: Liv
 
   const decision = decideTiebreak(state, round);
   if (decision.decided) {
+    // Award the decisive point so the FINAL score reflects the overtime win
+    // (otherwise the board still shows the pre-tie-break tie, e.g. 3–3).
+    if (decision.winnerId && state.participants[decision.winnerId]) {
+      state.participants[decision.winnerId]!.score += 1;
+    } else if (decision.winnerTeamId && state.teams[decision.winnerTeamId]) {
+      state.teams[decision.winnerTeamId]!.score += 1;
+    }
     state.tiebreak = undefined;
+    // Push the updated score to the room so the leaderboard reflects it before the
+    // game-over screen.
+    emitter.toRoom(gameId, ServerEvent.SCORE_UPDATE, {
+      leaderboard: buildLeaderboard(state),
+      ...(state.type === GameType.TEAMS ? { teams: publicTeams(state) } : {}),
+    });
     await saveRoom(state);
     await finishWithWinner(gameId, decision.winnerId, decision.winnerTeamId);
     return;

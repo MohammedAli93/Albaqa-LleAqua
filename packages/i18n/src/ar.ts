@@ -42,6 +42,8 @@ const ar = {
   scoreboard: 'النتائج',
   winner: 'الفائز',
   champion: 'البطل',
+  youAreChampion: 'أنت البطل! 🏆',
+  yourRank: 'ترتيبك #{rank}',
   you: 'أنت',
   finalRanking: 'الترتيب النهائي',
   betterLuck: 'حظ سعيد المرة القادمة',
