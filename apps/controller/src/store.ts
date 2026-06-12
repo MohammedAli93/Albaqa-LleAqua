@@ -4,6 +4,7 @@ import {
   ServerEvent,
   GameType,
   GameMode,
+  type GameTier,
   type RoomSnapshot,
   type PublicParticipant,
   type PublicQuestion,
@@ -26,13 +27,15 @@ import type { Locale } from '@tahaddi/i18n';
 import { loadAccount, type Account } from './lib/account.js';
 
 /** Top-level app surface, above the in-game flow. */
-export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game' | 'host';
+export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game' | 'host' | 'upgrade';
 
 /** Config the landing hands to Host mode (type + mode already chosen). */
 export interface HostLaunch {
   type: GameType;
   mode: GameMode;
   teamNames?: string[];
+  /** Free vs paid tier (INDIVIDUAL games). Defaults FREE. */
+  tier?: GameTier;
 }
 
 export type Conn = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'error';

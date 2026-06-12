@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   GameType,
   GameMode,
+  GameTier,
   QuestionType,
   Difficulty,
   GAME_LIMITS,
@@ -82,6 +83,8 @@ export interface PlayerProfile {
   pointsWins: number;
   eliminationWins: number;
   gamesPlayed: number;
+  /** True once the account has bought the one-time paid unlock (35-question tier). */
+  paidUnlocked: boolean;
 }
 
 export interface PlayerAuthResponse {
@@ -140,6 +143,7 @@ export const GameSettingsSchema = z
     tournamentName: z.string().max(120).optional(),
     categoryId: z.string().uuid().optional(),
     perPlayerCategory: z.boolean().optional(),
+    tier: zEnum(GameTier).optional(),
   })
   .refine((s) => s.minPlayers <= s.maxPlayers, {
     message: 'minPlayers must be <= maxPlayers',
@@ -157,8 +161,11 @@ export const GameSettingsSchema = z
   );
 
 export const CreateRoomSchema = z.object({
-  packageId: z.string().uuid(),
+  packageId: z.string().uuid().optional(),
   settings: GameSettingsSchema,
+  /** Free vs paid tier. The server resolves the package + round count from this;
+   *  PAID requires an authenticated host with the one-time unlock. Defaults FREE. */
+  tier: zEnum(GameTier).default(GameTier.FREE),
 });
 export type CreateRoomInput = z.infer<typeof CreateRoomSchema>;
 

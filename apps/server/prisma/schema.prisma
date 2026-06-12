@@ -271,6 +271,11 @@ model Game {
   tournamentId String?
   tournament   Tournament? @relation(fields: [tournamentId], references: [id])
 
+  /// Host's Player account, if they were logged in when creating the room.
+  /// null for anonymous (guest) hosts. Used for paid-tier entitlement.
+  hostPlayerId String?
+  hostPlayer   Player? @relation("HostedGames", fields: [hostPlayerId], references: [id])
+
   settings  Json
   hostToken String
 
@@ -287,6 +292,7 @@ model Game {
 
   @@index([status, createdAt])
   @@index([tournamentId])
+  @@index([hostPlayerId])
 }
 
 /// Durable audit of a Seen-Jeem lifeline spend (one of three per team per game).
@@ -462,6 +468,7 @@ model Order {
 enum ProductKind {
   CREDITS // a number of game-starts
   TIME_PASS // unlimited game-starts for a window (e.g. 6h)
+  UNLOCK // a one-time, permanent unlock (e.g. the paid 35-question tier)
 }
 
 model Product {
@@ -532,6 +539,7 @@ model Player {
   passes         GamePass[]
   orders         Order[]
   participations Participant[]
+  hostedGames    Game[]        @relation("HostedGames")
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz

@@ -44,6 +44,30 @@ export type ScoringMode = (typeof ScoringMode)[keyof typeof ScoringMode];
 /** Placement-scoring point values (البقاء للأقوى — الدوري). */
 export const PLACEMENT_POINTS = { FIRST: 3, SECOND: 2, REST: 1 } as const;
 
+/**
+ * Game **tier** — free vs paid, chosen when creating an INDIVIDUAL game.
+ *  - FREE: a fixed 15-question set, no category selection. No login required.
+ *  - PAID: the full 35-question game with category selection. Requires a
+ *    logged-in host whose account has the one-time paid unlock ({@link PAID_UNLOCK_SKU}).
+ */
+export const GameTier = {
+  FREE: 'FREE',
+  PAID: 'PAID',
+} as const;
+export type GameTier = (typeof GameTier)[keyof typeof GameTier];
+
+/** Authoritative question count per tier (the server enforces these). */
+export const TIER_ROUNDS: Record<GameTier, number> = {
+  FREE: 15,
+  PAID: 35,
+};
+
+/** Slug of the seeded free pack (the fixed 15-question, no-category set). */
+export const FREE_PACKAGE_SLUG = 'free-15';
+
+/** SKU of the one-time, account-wide unlock that grants the PAID tier. */
+export const PAID_UNLOCK_SKU = 'paid_unlock';
+
 export const GameStatus = {
   LOBBY: 'LOBBY',
   ACTIVE: 'ACTIVE',
@@ -151,6 +175,9 @@ export interface GameSettings {
   /** Per-player-category mode: each player picks their own category in the lobby;
    *  rounds rotate through players, each drawing from that player's category. */
   perPlayerCategory?: boolean;
+  /** Free vs paid tier (INDIVIDUAL games). Frozen onto the game at create time;
+   *  the server sets the package + round count from it. Defaults to FREE. */
+  tier?: GameTier;
 }
 
 export const GAME_LIMITS = {

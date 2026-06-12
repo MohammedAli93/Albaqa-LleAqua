@@ -9,6 +9,20 @@ import { limiters } from '../../middleware/rateLimit.js';
 import { ok } from '../respond.js';
 import * as roomService from '../../domain/rooms/roomService.js';
 import { listPublicPackages, listCategoryGroups } from '../../domain/content/contentService.js';
+import { verifyPlayerToken } from '../../domain/auth/tokens.js';
+
+/** Best-effort: extract the host's Player id from an optional Bearer token.
+ *  Hosting is open to guests, so a missing/invalid token is not an error here —
+ *  it just means an anonymous host (who can only run the free tier). */
+function optionalPlayerId(authHeader?: string): string | undefined {
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return undefined;
+  try {
+    return verifyPlayerToken(token).sub;
+  } catch {
+    return undefined;
+  }
+}
 
 export const publicRouter: ExpressRouter = Router();
 
@@ -29,8 +43,9 @@ publicRouter.post(
   limiters.roomCreate,
   validate(CreateRoomSchema),
   asyncHandler(async (req, res) => {
-    const { packageId, settings } = valid<typeof CreateRoomSchema>(req);
-    ok(res, await roomService.createRoom(packageId, settings), 201);
+    const { settings, tier } = valid<typeof CreateRoomSchema>(req);
+    const hostPlayerId = optionalPlayerId(req.headers.authorization);
+    ok(res, await roomService.createRoom({ settings, tier, hostPlayerId }), 201);
   }),
 );
 

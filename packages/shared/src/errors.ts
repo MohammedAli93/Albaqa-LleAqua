@@ -25,6 +25,8 @@ export const ErrorCode = {
   // payments
   PAYMENT_PROVIDER_UNSUPPORTED: 'PAYMENT_PROVIDER_UNSUPPORTED',
   PAYMENT_FAILED: 'PAYMENT_FAILED',
+  /** The host must buy the paid unlock before starting this game. */
+  PAYMENT_REQUIRED: 'PAYMENT_REQUIRED',
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
@@ -48,6 +50,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   DUPLICATE_ANSWER: 409,
   PAYMENT_PROVIDER_UNSUPPORTED: 400,
   PAYMENT_FAILED: 402,
+  PAYMENT_REQUIRED: 402,
 };
 
 export interface ApiErrorShape {

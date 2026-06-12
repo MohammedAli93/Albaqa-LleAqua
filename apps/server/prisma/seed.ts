@@ -169,6 +169,50 @@ async function main() {
   });
   console.log(`  ✓ package "${pkg.slug}" with ${createdQuestionIds.length} questions`);
 
+  // ── Free tier pack (fixed 15-question, no categories) ──────────────────────────
+  // The FREE game serves exactly this set. Paid games use the category bank instead.
+  const FREE_QS = createdQuestionIds.slice(0, 15);
+  const freePkg = await prisma.package.upsert({
+    where: { slug: 'free-15' },
+    update: { isPublished: true, isPremium: false, titleAr: 'الباقة المجانية', titleEn: 'Free Pack' },
+    create: {
+      slug: 'free-15',
+      titleAr: 'الباقة المجانية',
+      titleEn: 'Free Pack',
+      descAr: '١٥ سؤالاً متنوعاً — النسخة المجانية',
+      descEn: '15 mixed questions — the free version',
+      isPublished: true,
+      isPremium: false,
+      priceMinor: 0,
+      currency: 'SAR',
+      createdById: admin.id,
+    },
+  });
+  await prisma.packageQuestion.deleteMany({ where: { packageId: freePkg.id } });
+  await prisma.packageQuestion.createMany({
+    data: FREE_QS.map((questionId, order) => ({ packageId: freePkg.id, questionId, order })),
+  });
+  console.log(`  ✓ free pack "${freePkg.slug}" with ${FREE_QS.length} questions`);
+
+  // ── Paid unlock product (one-time, account-wide) ───────────────────────────────
+  // Grants the 35-question paid tier permanently. Adjust priceMinor to taste
+  // (minor units — halalas; 2000 = 20 SAR).
+  await prisma.product.upsert({
+    where: { sku: 'paid_unlock' },
+    update: { nameAr: 'النسخة الكاملة', nameEn: 'Full Version', kind: 'UNLOCK', isActive: true },
+    create: {
+      sku: 'paid_unlock',
+      nameAr: 'النسخة الكاملة',
+      nameEn: 'Full Version',
+      kind: 'UNLOCK',
+      priceMinor: 2000,
+      currency: 'SAR',
+      isActive: true,
+      sortOrder: 0,
+    },
+  });
+  console.log('  ✓ product "paid_unlock" (one-time unlock)');
+
   console.log('✅ Seed complete.');
 }
 

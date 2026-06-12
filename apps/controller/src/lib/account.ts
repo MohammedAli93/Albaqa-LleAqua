@@ -12,6 +12,8 @@ export interface Account {
   pointsWins: number;
   eliminationWins: number;
   gamesPlayed: number;
+  /** True once the account bought the one-time paid unlock (35-question tier). */
+  paidUnlocked: boolean;
   /** Player JWT for authenticated calls. */
   token: string;
 }

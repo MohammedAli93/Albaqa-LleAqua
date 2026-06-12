@@ -8,11 +8,13 @@ import {
   DEFAULT_TEAM_COUNT,
   GameType,
   GameMode,
+  GameTier,
   type GameSettings,
   type CreateRoomResponse,
 } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { api, CONTROLLER_URL } from './lib/config.js';
+import { loadAccount } from '../lib/account.js';
 import { useStore } from './store.js';
 import { connectHost, disconnectHost } from './socket.js';
 import { initSfxGesture } from './lib/sfx.js';
@@ -26,13 +28,13 @@ import { Scoreboard } from './scenes/Scoreboard.js';
 import { Winner } from './scenes/Winner.js';
 import { SeenJeem } from './scenes/SeenJeem.js';
 
-type Pkg = { id: string };
-
 /** Config handed in by the landing's "Host" action (type + mode already chosen). */
 export interface HostLaunch {
   type: GameType;
   mode: GameMode;
   teamNames?: string[];
+  /** Free vs paid tier (INDIVIDUAL games). Defaults FREE. */
+  tier?: GameTier;
 }
 
 /** Build frozen game settings from a chosen type + mode (+ team names). */
@@ -43,8 +45,9 @@ function buildSettings(opts: {
   demo?: boolean;
   name?: string;
   categoryId?: string;
+  tier?: GameTier;
 }): GameSettings {
-  const { type, mode, teamNames, demo, name, categoryId } = opts;
+  const { type, mode, teamNames, demo, name, categoryId, tier } = opts;
   // Team mode is always points (never elimination). Seen Jeem is its own mode.
   const effectiveMode = type === GameType.TEAMS && mode === GameMode.ELIMINATION ? GameMode.POINTS : mode;
   let base: GameSettings =
@@ -60,11 +63,13 @@ function buildSettings(opts: {
     base = { ...base, teamNames: names, teamCount: names.length, playersPerTeam: undefined };
   }
   if (categoryId) base = { ...base, categoryId };
+  if (tier) base = { ...base, tier };
   // Per-player category pick is a lobby step in EVERY game: each player chooses
-  // their own category before the host starts. Two exceptions: Seen Jeem (its own
-  // board format, ignores this) and host-forced single-category games, where the
-  // category is already fixed for everyone.
-  if (effectiveMode !== GameMode.SEEN_JEEM && !categoryId) {
+  // their own category before the host starts. Exceptions: Seen Jeem (its own board
+  // format), host-forced single-category games, and the FREE tier (a fixed 15-Q,
+  // no-category set — paid unlocks the category game).
+  const isFree = tier === GameTier.FREE;
+  if (effectiveMode !== GameMode.SEEN_JEEM && !categoryId && !isFree) {
     base = { ...base, perPlayerCategory: true };
   }
   if (demo) base = { ...base, intermissionSec: 4, totalRounds: base.totalRounds ?? 8 };
@@ -91,11 +96,13 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
   async function createAndHost(settings: GameSettings, demo = false, demoCount = 8): Promise<void> {
     try {
       setError(null);
-      const { packages } = await api<{ packages: Pkg[] }>('/api/v1/packages/public');
-      if (!packages.length) throw new Error('No published packages. Run the seed.');
+      // The server resolves the package + round count from the tier (free 15 /
+      // paid 35); a logged-in host sends their token so paid games can be unlocked.
+      const token = loadAccount()?.token;
       const room = await api<CreateRoomResponse>('/api/v1/rooms', {
         method: 'POST',
-        body: JSON.stringify({ packageId: packages[0]!.id, settings }),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: JSON.stringify({ settings, tier: settings.tier ?? GameTier.FREE }),
       });
       setNeedSetup(false);
       setRoom(room.roomCode, `${CONTROLLER_URL}/?c=${room.roomCode}`);
@@ -132,6 +139,7 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
       type: launch.mode === GameMode.SEEN_JEEM ? GameType.TEAMS : launch.type,
       mode: launch.mode,
       teamNames: launch.teamNames,
+      tier: launch.tier,
     });
     void createAndHost(settings);
     // eslint-disable-next-line react-hooks/exhaustive-deps

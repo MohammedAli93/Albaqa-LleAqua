@@ -17,6 +17,10 @@ export interface CreateCheckoutInput {
   currency: string;
   description: string;
   customerEmail?: string;
+  /** When set, the provider returns a HOSTED checkout the client redirects to
+   *  (Stripe Checkout), with success/cancel routed back under this base URL.
+   *  When absent, the provider returns an in-page client_secret (Elements). */
+  returnUrl?: string;
 }
 
 export type CheckoutResult =

@@ -7,10 +7,44 @@ import { asyncHandler } from '../../middleware/errorHandler.js';
 import { ok } from '../respond.js';
 import * as payments from '../../domain/payments/paymentService.js';
 import { listProviders } from '../../domain/payments/registry.js';
+import { verifyPlayerToken } from '../../domain/auth/tokens.js';
 
 export const paymentsRouter: ExpressRouter = Router();
 
+/** Require a valid player Bearer token; returns the player id or throws 401. */
+function requirePlayerId(authHeader?: string): string {
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) throw new AppError(ErrorCode.UNAUTHENTICATED, 'مطلوب تسجيل الدخول');
+  try {
+    return verifyPlayerToken(token).sub;
+  } catch {
+    throw new AppError(ErrorCode.UNAUTHENTICATED, 'جلسة غير صالحة');
+  }
+}
+
 paymentsRouter.get('/providers', (_req, res) => ok(res, { providers: listProviders() }));
+
+paymentsRouter.get(
+  '/products',
+  asyncHandler(async (_req, res) => ok(res, { products: await payments.listActiveProducts() })),
+);
+
+/** Buy the one-time paid unlock (35-question tier) for the logged-in account. */
+const UnlockCheckoutSchema = z.object({
+  provider: z.enum(['STRIPE', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
+  /** The app's base URL — Stripe routes success/cancel back here. */
+  returnUrl: z.string().url(),
+});
+
+paymentsRouter.post(
+  '/checkout/unlock',
+  validate(UnlockCheckoutSchema),
+  asyncHandler(async (req, res) => {
+    const playerId = requirePlayerId(req.headers.authorization);
+    const { provider, returnUrl } = valid<typeof UnlockCheckoutSchema>(req);
+    ok(res, await payments.createUnlockCheckout(provider as PaymentProviderId, playerId, returnUrl));
+  }),
+);
 
 paymentsRouter.post(
   '/checkout',

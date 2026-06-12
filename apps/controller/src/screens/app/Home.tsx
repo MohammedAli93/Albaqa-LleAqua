@@ -4,7 +4,7 @@ import {
   Trophy, Medal, LogOut, Play as PlayIcon, ScanLine, Tv, QrCode, Users, Coins, Swords,
   Sparkles, LogIn, User, ChevronRight, type LucideIcon,
 } from 'lucide-react';
-import { GameType, GameMode } from '@tahaddi/shared';
+import { GameType, GameMode, GameTier } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
@@ -13,14 +13,20 @@ import { COUNTRIES, CATEGORIES } from '../../lib/catalog.js';
 export function Home() {
   const { account, set } = useStore();
   const country = account ? COUNTRIES.find((c) => c.code === account.country) : undefined;
-  // Two-step chooser: pick TYPE (فردي/فرق); فردي then picks MODE (نقاط/تصفيات).
-  const [step, setStep] = useState<'type' | 'mode'>('type');
+  // Three-step chooser: TYPE (فردي/فرق); فردي → MODE (نقاط/تصفيات) → TIER (مجاني/كامل).
+  const [step, setStep] = useState<'type' | 'mode' | 'tier'>('type');
+  const [pendingMode, setPendingMode] = useState<GameMode>(GameMode.POINTS);
 
   // Host a new game — runs in-app (one link): enter Host mode with the chosen
   // type + mode. The host gets a QR for friends to join; view scales phone↔TV.
-  // No account required — players name themselves when they join.
-  function launch(type: GameType, mode: GameMode) {
-    set({ appView: 'host', hostLaunch: { type, mode } });
+  // Free games need no account; the PAID tier requires a logged-in, unlocked host.
+  function launch(type: GameType, mode: GameMode, tier?: GameTier) {
+    if (tier === GameTier.PAID && !account?.paidUnlocked) {
+      // Not unlocked yet → send them to the upgrade screen, remembering the intent.
+      set({ appView: 'upgrade', hostLaunch: { type, mode, tier: GameTier.PAID } });
+      return;
+    }
+    set({ appView: 'host', hostLaunch: { type, mode, tier } });
   }
   const joinByCode = () => set({ appView: 'game', phase: 'join' });
   const scrollToPlay = () =>
@@ -107,11 +113,15 @@ export function Home() {
           <div className="mb-1 flex items-center gap-2">
             <span className="h-7 w-1.5 rounded-full bg-gradient-action" />
             <h2 className="font-display text-2xl font-black sm:text-3xl">
-              {step === 'type' ? 'ابدأ لعبة جديدة' : 'اختر نوع اللعبة'}
+              {step === 'type' ? 'ابدأ لعبة جديدة' : step === 'mode' ? 'اختر نوع اللعبة' : 'اختر النسخة'}
             </h2>
           </div>
           <p className="mb-5 ps-3.5 text-sm text-ink-secondary">
-            {step === 'type' ? 'العبوا فردي أو فِرَق على الشاشة الكبيرة.' : 'كل واحد يجمع نقاط، أو يلعبها تصفية والبقاء للأقوى.'}
+            {step === 'type'
+              ? 'العبوا فردي أو فِرَق على الشاشة الكبيرة.'
+              : step === 'mode'
+                ? 'كل واحد يجمع نقاط، أو يلعبها تصفية والبقاء للأقوى.'
+                : 'النسخة المجانية ١٥ سؤالاً، أو الكاملة ٣٥ سؤالاً مع اختيار الفئات.'}
           </p>
 
           <AnimatePresence mode="wait">
@@ -131,7 +141,7 @@ export function Home() {
                   grad="linear-gradient(150deg,#FB7185,#F43F5E)" onClick={() => launch(GameType.TEAMS, GameMode.POINTS)}
                 />
               </motion.div>
-            ) : (
+            ) : step === 'mode' ? (
               <motion.div
                 key="mode"
                 initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
@@ -146,11 +156,36 @@ export function Home() {
                 </button>
                 <ModeRow
                   icon={Coins} title="نقاط" desc="اجمع أكثر نقاط وتفوز" tint="from-brand-deep/12 text-brand-deep"
-                  onClick={() => launch(GameType.INDIVIDUAL, GameMode.POINTS)}
+                  onClick={() => { setPendingMode(GameMode.POINTS); setStep('tier'); }}
                 />
                 <ModeRow
                   icon={Swords} title="تصفيات" desc="كل خطأ يقرّبك للخروج — والبقاء للأقوى" tint="from-action/12 text-action"
-                  onClick={() => launch(GameType.INDIVIDUAL, GameMode.ELIMINATION)}
+                  onClick={() => { setPendingMode(GameMode.ELIMINATION); setStep('tier'); }}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="tier"
+                initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-3"
+              >
+                <button
+                  onClick={() => setStep('mode')}
+                  className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-bg-sunken px-4 py-2 font-display text-sm font-bold text-ink-secondary"
+                >
+                  <ChevronRight size={16} /> رجوع
+                </button>
+                <ModeRow
+                  icon={PlayIcon} title="النسخة المجانية" desc="١٥ سؤالاً متنوّعاً — ابدأ فوراً" tint="from-brand-deep/12 text-brand-deep"
+                  onClick={() => launch(GameType.INDIVIDUAL, pendingMode, GameTier.FREE)}
+                />
+                <ModeRow
+                  icon={Sparkles}
+                  title="النسخة الكاملة"
+                  desc={account?.paidUnlocked ? '٣٥ سؤالاً + اختيار الفئات — مفعّلة ✓' : '٣٥ سؤالاً + اختيار الفئات — للترقية'}
+                  tint="from-prize-gold/15 text-prize-deep"
+                  onClick={() => launch(GameType.INDIVIDUAL, pendingMode, GameTier.PAID)}
                 />
               </motion.div>
             )}

@@ -5,7 +5,10 @@ import {
   GameStatus,
   GameType,
   GameMode,
+  GameTier,
   DEFAULT_TEAM_COUNT,
+  FREE_PACKAGE_SLUG,
+  TIER_ROUNDS,
   type GameSettings,
   type CreateRoomResponse,
   type RoomLobbyInfo,
@@ -13,6 +16,7 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { generateCapabilityToken, hashCapabilityToken } from '../auth/tokens.js';
+import { hasPaidUnlock } from '../payments/paymentService.js';
 import { ensureCategoryQuestions } from '../content/questionGen.js';
 import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
@@ -137,6 +141,21 @@ export async function buildPerPlayerOrder(
 export const TEAM_PALETTE = ['#4F46E5', '#14B8A6', '#FB7185', '#F59E0B', '#22C55E', '#A855F7', '#0EA5E9', '#EF4444'];
 export const TEAM_NAMES = ['الفريق الأزرق', 'الفريق الأخضر', 'الفريق الوردي', 'الفريق الذهبي', 'الفريق الزمردي', 'الفريق البنفسجي', 'الفريق السماوي', 'الفريق الأحمر'];
 
+/** Load a published, non-deleted package (by slug, or the oldest excluding a slug)
+ *  with its ordered question ids. Returns null if none matches. */
+async function findPackageWithQuestions(opts: { slug?: string; excludeSlug?: string }) {
+  return prisma.package.findFirst({
+    where: {
+      isPublished: true,
+      deletedAt: null,
+      ...(opts.slug ? { slug: opts.slug } : {}),
+      ...(opts.excludeSlug ? { slug: { not: opts.excludeSlug } } : {}),
+    },
+    orderBy: { createdAt: 'asc' },
+    include: { questions: { orderBy: { order: 'asc' }, select: { questionId: true } } },
+  });
+}
+
 /** Generate a room code not currently held by a live room. */
 async function allocateCode(): Promise<string> {
   for (let i = 0; i < 8; i++) {
@@ -146,19 +165,41 @@ async function allocateCode(): Promise<string> {
   throw new AppError(ErrorCode.CONFLICT, 'Could not allocate a unique room code');
 }
 
-export async function createRoom(
-  packageId: string,
-  settings: GameSettings,
-): Promise<CreateRoomResponse> {
-  // Validate the package exists & is published.
-  const pkg = await prisma.package.findFirst({
-    where: { id: packageId, isPublished: true, deletedAt: null },
-    include: { questions: { orderBy: { order: 'asc' }, select: { questionId: true } } },
-  });
-  if (!pkg) throw new AppError(ErrorCode.NOT_FOUND, 'Package not found or not published');
+export async function createRoom(input: {
+  settings: GameSettings;
+  /** Free vs paid tier (INDIVIDUAL). Defaults FREE. */
+  tier?: GameTier;
+  /** Host's Player account id, when they created the room while logged in. */
+  hostPlayerId?: string;
+}): Promise<CreateRoomResponse> {
+  const tier: GameTier = input.tier ?? GameTier.FREE;
+  const isIndividual = input.settings.type === GameType.INDIVIDUAL;
+
+  // Resolve the package + the effective settings from the tier. The server is
+  // authoritative here: a client can't request paid content by sending a packageId.
+  let settings: GameSettings = { ...input.settings, tier };
+  let pkg: Awaited<ReturnType<typeof findPackageWithQuestions>>;
+
+  if (isIndividual && tier === GameTier.FREE) {
+    // FREE: a fixed 15-question set, no categories. No login required.
+    pkg = await findPackageWithQuestions({ slug: FREE_PACKAGE_SLUG });
+    if (!pkg) throw new AppError(ErrorCode.NOT_FOUND, 'Free pack not seeded — run db:seed');
+    settings = { ...settings, perPlayerCategory: false, categoryId: undefined, totalRounds: TIER_ROUNDS.FREE };
+  } else {
+    // PAID (individual) or TEAMS / SEEN_JEEM: the full category game.
+    if (isIndividual && tier === GameTier.PAID) {
+      if (!input.hostPlayerId || !(await hasPaidUnlock(input.hostPlayerId))) {
+        throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'Paid unlock required for the 35-question game');
+      }
+      settings = { ...settings, totalRounds: TIER_ROUNDS.PAID };
+    }
+    pkg = await findPackageWithQuestions({ excludeSlug: FREE_PACKAGE_SLUG });
+    if (!pkg) throw new AppError(ErrorCode.NOT_FOUND, 'No published package available — run db:seed');
+  }
   if (pkg.questions.length === 0) {
     throw new AppError(ErrorCode.CONFLICT, 'Package has no questions');
   }
+  const packageId = pkg.id;
 
   const roomCode = await allocateCode();
   const hostToken = generateCapabilityToken();
@@ -196,6 +237,7 @@ export async function createRoom(
       mode: settings.mode,
       status: GameStatus.LOBBY,
       packageId,
+      hostPlayerId: input.hostPlayerId ?? null,
       settings: settings as never,
       hostToken: hostTokenHash,
     },

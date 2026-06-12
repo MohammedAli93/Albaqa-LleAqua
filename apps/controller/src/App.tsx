@@ -21,6 +21,7 @@ import { Login } from './screens/app/Login.js';
 import { Profile } from './screens/app/Profile.js';
 import { Home } from './screens/app/Home.js';
 import { Play } from './screens/app/Play.js';
+import { Upgrade } from './screens/app/Upgrade.js';
 import { HostApp } from './host/App.js';
 
 export default function App() {
@@ -46,6 +47,13 @@ export default function App() {
       } else {
         connect(code);
       }
+      return;
+    }
+
+    // Returning from a hosted checkout (Stripe success/cancel) → land on the
+    // upgrade screen so it can confirm the order and flip the account to unlocked.
+    if (params.get('upgrade')) {
+      set({ appView: 'upgrade' });
       return;
     }
 
@@ -83,6 +91,7 @@ export default function App() {
             {appView === 'profile' && <Profile />}
             {appView === 'home' && <Home />}
             {appView === 'play' && <Play />}
+            {appView === 'upgrade' && <Upgrade />}
           </motion.div>
         </AnimatePresence>
       </div>

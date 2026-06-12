@@ -2,7 +2,7 @@
  * Provider-agnostic payment business logic. Knows only "orders" and "outcomes".
  * The source of truth for access is the verified webhook, never the client redirect.
  */
-import { AppError, ErrorCode, type PaymentProviderId } from '@tahaddi/shared';
+import { AppError, ErrorCode, PAID_UNLOCK_SKU, type PaymentProviderId } from '@tahaddi/shared';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { getProvider } from './registry.js';
@@ -89,10 +89,68 @@ export async function getOrder(orderId: string) {
   return order;
 }
 
+/** Active products for the storefront (e.g. the paid unlock), price included. */
+export async function listActiveProducts() {
+  return prisma.product.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+    select: { sku: true, nameAr: true, nameEn: true, kind: true, priceMinor: true, currency: true },
+  });
+}
+
 /** Has this user (or anyone, for shared ownership) paid for the package? */
 export async function hasEntitlement(packageId: string, userId?: string): Promise<boolean> {
   const count = await prisma.order.count({
     where: { packageId, status: 'PAID', ...(userId ? { userId } : {}) },
   });
   return count > 0;
+}
+
+/**
+ * Has this Player account bought the one-time paid unlock (the 35-question tier)?
+ * Entitlement = at least one PAID order for the unlock product owned by the player.
+ */
+export async function hasPaidUnlock(playerId: string): Promise<boolean> {
+  const count = await prisma.order.count({
+    where: { ownerId: playerId, status: 'PAID', product: { sku: PAID_UNLOCK_SKU } },
+  });
+  return count > 0;
+}
+
+/**
+ * Start a checkout for the one-time paid unlock, owned by the host's Player
+ * account. The PAID order it eventually produces IS the entitlement.
+ */
+export async function createUnlockCheckout(
+  provider: PaymentProviderId,
+  playerId: string,
+  returnUrl: string,
+): Promise<{ orderId: string; checkout: CheckoutResult }> {
+  const product = await prisma.product.findUnique({ where: { sku: PAID_UNLOCK_SKU } });
+  if (!product || !product.isActive) {
+    throw new AppError(ErrorCode.NOT_FOUND, 'Unlock product not available');
+  }
+  if (await hasPaidUnlock(playerId)) {
+    throw new AppError(ErrorCode.CONFLICT, 'Account already unlocked');
+  }
+
+  const order = await prisma.order.create({
+    data: {
+      ownerId: playerId,
+      productId: product.id,
+      amountMinor: product.priceMinor,
+      currency: product.currency,
+      status: 'PENDING',
+    },
+  });
+
+  const checkout = await getProvider(provider).createCheckout({
+    orderId: order.id,
+    amountMinor: product.priceMinor,
+    currency: product.currency,
+    description: product.nameEn ?? product.nameAr,
+    returnUrl,
+  });
+
+  return { orderId: order.id, checkout };
 }

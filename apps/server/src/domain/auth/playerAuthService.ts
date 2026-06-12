@@ -13,6 +13,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { signPlayerToken } from './tokens.js';
+import { hasPaidUnlock } from '../payments/paymentService.js';
 
 type PlayerRow = {
   id: string;
@@ -26,7 +27,7 @@ type PlayerRow = {
   gamesPlayed: number;
 };
 
-function toPublic(p: PlayerRow): PlayerProfile {
+async function toPublic(p: PlayerRow): Promise<PlayerProfile> {
   return {
     id: p.id,
     username: p.username,
@@ -37,6 +38,7 @@ function toPublic(p: PlayerRow): PlayerProfile {
     pointsWins: p.pointsWins,
     eliminationWins: p.eliminationWins,
     gamesPlayed: p.gamesPlayed,
+    paidUnlocked: await hasPaidUnlock(p.id),
   };
 }
 
@@ -76,7 +78,7 @@ export async function registerPlayer(
         ...(input.avatarId ? { avatarId: input.avatarId } : {}),
       },
     });
-    return { token: signPlayerToken(player.id), player: toPublic(player), isNew: true };
+    return { token: signPlayerToken(player.id), player: await toPublic(player), isNew: true };
   } catch (e) {
     const conflict = uniqueFieldError(e);
     if (conflict) throw conflict;
@@ -92,7 +94,7 @@ export async function loginPlayer(
   const player = await prisma.player.findUnique({ where: { mobile } });
   if (!player)
     throw new AppError(ErrorCode.NOT_FOUND, 'لا يوجد حساب بهذا الرقم — أنشئ حساباً جديداً');
-  return { token: signPlayerToken(player.id), player: toPublic(player), isNew: false };
+  return { token: signPlayerToken(player.id), player: await toPublic(player), isNew: false };
 }
 
 export async function getPlayer(playerId: string): Promise<PlayerProfile> {

@@ -28,6 +28,33 @@ export class StripeProvider implements PaymentProvider {
 
   async createCheckout(input: CreateCheckoutInput): Promise<CheckoutResult> {
     if (!this.stripe) throw new AppError(ErrorCode.PAYMENT_PROVIDER_UNSUPPORTED, 'Stripe not configured');
+
+    // Hosted checkout (redirect): no card UI in our app, PCI handled by Stripe.
+    // Used by the one-time unlock — the client redirects, pays, and returns to
+    // `${returnUrl}?upgrade=success&order=<id>` where it polls the order status.
+    if (input.returnUrl) {
+      const sep = input.returnUrl.includes('?') ? '&' : '?';
+      const session = await this.stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: input.currency.toLowerCase(),
+              unit_amount: input.amountMinor,
+              product_data: { name: input.description },
+            },
+          },
+        ],
+        payment_intent_data: { metadata: { orderId: input.orderId } },
+        metadata: { orderId: input.orderId },
+        customer_email: input.customerEmail,
+        success_url: `${input.returnUrl}${sep}upgrade=success&order=${input.orderId}`,
+        cancel_url: `${input.returnUrl}${sep}upgrade=cancel`,
+      });
+      return { kind: 'redirect', url: session.url! };
+    }
+
     const intent = await this.stripe.paymentIntents.create({
       amount: input.amountMinor,
       currency: input.currency.toLowerCase(),
