@@ -61,7 +61,7 @@ export function Join() {
               inputMode="text"
               autoCapitalize="characters"
               dir="ltr"
-              className={`${authInputCls} text-center font-display text-3xl font-bold tracking-[0.4em]`}
+              className={`${authInputCls} text-center font-display text-2xl font-bold tracking-[0.4em]`}
               placeholder="------"
             />
           </AuthField>
@@ -76,10 +76,10 @@ export function Join() {
           </AuthField>
 
           <div>
-            <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">
+            <p className="mb-2 text-right font-display font-bold text-white drop-shadow-sm">
               {t(locale, 'chooseAvatar')}
             </p>
-            <div className="grid grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">
               {AVATARS.map((a) => (
                 <button
                   key={a.id}
@@ -87,7 +87,7 @@ export function Join() {
                   className="grid aspect-square place-items-center transition active:scale-90"
                   aria-label={a.labelAr}
                 >
-                  <Avatar avatarId={a.id} size={52} shape="square" selected={a.id === avatarId} />
+                  <Avatar avatarId={a.id} size={48} shape="square" selected={a.id === avatarId} />
                 </button>
               ))}
             </div>

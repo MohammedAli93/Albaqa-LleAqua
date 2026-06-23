@@ -55,16 +55,20 @@ export function AuthShell({
         </div>
       </header>
 
-      {/* centred card */}
-      <main className="relative z-10 flex flex-1 items-center justify-center px-5 py-8 sm:py-12">
-        {children}
+      {/* centred card — min-h-full keeps it centred when short, scrolls when tall
+          (so the profile's avatar + country grids never get clipped on a phone) */}
+      <main className="relative z-10 flex-1 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center px-5 py-8 sm:py-10">
+          {children}
+        </div>
       </main>
     </div>
   );
 }
 
-/** Orange card panel (Figma "Group 176") — logo + subtitle header, then body. */
-export function AuthCard({ children }: { children: ReactNode }) {
+/** Orange card panel (Figma "Group 176"). Defaults to the logo + subtitle header;
+ *  pass `header` to replace it (e.g. the profile greeting). */
+export function AuthCard({ children, header }: { children: ReactNode; header?: ReactNode }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 18, scale: 0.97 }}
@@ -73,15 +77,18 @@ export function AuthCard({ children }: { children: ReactNode }) {
       className="w-full max-w-[460px] rounded-[1.9rem] px-6 pb-8 pt-7 shadow-[0_40px_90px_-40px_rgba(180,90,10,0.85)] ring-1 ring-white/40 sm:px-8"
       style={{ backgroundImage: CARD_BG }}
     >
-      {/* brand wordmark + subtitle */}
-      <img
-        src="/art/logo-wordmark.png"
-        alt="البقاء للأقوى"
-        className="mx-auto h-auto w-[11rem] drop-shadow-sm sm:w-[12.5rem]"
-      />
-      <p className="mt-1.5 text-center font-display text-lg font-extrabold text-desert-ink sm:text-xl">
-        برنامج المسابقات الأول
-      </p>
+      {header ?? (
+        <>
+          <img
+            src="/art/logo-wordmark.png"
+            alt="البقاء للأقوى"
+            className="mx-auto h-auto w-[11rem] drop-shadow-sm sm:w-[12.5rem]"
+          />
+          <p className="mt-1.5 text-center font-display text-lg font-extrabold text-desert-ink sm:text-xl">
+            برنامج المسابقات الأول
+          </p>
+        </>
+      )}
       {children}
     </motion.div>
   );

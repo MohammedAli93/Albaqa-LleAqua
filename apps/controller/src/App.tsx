@@ -84,7 +84,11 @@ export default function App() {
             transition={{ duration: 0.15, ease: 'easeOut' }}
             // Landing + auth screens are full-bleed desert pages (they centre their
             // own card); the other shell screens stay a phone-width column.
-            className={appView === 'home' || appView === 'login' ? 'w-full' : 'mx-auto w-full max-w-md'}
+            className={
+              appView === 'home' || appView === 'login' || appView === 'profile'
+                ? 'w-full'
+                : 'mx-auto w-full max-w-md'
+            }
           >
             {appView === 'splash' && <Splash />}
             {appView === 'login' && <Login />}

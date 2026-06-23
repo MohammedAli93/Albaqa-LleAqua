@@ -26,9 +26,9 @@ export function Lobby() {
       {/* header — brand + live player count */}
       <header className="relative z-10 flex items-center justify-between gap-3">
         <img src="/art/logo-wordmark.png" alt="البقاء للأقوى" className="h-auto w-[10rem] drop-shadow-sm lg:w-[13rem]" />
-        <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur lg:px-6 lg:py-3">
-          <Users className="text-[#E8473A]" />
-          <span className="tnum font-display text-screen-score font-black">{roster.length}</span>
+        <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur lg:px-5 lg:py-2.5">
+          <Users className="text-[#E8473A]" size={22} />
+          <span className="tnum font-display text-[clamp(1.25rem,2vw,2rem)] font-black">{roster.length}</span>
         </div>
       </header>
 
@@ -40,17 +40,18 @@ export function Lobby() {
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="order-2 flex flex-col items-center lg:order-1"
         >
-          <h2 className="mb-4 font-display text-screen-title font-black drop-shadow-sm lg:mb-6">{t(locale, 'scanToJoin')}</h2>
+          <h2 className="mb-4 font-display text-[clamp(1.25rem,2.2vw,2rem)] font-black drop-shadow-sm lg:mb-6">{t(locale, 'scanToJoin')}</h2>
           <div
-            className="flex w-full max-w-[22rem] flex-col items-center gap-5 rounded-[2rem] px-6 py-7 shadow-[0_36px_80px_-40px_rgba(120,70,10,0.7)] ring-1 ring-white/50 lg:px-8 lg:py-9"
+            className="flex w-full max-w-[19rem] flex-col items-center gap-4 rounded-[1.75rem] px-5 py-6 shadow-[0_36px_80px_-40px_rgba(120,70,10,0.7)] ring-1 ring-white/50 lg:gap-5 lg:px-6 lg:py-7"
             style={{ backgroundImage: YELLOW_CARD }}
           >
-            <div className="w-full max-w-[15rem] rounded-[1.5rem] bg-white p-4 shadow-lg lg:p-5">
-              <QRCodeSVG value={joinUrl} size={300} level="M" className="h-auto w-full" />
+            {/* QR capped so it fits on laptop/desktop/TV alike (not full-bleed) */}
+            <div className="w-[min(60vw,12.5rem)] rounded-[1.25rem] bg-white p-3.5 shadow-lg lg:p-4">
+              <QRCodeSVG value={joinUrl} size={256} level="M" className="h-auto w-full" />
             </div>
             <div className="text-center">
-              <p className="font-display text-screen-status font-bold text-desert-ink/70">{t(locale, 'roomCode')}</p>
-              <p className="tnum font-display text-screen-code font-black tracking-[0.18em] text-desert-ink lg:tracking-[0.24em]">
+              <p className="font-display text-[clamp(0.95rem,1.4vw,1.5rem)] font-bold text-desert-ink/70">{t(locale, 'roomCode')}</p>
+              <p className="tnum font-display text-[clamp(2rem,3.4vw,3.25rem)] font-black leading-tight tracking-[0.18em] text-desert-ink lg:tracking-[0.24em]">
                 {roomCode}
               </p>
             </div>
@@ -59,7 +60,7 @@ export function Lobby() {
 
         {/* ─── Players / teams (left / RTL end) ─── */}
         <div className="order-1 flex flex-col lg:order-2 lg:h-full">
-          <h2 className="mb-3 font-display text-screen-title font-black drop-shadow-sm lg:mb-5">
+          <h2 className="mb-3 font-display text-[clamp(1.25rem,2.2vw,2rem)] font-black drop-shadow-sm lg:mb-5">
             {isTeams ? t(locale, 'teamVsTeam') : t(locale, 'players')}
           </h2>
 
@@ -78,8 +79,8 @@ export function Lobby() {
                     style={{ backgroundImage: YELLOW_CARD }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
-                      <span className="tnum rounded-full bg-white/70 px-3 py-1 font-display text-screen-status font-bold text-desert-ink/70">
+                      <span className="truncate font-display text-[clamp(1.25rem,2.4vw,2.25rem)] font-black" style={{ color: team.color }}>{team.name}</span>
+                      <span className="tnum rounded-full bg-white/70 px-3 py-1 font-display text-[clamp(0.85rem,1.3vw,1.25rem)] font-bold text-desert-ink/70">
                         {t(locale, 'playerCount', { count: members.length })}
                       </span>
                     </div>
@@ -99,8 +100,8 @@ export function Lobby() {
                             exit={{ opacity: 0 }}
                             className="flex items-center gap-3 rounded-xl2 bg-white/80 px-3.5 py-2.5 shadow-sm"
                           >
-                            <Avatar avatarId={p.avatarId} size={42} shape="square" />
-                            <span className="truncate font-display text-screen-rankname font-bold text-desert-ink">{p.nickname}</span>
+                            <Avatar avatarId={p.avatarId} size={40} shape="square" />
+                            <span className="truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">{p.nickname}</span>
                           </motion.div>
                         ))}
                       </AnimatePresence>
@@ -110,7 +111,7 @@ export function Lobby() {
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-3 lg:gap-4">
+            <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 lg:gap-4">
               <AnimatePresence>
                 {roster.map((p) => (
                   <motion.div
@@ -120,10 +121,10 @@ export function Lobby() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.5 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                    className="flex flex-col items-center gap-2 rounded-xl2 bg-white/80 p-4 shadow-sm backdrop-blur lg:p-5"
+                    className="flex flex-col items-center gap-2 rounded-xl2 bg-white/80 p-3 shadow-sm backdrop-blur lg:p-4"
                   >
-                    <Avatar avatarId={p.avatarId} size={64} shape="square" />
-                    <span className="max-w-full truncate font-display text-screen-rankname font-bold text-desert-ink">{p.nickname}</span>
+                    <Avatar avatarId={p.avatarId} size={56} shape="square" />
+                    <span className="max-w-full truncate font-display text-[clamp(0.95rem,1.5vw,1.4rem)] font-bold text-desert-ink">{p.nickname}</span>
                   </motion.div>
                 ))}
               </AnimatePresence>
