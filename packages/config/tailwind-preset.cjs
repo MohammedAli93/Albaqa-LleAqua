@@ -31,6 +31,17 @@ module.exports = {
         success: '#10B981', danger: '#EF4444', warning: '#F59E0B', info: '#0EA5E9',
         // Answer-option palette (game-show 4-up) — distinct & accessible on light
         opt: { a: '#4F46E5', b: '#14B8A6', c: '#F59E0B', d: '#FB7185' },
+        // ── NEW desert / game-show palette — Figma "بقاء الأقوى" redesign ──
+        // Values SAMPLED from the Figma home-page render (docs/figma-ref/screen-20-2.png)
+        // — close to source, pending an exact get_variable_defs pull when the Starter-plan
+        // rate limit clears. Added as NEW tokens so the existing sky theme (screen/admin,
+        // and the rest of the controller) is left untouched until each screen is redesigned.
+        desert: {
+          sand: '#FFFFFF', sandDeep: '#FFF3CC', surface: '#FFFFFF',
+          gold: '#FFE34E', amber: '#FFC81C', dune: '#FFEA74',
+          coral: '#EE5340', coralDeep: '#D63A22', orange: '#FBA94D',
+          night: '#1A1A1A', nightDeep: '#0F0F0F', ink: '#2A2017',
+        },
       },
       fontFamily: {
         display: ['Cairo', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
@@ -78,6 +89,11 @@ module.exports = {
         'gradient-stage': 'radial-gradient(ellipse 80% 55% at 50% -8%, rgba(14,165,233,0.18) 0%, rgba(244,247,255,0) 62%)',
         'gradient-card': 'linear-gradient(160deg, #FFFFFF 0%, #F4F7FF 100%)',
         'gradient-page': 'linear-gradient(180deg, #F8FAFF 0%, #EEF2FE 100%)',
+        // ── NEW desert redesign gradients (sampled — see `desert` colors above) ──
+        'gradient-desert-hero': 'linear-gradient(165deg, #FFE65A 0%, #FFD53A 55%, #FFC81C 100%)',
+        'gradient-desert-sky': 'linear-gradient(180deg, #FFFFFF 0%, #FFF7DA 100%)',
+        'gradient-desert-coral': 'linear-gradient(135deg, #FBA94D 0%, #EE5340 55%, #D63A22 100%)',
+        'gradient-desert-dune': 'linear-gradient(180deg, #FFEE86 0%, #FFE45F 100%)',
       },
       keyframes: {
         'gradient-pan': { '0%,100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },

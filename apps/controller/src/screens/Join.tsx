@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { AVATARS, GAME_LIMITS } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { connect, joinGame, getSocket } from '../socket.js';
 import { Avatar } from '../components/Avatar.js';
 import { haptic } from '../hooks/useDevice.js';
+import {
+  AuthShell, AuthCard, AuthField, CtaButton, authInputCls,
+} from './app/AuthShell.js';
 
+/**
+ * Join-by-code — desert "Login" comp (Assets/Login screen 7): room code + name +
+ * avatar grid inside the orange card. Presentation rebuilt; join logic unchanged.
+ */
 export function Join() {
   const { roomCode, locale, set, conn } = useStore();
   const [code, setCode] = useState(roomCode);
@@ -38,65 +44,65 @@ export function Join() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col px-5 py-6">
-      <h1 className="mb-1 text-center font-display text-5xl font-black text-gradient">{t(locale, 'appName')}</h1>
+    <AuthShell
+      onBrand={() => set({ appView: 'home' })}
+      navAction={
+        <button onClick={() => set({ appView: 'login' })} className="transition hover:opacity-80">
+          تسجيل الدخول
+        </button>
+      }
+    >
+      <AuthCard>
+        <div className="mt-6 space-y-4">
+          <AuthField label={t(locale, 'enterRoomCode')}>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, GAME_LIMITS.ROOM_CODE_LENGTH))}
+              inputMode="text"
+              autoCapitalize="characters"
+              dir="ltr"
+              className={`${authInputCls} text-center font-display text-3xl font-bold tracking-[0.4em]`}
+              placeholder="------"
+            />
+          </AuthField>
 
-      <div className="mt-6 space-y-5">
-        <div>
-          <label className="mb-2 block text-ink-secondary" htmlFor="code">{t(locale, 'enterRoomCode')}</label>
-          <input
-            id="code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
-            inputMode="text"
-            autoCapitalize="characters"
-            className="tnum w-full rounded-2xl glass px-5 py-4 text-center font-display text-4xl font-bold tracking-[0.3em] outline-none focus:ring-2 focus:ring-brand-violet"
-            placeholder="------"
-          />
-        </div>
+          <AuthField label={t(locale, 'enterNickname')}>
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value.slice(0, GAME_LIMITS.NICKNAME_MAX))}
+              dir="auto"
+              className={authInputCls}
+            />
+          </AuthField>
 
-        <div>
-          <label className="mb-2 block text-ink-secondary" htmlFor="nick">{t(locale, 'enterNickname')}</label>
-          <input
-            id="nick"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value.slice(0, GAME_LIMITS.NICKNAME_MAX))}
-            className="w-full rounded-2xl glass px-5 py-4 text-2xl outline-none focus:ring-2 focus:ring-brand-violet"
-            placeholder={t(locale, 'enterNickname')}
-            dir="auto"
-          />
-        </div>
-
-        <div>
-          <p className="mb-3 text-ink-secondary">{t(locale, 'chooseAvatar')}</p>
-          <div className="grid grid-cols-4 gap-3">
-            {AVATARS.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => { setAvatarId(a.id); haptic(8); }}
-                className="grid place-items-center rounded-2xl p-1"
-                aria-label={a.labelAr}
-              >
-                <Avatar avatarId={a.id} size={60} selected={a.id === avatarId} />
-              </button>
-            ))}
+          <div>
+            <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">
+              {t(locale, 'chooseAvatar')}
+            </p>
+            <div className="grid grid-cols-5 gap-2.5">
+              {AVATARS.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => { setAvatarId(a.id); haptic(8); }}
+                  className="grid aspect-square place-items-center transition active:scale-90"
+                  aria-label={a.labelAr}
+                >
+                  <Avatar avatarId={a.id} size={52} shape="square" selected={a.id === avatarId} />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {err && <p className="mt-4 text-center text-danger">{err}</p>}
+        {err && <p className="mt-4 text-center font-bold text-[#B3160B]">{err}</p>}
 
-      <div className="mt-auto pt-6">
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={handleJoin}
-          disabled={!validCode || !validName || busy}
-          className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-3xl font-bold shadow-glow transition disabled:opacity-40"
-        >
-          {busy ? t(locale, 'joining') : t(locale, 'join')}
-        </motion.button>
-      </div>
-    </div>
+        <div className="mt-7">
+          <CtaButton variant="blue" onClick={handleJoin} disabled={!validCode || !validName || busy}>
+            {busy ? t(locale, 'joining') : t(locale, 'join')}
+          </CtaButton>
+        </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
 

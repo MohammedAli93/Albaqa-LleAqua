@@ -8,35 +8,36 @@ import { ConfettiBurst } from '../components/Confetti.js';
 import { Avatar } from '../components/Avatar.js';
 import { Brand } from '../components/Brand.js';
 import { Hearts } from '../components/Hearts.js';
+import { HostBg } from '../components/HostBg.js';
 import { GameMode } from '@tahaddi/shared';
 import { useCountdown } from '../hooks/useCountdown.js';
 
 const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
-const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
+// Desert option caps (Figma بقاء الأقوى1 14-1) — warm + cool alternating.
+const TINTS = ['#F5A93C', '#FFC81C', '#36B7A6', '#EE6AA0', '#22C55E', '#A855F7'];
+const QUESTION_CARD = 'linear-gradient(180deg,#FCA438 0%,#F7872B 100%)';
 
 /** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
 function GetReady({ msLeft, round, totalRounds, isTiebreak, isElimination, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; isElimination: boolean; locale: Locale }) {
   const n = Math.max(1, Math.ceil(msLeft / 1000));
   return (
-    <div
-      className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full"
-      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
-    >
-      <div className="flex flex-col items-center gap-4 text-white lg:gap-7">
+    <div className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full">
+      <HostBg variant="sky" />
+      <div className="relative z-10 flex flex-col items-center gap-4 lg:gap-7">
         {isTiebreak ? (
-          <span className="rounded-full bg-prize-gold px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-gold">
+          <span className="rounded-full bg-prize-gold px-6 py-2 font-display text-screen-status font-black text-desert-ink shadow-gold">
             {t(locale, 'tieBreaker')} ⚡
           </span>
         ) : isElimination && round > 0 ? (
-          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
+          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-[#E8473A] shadow-card">
             {t(locale, 'roundNum', { current: round })}
           </span>
         ) : round > 0 && totalRounds > 0 ? (
-          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-brand-deep shadow-card">
+          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-[#E8473A] shadow-card">
             {t(locale, 'roundOf', { current: round, total: totalRounds })}
           </span>
         ) : null}
-        <p className="font-display text-screen-title font-bold text-white/90 drop-shadow">{t(locale, 'getReady')}</p>
+        <p className="font-display text-screen-title font-black text-desert-ink drop-shadow-sm">{t(locale, 'getReady')}</p>
         <AnimatePresence mode="wait">
           <motion.span
             key={n}
@@ -75,12 +76,9 @@ export function Question() {
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="safe relative flex min-h-dvh flex-col gap-6 overflow-hidden lg:h-full lg:flex-row" dir="rtl">
+    <div className="safe relative flex min-h-dvh flex-col gap-6 overflow-hidden p-5 lg:h-full lg:flex-row lg:p-8" dir="rtl">
+      <HostBg variant="sky" />
       {revealing && <ConfettiBurst key={`burst-${question.id}`} count={56} />}
-
-      {/* Spotlight + drifting glows */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-stage" />
-      <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-12%] h-[55vh] w-[70vw] -translate-x-1/2 rounded-full bg-brand-violet/15 blur-[140px]" />
 
       {/* ───────── Stage ───────── */}
       <div className="relative flex flex-1 flex-col">
@@ -127,10 +125,10 @@ export function Question() {
                 </motion.div>
               )}
 
-              {/* gradient-bordered raised card — compact padding, capped width */}
-              <div className="w-full rounded-[1.75rem] bg-gradient-cyber p-[3px] shadow-card">
-                <div className="rounded-[1.6rem] bg-white px-6 py-5 lg:px-9 lg:py-7">
-                  <h2 className="text-center font-display text-screen-question font-black text-ink-primary">
+              {/* orange question card (Figma بقاء الأقوى1 14-1) */}
+              <div className="w-full rounded-[1.75rem] p-[3px] shadow-card" style={{ backgroundImage: QUESTION_CARD }}>
+                <div className="rounded-[1.6rem] px-6 py-7 lg:px-9 lg:py-10" style={{ backgroundImage: QUESTION_CARD }}>
+                  <h2 className="text-center font-display text-screen-question font-black text-white drop-shadow-[0_2px_6px_rgba(150,60,0,0.35)]">
                     {question.promptAr}
                   </h2>
                   {question.promptMediaUrl && (

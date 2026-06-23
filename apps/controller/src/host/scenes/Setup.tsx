@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Users, Coins, Swords, ChevronLeft, Sparkles, Trophy, type LucideIcon } from 'lucide-react';
+import { User, Users, Coins, Swords, ChevronLeft } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
-import { Brand } from '../components/Brand.js';
+import { HostBg } from '../components/HostBg.js';
 
 export interface SetupSelection {
   type: GameType;
@@ -15,11 +16,14 @@ export interface SetupSelection {
   demo?: boolean;
 }
 
+const CARD_BG = 'linear-gradient(180deg,#FFE49C 0%,#FFEEBE 55%,#FFF6DC 100%)';
+const RED_BTN = 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)';
+
 /**
- * Big-screen game creation.
+ * Big-screen game creation — rebuilt to the Figma desert comp (بقاء الأقوى1 9·9-1).
  *   1) game TYPE (Individual / Teams) — big visual cards.
  *   2a) INDIVIDUAL → pick a mode (Points / Elimination).
- *   2b) TEAMS → name the teams, then create (team mode is always points).
+ *   2b) TEAMS → name the two teams on the orange-dunes plate, then create.
  */
 export function Setup({
   onConfirm,
@@ -36,19 +40,21 @@ export function Setup({
   const [teamB, setTeamB] = useState('');
   const [bots, setBots] = useState(false);
 
+  const isTeams = type === GameType.TEAMS;
+
   const types: { key: GameType; icon: LucideIcon; title: string; tagline: string; grad: string }[] = [
-    { key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'), grad: 'from-brand-violet to-brand-deep' },
-    { key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'), grad: 'from-action-hot to-action' },
+    { key: GameType.INDIVIDUAL, icon: User, title: t(locale, 'individual'), tagline: t(locale, 'individualTagline'), grad: 'linear-gradient(135deg,#5BBDEE,#2E97D4)' },
+    { key: GameType.TEAMS, icon: Users, title: t(locale, 'teams'), tagline: t(locale, 'teamsTagline'), grad: RED_BTN },
   ];
   const modes: { key: GameMode; icon: LucideIcon; title: string; desc: string; tint: string }[] = [
-    { key: GameMode.POINTS, icon: Coins, title: t(locale, 'pointsGame'), desc: t(locale, 'pointsGameDesc'), tint: 'text-brand-deep' },
-    { key: GameMode.ELIMINATION, icon: Swords, title: t(locale, 'eliminationGame'), desc: t(locale, 'eliminationGameDesc'), tint: 'text-action' },
+    { key: GameMode.POINTS, icon: Coins, title: t(locale, 'pointsGame'), desc: t(locale, 'pointsGameDesc'), tint: 'text-[#2E97D4]' },
+    { key: GameMode.ELIMINATION, icon: Swords, title: t(locale, 'eliminationGame'), desc: t(locale, 'eliminationGameDesc'), tint: 'text-[#E8473A]' },
   ];
 
-  const title =
+  const subtitle =
     step === 1
       ? t(locale, 'chooseGameType')
-      : type === GameType.TEAMS
+      : isTeams
         ? t(locale, 'nameTeams')
         : t(locale, 'chooseGameMode');
 
@@ -58,110 +64,112 @@ export function Setup({
   }
 
   return (
-    <div
-      className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full"
-      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
-    >
-      {/* playful décor — same identity as the controller hero */}
-      <div className="pointer-events-none absolute -right-24 -top-24 h-[40vh] w-[40vh] rounded-full bg-white/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-24 bottom-0 h-[44vh] w-[44vh] rounded-full bg-action/30 blur-3xl" />
-      <Sparkles className="pointer-events-none absolute left-[7%] top-[12%] animate-float text-white/60" size={40} />
-      <Trophy className="pointer-events-none absolute right-[9%] top-[18%] animate-float text-prize-gold" size={36} style={{ animationDelay: '1.2s' }} />
+    <div className="safe relative grid min-h-dvh place-items-center overflow-hidden p-5 lg:h-full" dir="rtl">
+      <HostBg variant={isTeams ? 'team' : 'sky'} />
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-strong relative w-full max-w-3xl rounded-xl4 p-6 lg:p-9"
+        initial={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+        className="relative z-10 w-full max-w-[40rem] rounded-[2rem] px-6 pb-8 pt-7 shadow-[0_40px_90px_-40px_rgba(120,70,10,0.7)] ring-1 ring-white/50 lg:px-10 lg:pt-9"
+        style={{ backgroundImage: CARD_BG }}
       >
-        {/* Game-name logo on top, then the step title */}
-        <div className="relative mb-5 flex flex-col items-center gap-2 text-center lg:mb-7">
-          {step === 2 && !initialType && (
-            <button
-              onClick={() => setStep(1)}
-              className="absolute end-0 top-1 flex shrink-0 items-center gap-1.5 rounded-2xl bg-bg-sunken px-3.5 py-2 text-base text-ink-secondary lg:px-4 lg:text-lg"
-            >
-              <ChevronLeft size={20} /> {t(locale, 'back')}
-            </button>
-          )}
-          <Brand className="text-[clamp(1.6rem,3vw,3rem)]" />
-          <h1 className="font-display text-xl font-black text-ink-secondary lg:text-2xl">{title}</h1>
-        </div>
-
-        {step === 1 ? (
-          // ── Step 1: type — simple one-tap cards (icon → title → tagline) ──
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
-            {types.map((ty) => {
-              const Icon = ty.icon;
-              return (
-                <button
-                  key={ty.key}
-                  onClick={() => { setType(ty.key); setStep(2); }}
-                  className="group glass flex flex-col items-center gap-3 rounded-xl3 p-6 text-center transition hover:-translate-y-1 hover:shadow-glow lg:gap-4 lg:p-7"
-                >
-                  <span className={`grid h-20 w-20 place-items-center rounded-[1.6rem] bg-gradient-to-br ${ty.grad} text-white shadow-glow transition group-hover:scale-105 lg:h-24 lg:w-24`}>
-                    <Icon className="h-10 w-10 lg:h-12 lg:w-12" strokeWidth={2.2} />
-                  </span>
-                  <span className="font-display text-3xl font-black lg:text-4xl">{ty.title}</span>
-                  <span className="font-display text-base font-bold text-ink-secondary lg:text-xl">{ty.tagline}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-4 lg:space-y-6">
-            <BotsToggle bots={bots} onToggle={() => setBots((b) => !b)} />
-
-            {type === GameType.TEAMS ? (
-              // ── Step 2b: name exactly two teams, then create (points only) ──
-              <>
-                <div className="space-y-4">
-                  <TeamNameField
-                    color={TEAM_TINT[0]!} badge="A"
-                    label={t(locale, 'teamAName')} placeholder={t(locale, 'teamAPlaceholder')}
-                    value={teamA} onChange={(v) => setTeamA(v.slice(0, 24))}
-                  />
-                  <TeamNameField
-                    color={TEAM_TINT[1]!} badge="B"
-                    label={t(locale, 'teamBName')} placeholder={t(locale, 'teamBPlaceholder')}
-                    value={teamB} onChange={(v) => setTeamB(v.slice(0, 24))}
-                  />
-                </div>
-
-                <button
-                  onClick={createTeams}
-                  className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-black text-white shadow-glow transition hover:scale-[1.02] lg:text-3xl"
-                >
-                  {t(locale, 'createRoomBtn')}
-                </button>
-              </>
-            ) : (
-              // ── Step 2a: individual mode pick ──
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
-                {modes.map((m) => {
-                  const Icon = m.icon;
-                  return (
-                    <button
-                      key={m.key}
-                      onClick={() => onConfirm({ type: GameType.INDIVIDUAL, mode: m.key, demo: bots })}
-                      className="glass flex flex-col items-center gap-3 rounded-xl3 p-6 text-center transition hover:-translate-y-1 hover:shadow-glow lg:gap-4 lg:p-10"
-                    >
-                      <span className="grid h-16 w-16 place-items-center rounded-3xl bg-white shadow-glass lg:h-24 lg:w-24">
-                        <Icon className={`h-7 w-7 lg:h-12 lg:w-12 ${m.tint}`} />
-                      </span>
-                      <span className="font-display text-2xl font-extrabold lg:text-3xl">{m.title}</span>
-                      <span className="text-center text-base text-ink-secondary lg:text-xl">{m.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        {/* back chevron (only when type is reselectable) */}
+        {step === 2 && !initialType && (
+          <button
+            onClick={() => setStep(1)}
+            className="absolute end-5 top-5 flex items-center gap-1.5 rounded-full bg-white/70 px-4 py-2 font-display text-base font-bold text-desert-ink shadow-sm transition hover:bg-white lg:end-8 lg:top-8"
+          >
+            <ChevronLeft size={18} /> {t(locale, 'back')}
+          </button>
         )}
+
+        {/* our gold wordmark + step subtitle */}
+        <img src="/art/logo-wordmark.png" alt="البقاء للأقوى" className="mx-auto h-auto w-[13rem] drop-shadow-sm lg:w-[15rem]" />
+        <p className="mt-1.5 text-center font-display text-xl font-extrabold text-desert-ink/70 lg:text-2xl">{subtitle}</p>
+
+        <div className="mt-7">
+          {step === 1 ? (
+            // ── Step 1: type — one-tap cards (icon → title → tagline) ──
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
+              {types.map((ty) => {
+                const Icon = ty.icon;
+                return (
+                  <button
+                    key={ty.key}
+                    onClick={() => { setType(ty.key); setStep(2); }}
+                    className="group flex flex-col items-center gap-3 rounded-[1.5rem] bg-white/70 p-6 text-center shadow-sm backdrop-blur-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-lg lg:gap-4 lg:p-7"
+                  >
+                    <span className="grid h-20 w-20 place-items-center rounded-[1.6rem] text-white shadow-md transition group-hover:scale-105 lg:h-24 lg:w-24" style={{ backgroundImage: ty.grad }}>
+                      <Icon className="h-10 w-10 lg:h-12 lg:w-12" strokeWidth={2.2} />
+                    </span>
+                    <span className="font-display text-3xl font-black text-desert-ink lg:text-4xl">{ty.title}</span>
+                    <span className="font-display text-base font-bold text-desert-ink/60 lg:text-lg">{ty.tagline}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4 lg:space-y-5">
+              <BotsToggle bots={bots} onToggle={() => setBots((b) => !b)} />
+
+              {isTeams ? (
+                // ── Step 2b: name exactly two teams, then create (points only) ──
+                <>
+                  <div className="space-y-3.5">
+                    <TeamNameField
+                      color={TEAM_TINT[0]!} badge="A"
+                      label={t(locale, 'teamAName')} placeholder={t(locale, 'teamAPlaceholder')}
+                      value={teamA} onChange={(v) => setTeamA(v.slice(0, 24))}
+                    />
+                    <TeamNameField
+                      color={TEAM_TINT[1]!} badge="B"
+                      label={t(locale, 'teamBName')} placeholder={t(locale, 'teamBPlaceholder')}
+                      value={teamB} onChange={(v) => setTeamB(v.slice(0, 24))}
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.03, y: -1 }}
+                      onClick={createTeams}
+                      className="mx-auto block rounded-full px-14 py-3.5 font-display text-xl font-black text-white shadow-[0_16px_34px_-14px_rgba(214,58,34,0.9)] lg:text-2xl"
+                      style={{ backgroundImage: RED_BTN }}
+                    >
+                      {t(locale, 'createRoomBtn')}
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                // ── Step 2a: individual mode pick ──
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
+                  {modes.map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.key}
+                        onClick={() => onConfirm({ type: GameType.INDIVIDUAL, mode: m.key, demo: bots })}
+                        className="flex flex-col items-center gap-3 rounded-[1.5rem] bg-white/70 p-6 text-center shadow-sm backdrop-blur-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-lg lg:gap-4 lg:p-8"
+                      >
+                        <span className="grid h-16 w-16 place-items-center rounded-3xl bg-white shadow-md lg:h-20 lg:w-20">
+                          <Icon className={`h-7 w-7 lg:h-10 lg:w-10 ${m.tint}`} />
+                        </span>
+                        <span className="font-display text-2xl font-extrabold text-desert-ink lg:text-3xl">{m.title}</span>
+                        <span className="text-center text-base text-desert-ink/60 lg:text-lg">{m.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </motion.div>
     </div>
   );
 }
 
-const TEAM_TINT = ['#4F46E5', '#FB7185'];
+const TEAM_TINT = ['#4FB3E8', '#F5A93C']; // A = blue, B = orange (Figma badges)
 
 function TeamNameField({
   color, badge, label, placeholder, value, onChange,
@@ -170,9 +178,9 @@ function TeamNameField({
   value: string; onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-3">
+    <label className="flex items-center gap-3 rounded-full bg-[#FFF7DF]/90 p-1.5 shadow-[inset_0_2px_5px_rgba(170,120,20,0.18)]">
       <span
-        className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl font-display text-2xl font-black text-white lg:h-16 lg:w-16"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-full font-display text-xl font-black text-white shadow-md lg:h-14 lg:w-14"
         style={{ background: color }}
       >
         {badge}
@@ -183,7 +191,7 @@ function TeamNameField({
         dir="auto"
         placeholder={placeholder}
         aria-label={label}
-        className="w-full rounded-2xl bg-bg-sunken px-5 py-4 text-xl font-bold text-ink-primary outline-none focus:ring-2 focus:ring-brand-deep lg:text-2xl"
+        className="w-full bg-transparent px-3 py-2 text-right text-lg font-bold text-desert-ink outline-none placeholder:text-desert-ink/35 lg:text-xl"
       />
     </label>
   );
@@ -193,19 +201,16 @@ function BotsToggle({ bots, onToggle }: { bots: boolean; onToggle: () => void })
   return (
     <button
       onClick={onToggle}
-      className={[
-        'flex w-full items-center justify-between gap-3 rounded-xl3 p-4 text-start transition lg:p-6',
-        bots ? 'bg-gradient-brand text-white shadow-glow' : 'glass',
-      ].join(' ')}
+      className="flex w-full items-center justify-between gap-3 rounded-[1.4rem] bg-[#FFF7DF]/90 p-4 text-start shadow-[inset_0_2px_5px_rgba(170,120,20,0.14)] lg:p-5"
     >
-      <span>
-        <span className="block font-display text-xl font-extrabold lg:text-2xl">🤖 جرّب مع لاعبين آليين</span>
-        <span className={`text-base lg:text-lg ${bots ? 'text-white/80' : 'text-ink-secondary'}`}>
-          نملأ الغرفة بلاعبين آليين للتجربة بدون أشخاص
-        </span>
+      <span
+        className={['relative h-9 w-16 shrink-0 rounded-full transition', bots ? 'bg-[#F5A93C]' : 'bg-desert-ink/20'].join(' ')}
+      >
+        <span className={['absolute top-1 h-7 w-7 rounded-full bg-white shadow transition-all', bots ? 'right-1' : 'right-8'].join(' ')} />
       </span>
-      <span className={['relative h-9 w-16 shrink-0 rounded-full transition', bots ? 'bg-white/40' : 'bg-ink-muted/30'].join(' ')}>
-        <span className={['absolute top-1 h-7 w-7 rounded-full bg-white shadow transition-all', bots ? 'left-1' : 'left-8'].join(' ')} />
+      <span className="text-right">
+        <span className="block font-display text-xl font-extrabold text-desert-ink lg:text-2xl">🤖 جرّب مع لاعبين آليين</span>
+        <span className="text-base text-desert-ink/55 lg:text-lg">نملأ الغرفة بلاعبين آليين للتجربة بدون أشخاص</span>
       </span>
     </button>
   );

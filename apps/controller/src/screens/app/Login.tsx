@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { ScanLine } from 'lucide-react';
 import { MOBILE_REGEX, type PlayerProfile } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../../store.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
+import {
+  AuthShell, AuthCard, AuthField, SegTabs, CtaButton, authInputCls,
+} from './AuthShell.js';
 
 type AuthResponse = { token: string; player: PlayerProfile; isNew: boolean };
 
 /**
- * Account screen — register (username + email + mobile, all required & validated)
- * or log back in by mobile. No OTP/password.
+ * Account screen — desert "Login" comp (Assets/Login screens 5·6). Register
+ * (username + email + mobile, all required & validated) or log back in by mobile.
+ * No OTP/password. Presentation rebuilt to the orange-card comp; logic unchanged.
  */
 export function Login() {
   const { locale, set } = useStore();
@@ -70,106 +73,76 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col px-6 py-10">
-      {/* Brand wordmark */}
-      <div className="mt-2 text-center">
-        <h1 className="font-display text-5xl font-black text-gradient">{t(locale, 'appName')}</h1>
-        <p className="mt-1 text-ink-secondary">برنامج المسابقات الأول</p>
-      </div>
+    <AuthShell onBrand={() => set({ appView: 'home' })} navAction={<span>تسجيل الدخول</span>}>
+      <AuthCard>
+        <SegTabs
+          value={tab}
+          onChange={(k) => { setTab(k); setErr(null); }}
+          tabs={[
+            { key: 'register', label: t(locale, 'register') },
+            { key: 'login', label: t(locale, 'login') },
+          ]}
+        />
 
-      <h2 className="mt-8 font-display text-3xl font-bold">
-        {tab === 'register' ? t(locale, 'createAccount') : t(locale, 'login')}
-      </h2>
+        <div className="mt-6 space-y-4">
+          {tab === 'register' && (
+            <>
+              <AuthField label={t(locale, 'username')}>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.slice(0, 24))}
+                  dir="auto"
+                  className={authInputCls}
+                />
+              </AuthField>
+              <AuthField label={t(locale, 'email')}>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  inputMode="email"
+                  dir="ltr"
+                  className={`${authInputCls} text-right`}
+                  placeholder="name@example.com"
+                />
+              </AuthField>
+            </>
+          )}
+          <AuthField label={t(locale, 'mobile')}>
+            <input
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+              inputMode="tel"
+              dir="ltr"
+              className={`${authInputCls} text-right`}
+              placeholder="+9665XXXXXXXX"
+            />
+          </AuthField>
+        </div>
 
-      {/* Tabs */}
-      <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl glass p-1">
-        {(['register', 'login'] as const).map((k) => (
+        {err && <p className="mt-4 text-center font-bold text-[#B3160B]">{err}</p>}
+
+        <div className="mt-7">
+          <CtaButton onClick={submit} disabled={busy || !canSubmit}>
+            {busy ? '…' : t(locale, tab === 'register' ? 'register' : 'login')}
+          </CtaButton>
+
           <button
-            key={k}
-            onClick={() => { setTab(k); setErr(null); }}
-            className={[
-              'rounded-xl2 py-2.5 font-display font-bold transition',
-              tab === k ? 'bg-gradient-brand text-white shadow-glow' : 'text-ink-secondary',
-            ].join(' ')}
+            onClick={() => { setTab(tab === 'register' ? 'login' : 'register'); setErr(null); }}
+            className="mt-4 block w-full text-center font-display font-bold text-desert-ink transition hover:opacity-70"
           >
-            {t(locale, k === 'register' ? 'register' : 'login')}
+            {t(locale, tab === 'register' ? 'haveAccount' : 'noAccount')}
           </button>
-        ))}
-      </div>
 
-      <div className="mt-7 space-y-4">
-        {tab === 'register' && (
-          <>
-            <Field label={t(locale, 'username')}>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value.slice(0, 24))}
-                dir="auto"
-                className={inputCls}
-                placeholder={t(locale, 'username')}
-              />
-            </Field>
-            <Field label={t(locale, 'email')}>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                inputMode="email"
-                dir="ltr"
-                className={inputCls}
-                placeholder="name@example.com"
-              />
-            </Field>
-          </>
-        )}
-        <Field label={t(locale, 'mobile')}>
-          <input
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            inputMode="tel"
-            dir="ltr"
-            className={inputCls}
-            placeholder="+9665XXXXXXXX"
-          />
-        </Field>
-      </div>
-
-      {err && <p className="mt-4 text-center text-danger">{err}</p>}
-
-      <div className="mt-auto pt-8">
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={submit}
-          disabled={busy || !canSubmit}
-          className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow disabled:opacity-40"
-        >
-          {busy ? '…' : t(locale, tab === 'register' ? 'register' : 'login')}
-        </motion.button>
-        <button
-          onClick={() => { setTab(tab === 'register' ? 'login' : 'register'); setErr(null); }}
-          className="mt-4 w-full text-center text-ink-secondary"
-        >
-          {t(locale, tab === 'register' ? 'haveAccount' : 'noAccount')}
-        </button>
-        <button
-          onClick={() => set({ appView: 'game', phase: 'join' })}
-          className="glass mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-ink-secondary"
-        >
-          <ScanLine size={18} /> عندك كود؟ ادخل به
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-2xl glass px-5 py-4 text-xl text-ink-primary outline-none focus:ring-2 focus:ring-brand-deep';
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="mb-2 block text-ink-secondary">{label}</label>
-      {children}
-    </div>
+          <div className="mt-3 flex justify-center">
+            <CtaButton variant="blue" onClick={() => set({ appView: 'game', phase: 'join' })}>
+              <span className="inline-flex items-center gap-2">
+                <ScanLine size={18} /> عندك كود؟ ادخل به
+              </span>
+            </CtaButton>
+          </div>
+        </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
 

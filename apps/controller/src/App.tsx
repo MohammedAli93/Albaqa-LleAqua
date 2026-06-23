@@ -82,9 +82,9 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            // Landing page is a full responsive website (mobile → desktop → TV);
-            // the other shell screens stay a phone-width column.
-            className={appView === 'home' ? 'w-full' : 'mx-auto w-full max-w-md'}
+            // Landing + auth screens are full-bleed desert pages (they centre their
+            // own card); the other shell screens stay a phone-width column.
+            className={appView === 'home' || appView === 'login' ? 'w-full' : 'mx-auto w-full max-w-md'}
           >
             {appView === 'splash' && <Splash />}
             {appView === 'login' && <Login />}
@@ -109,10 +109,10 @@ export default function App() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          // Phone-width column for the in-game flow, but the end-game showcase is
-          // full-bleed so on desktop the celebration fills the screen like the TV
-          // (instead of a narrow mobile strip).
-          className={phase === 'finished' ? 'w-full' : 'mx-auto w-full max-w-md'}
+          // Phone-width column for the in-game flow, but the join (desert card) and
+          // end-game showcase are full-bleed so on desktop they fill the screen like
+          // the TV (instead of a narrow mobile strip).
+          className={phase === 'finished' || phase === 'join' ? 'w-full' : 'mx-auto w-full max-w-md'}
         >
           {phase === 'join' && <Join />}
           {phase === 'lobby' && <Lobby />}

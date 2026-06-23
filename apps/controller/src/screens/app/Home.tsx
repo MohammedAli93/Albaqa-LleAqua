@@ -1,28 +1,70 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Trophy, Medal, LogOut, Play as PlayIcon, ScanLine, Tv, QrCode, Users, Coins, Swords,
-  Sparkles, LogIn, User, ChevronRight, type LucideIcon,
+  LogOut, ScanLine, ChevronRight, ChevronLeft,
+  Facebook, Instagram, Twitter, Linkedin, type LucideIcon,
 } from 'lucide-react';
 import { GameType, GameMode, GameTier } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
-import { COUNTRIES, CATEGORIES } from '../../lib/catalog.js';
+import { COUNTRIES } from '../../lib/catalog.js';
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ *  DESERT REDESIGN — pixel-faithful rebuild of the Figma comp "بقاء الأقوى1".
+ *  Every illustration / decorative heading / logo is an exported Figma slice in
+ *  /public/art (see README). The category tiles (cat-1…cat-10.png) are sliced
+ *  1:1 from the comp, so they carry their own swirl + label. Interactive widgets
+ *  (nav, buttons, chooser, inputs) are recreated in CSS+Cairo to stay crisp,
+ *  responsive and functional. All game logic (chooser steps, launch(),
+ *  join-by-code, free/paid tiers, auth) is unchanged from the previous Home.
+ *
+ *  Two illustrations are NOT yet exported and load gracefully (hidden until
+ *  present): /art/hero-quad.png (quad-bike rider, hero right) and
+ *  /art/news-camel.png (camel + rider, newsletter left).
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+const GOLD = '#F4C73C'; // brand gold — nav brand, newsletter heading, footer accents
+const REDBTN = 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)'; // coral pill (العب الآن …)
+const YELLOW = '#FFEA73'; // desert feature band
+
+/** The 10 category tiles, sliced 1:1 from the comp (label baked into the art). */
+const TILES = [
+  { label: 'أدب', icon: '📖' },
+  { label: 'تاريخ', icon: '🏛️' },
+  { label: 'فنون', icon: '🎨' },
+  { label: 'ثقافة', icon: '📚' },
+  { label: 'رياضة', icon: '⚽' },
+  { label: 'كأس العالم', icon: '🏆' },
+  { label: 'علوم', icon: '🔬' },
+  { label: 'الدين الإسلامي', icon: '🕌' },
+  { label: 'الوطن العربي', icon: '🌍' },
+  { label: 'جغرافيا', icon: '🗺️' },
+].map((t, i) => ({ ...t, src: `/art/cat-${i + 1}.png` }));
+
+/** The 4 "كيف نلعب؟" steps — text right, empty yellow placeholder square left. */
+const STEPS = [
+  'افتح اللعبة على شاشة كبيرة (تلفاز أو لابتوب).',
+  'كل واحد يمسح الكود من جواله ويدخل.',
+  'العبوا فردي أو فِرَق، وكل واحد يختار فئته.',
+  'اجمعوا أكثر نقاط… والبقاء للأقوى.',
+];
 
 export function Home() {
   const { account, set } = useStore();
   const country = account ? COUNTRIES.find((c) => c.code === account.country) : undefined;
-  // Three-step chooser: TYPE (فردي/فرق); فردي → MODE (نقاط/تصفيات) → TIER (مجاني/كامل).
+  // Three-step chooser: TYPE (فردي/فرق) → MODE (نقاط/تصفيات) → TIER (مجاني/كامل).
+  // Both فردي and فِرَق now flow through the orange mode/tier panel.
   const [step, setStep] = useState<'type' | 'mode' | 'tier'>('type');
+  const [pendingType, setPendingType] = useState<GameType>(GameType.INDIVIDUAL);
   const [pendingMode, setPendingMode] = useState<GameMode>(GameMode.POINTS);
 
   // Host a new game — runs in-app (one link): enter Host mode with the chosen
-  // type + mode. The host gets a QR for friends to join; view scales phone↔TV.
-  // Free games need no account; the PAID tier requires a logged-in, unlocked host.
+  // type + mode. Free games need no account; the PAID tier requires an unlocked host.
   function launch(type: GameType, mode: GameMode, tier?: GameTier) {
     if (tier === GameTier.PAID && !account?.paidUnlocked) {
-      // Not unlocked yet → send them to the upgrade screen, remembering the intent.
       set({ appView: 'upgrade', hostLaunch: { type, mode, tier: GameTier.PAID } });
       return;
     }
@@ -33,339 +75,427 @@ export function Home() {
     document.getElementById('play')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
-    <div className="flex min-h-dvh flex-col pb-12">
-      {/* ─────────── Top navbar ─────────── */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4 lg:px-8">
-        <span className="font-display text-xl font-black text-gradient lg:text-2xl">البقاء للأقوى</span>
-        {account ? (
-          <div className="flex items-center gap-2">
+    <div className="flex min-h-dvh flex-col bg-white text-desert-ink">
+      {/* ─────────── Black top navbar ─────────── */}
+      <header className="bg-desert-night">
+        <div className="mx-auto flex w-full max-w-[1240px] items-center justify-between px-5 py-3 lg:px-8">
+          <span className="font-display text-base font-extrabold tracking-wide lg:text-lg" style={{ color: GOLD }}>
+            البقاء للأقوى
+          </span>
+          {account ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => set({ appView: 'profile' })}
+                className="flex items-center gap-2 rounded-full bg-white/10 py-1 pe-3 ps-1 transition active:scale-95"
+                aria-label="الملف الشخصي"
+              >
+                <Avatar avatarId={account.avatarId} size={26} />
+                <span className="max-w-[7rem] truncate text-sm font-bold text-white">{account.username}</span>
+                {country && <span className="text-sm">{country.flag}</span>}
+              </button>
+              <button
+                onClick={() => { clearAccount(); set({ account: null }); }}
+                className="grid h-8 w-8 place-items-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white"
+                aria-label="تسجيل الخروج"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => set({ appView: 'profile' })}
-              className="flex items-center gap-2 rounded-full bg-bg-raised/80 py-1 pe-3 ps-1 shadow-glass transition active:scale-95"
-              aria-label="الملف الشخصي"
+              onClick={() => set({ appView: 'login' })}
+              className="font-display text-sm font-bold transition hover:opacity-80 lg:text-base"
+              style={{ color: GOLD }}
             >
-              <Avatar avatarId={account.avatarId} size={30} />
-              <span className="max-w-[7rem] truncate text-sm font-bold">{account.username}</span>
-              {country && <span className="text-sm">{country.flag}</span>}
+              تسجيل الدخول
             </button>
-            <button
-              onClick={() => { clearAccount(); set({ account: null }); }}
-              className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-bg-sunken hover:text-ink-secondary"
-              aria-label="تسجيل الخروج"
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => set({ appView: 'login' })}
-            className="flex items-center gap-1.5 rounded-full bg-brand-deep px-4 py-2 text-sm font-bold text-white shadow-glow transition active:scale-95 lg:px-5 lg:py-2.5 lg:text-base"
-          >
-            <LogIn size={15} /> تسجيل الدخول
-          </button>
-        )}
+          )}
+        </div>
       </header>
 
-      {/* ─────────── HERO (bold gradient, full-bleed responsive) ─────────── */}
-      <section
-        className="relative overflow-hidden px-6 pb-32 pt-10 text-center text-white lg:pb-40 lg:pt-16"
-        style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
-      >
-        <div className="pointer-events-none absolute -right-12 -top-10 h-44 w-44 rounded-full bg-white/15 blur-3xl lg:h-72 lg:w-72" />
-        <div className="pointer-events-none absolute -left-14 top-1/3 h-48 w-48 rounded-full bg-action/30 blur-3xl lg:h-80 lg:w-80" />
-        <Sparkles className="pointer-events-none absolute left-6 top-10 animate-float text-white/70 lg:left-20 lg:top-20" size={22} />
-        <Trophy className="pointer-events-none absolute right-7 top-24 animate-float text-prize-gold lg:right-24" size={20} style={{ animationDelay: '1.2s' }} />
+      {/* ─────────── HERO — Figma "Group 280" gold half-moon mask ─────────── */}
+      {/* The gold scenery AND both characters live in one wrapper that is clipped
+          by the half-moon mask (hero-bg's own alpha), so the riders are cut by the
+          dome curve instead of floating on white. mask-size:cover + bottom keeps the
+          dome undistorted at any height, so we can freely shrink the hero. */}
+      {/* Height is capped (clamp) so the hero doesn't balloon on 2K/ultrawide; the
+          characters live in a CENTRED max-width row so on wide screens they hug the
+          middle (where the dome is tall) instead of the cut-away corners. */}
+      <section className="relative isolate h-[clamp(19rem,34vw,33rem)] w-full overflow-hidden bg-white">
+        <div
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            WebkitMaskImage: 'url(/art/hero-bg.png)', maskImage: 'url(/art/hero-bg.png)',
+            WebkitMaskSize: 'cover', maskSize: 'cover',
+            WebkitMaskPosition: 'bottom', maskPosition: 'bottom',
+            WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+          }}
+        >
+          {/* gold scenery */}
+          <img src="/art/hero-bg.png" alt="" aria-hidden className="absolute inset-0 h-full w-full select-none object-cover object-bottom" />
+          {/* characters anchored to a centred row so they stay on the dome on any width */}
+          <div className="relative mx-auto h-full w-full max-w-[1200px]">
+            {/* camel + rider — hero left (gently floats; smaller/higher/inset on phones) */}
+            <Art src="/art/hero-rider.png" alt="" className="absolute bottom-[20%] end-[2%] w-[6rem] animate-float sm:bottom-[10%] sm:end-0 sm:w-[9rem] md:w-[13rem] lg:w-[15rem]" />
+            {/* quad-bike rider — hero right (floats out of sync) */}
+            <Art src="/art/hero-quad.png" alt="" className="absolute bottom-[20%] start-[2%] w-[7rem] animate-float [animation-delay:1.4s] sm:bottom-[8%] sm:start-0 sm:w-[10.5rem] md:w-[15rem] lg:w-[17rem]" />
+          </div>
+        </div>
 
-        <div className="relative mx-auto max-w-3xl">
-          <motion.span
-            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold backdrop-blur lg:text-sm"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-prize-gold animate-pulse-glow" /> برنامج المسابقات الأول
-          </motion.span>
+        <div className="absolute inset-0 z-10 mx-auto flex w-full max-w-[1240px] items-center justify-center px-5 lg:px-8">
+          {/* centered hero column */}
+          <div className="relative z-10 -mt-1 flex flex-col items-center justify-center text-center">
+            <Art src="/art/eyebrow.png" alt="برنامج المسابقات الأول"
+              className="h-auto w-[10rem] sm:w-[12rem]" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 180, damping: 16 }}
+              className="mt-3"
+            >
+              <Art src="/art/logo-wordmark.png" alt="البقاء للأقوى"
+                className="mx-auto h-auto w-[19rem] sm:w-[24rem] lg:w-[30rem]" />
+            </motion.div>
 
-          <motion.h1
-            initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 190, damping: 16 }}
-            className="mt-4 font-display text-[3.7rem] font-black leading-[1.08] drop-shadow-lg sm:text-7xl lg:text-[7.5rem]"
-          >
-            البقاء للأقوى
-          </motion.h1>
-          <p className="mx-auto mt-3 max-w-[18rem] font-display text-lg font-bold leading-relaxed text-white/90 sm:max-w-md sm:text-2xl">
-            لتجربة اجمل ألعبها على شاشة التلفزيون 😍
-          </p>
+            <motion.button
+              onClick={scrollToPlay}
+              animate={{ scale: [1, 1.045, 1] }}
+              transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+              whileHover={{ scale: 1.08, y: -2 }} whileTap={{ scale: 0.96 }}
+              className="mt-5 rounded-full px-9 py-2.5 font-display text-base font-bold text-white shadow-[0_10px_28px_-8px_rgba(232,71,58,0.85)] sm:text-lg"
+              style={{ backgroundImage: REDBTN }}
+            >
+              العب الآن
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.97 }} onClick={scrollToPlay}
-            className="mt-7 inline-flex items-center justify-center gap-2.5 rounded-2xl bg-white px-10 py-4 font-display text-2xl font-black text-brand-deep shadow-xl transition lg:px-14 lg:py-5 lg:text-3xl"
-          >
-            <PlayIcon size={24} fill="currentColor" /> العب الآن
-          </motion.button>
-
-          {account && (
-            <div className="mx-auto mt-7 grid max-w-xs grid-cols-2 gap-3 sm:max-w-sm">
-              <Stat icon={Trophy} value={account.pointsWins} label="فوز نقاط" />
-              <Stat icon={Medal} value={account.eliminationWins} label="فوز تصفيات" />
-            </div>
-          )}
+            <Art src="/art/hero-sub.png" alt="لتجربة أجمل العبها على شاشة التلفزيون"
+              className="mt-5 h-auto w-[11rem] sm:w-[13rem]" />
+          </div>
         </div>
       </section>
 
-      {/* ─────────── Game chooser (2-step) — overlaps the hero ─────────── */}
-      <section id="play" className="relative z-10 mx-auto -mt-24 w-full max-w-3xl scroll-mt-4 px-5 lg:-mt-28 lg:px-8">
-        <div className="glass-strong rounded-xl4 p-5 shadow-card sm:p-7">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="h-7 w-1.5 rounded-full bg-gradient-action" />
-            <h2 className="font-display text-2xl font-black sm:text-3xl">
-              {step === 'type' ? 'ابدأ لعبة جديدة' : step === 'mode' ? 'اختر نوع اللعبة' : 'اختر النسخة'}
-            </h2>
+      {/* ─────────── Start a new game (white) — the logic chooser ─────────── */}
+      <section id="play" className="scroll-mt-4 bg-white px-5 pb-14 pt-8 sm:pb-20 sm:pt-12 lg:px-8">
+        <div className="mx-auto w-full max-w-[620px]">
+          {/* section title stays above the chooser on every step */}
+          <div className="text-center">
+            <Art src="/art/title-start.png" alt="ابدأ لعبة جديدة" className="mx-auto h-auto w-[15rem] sm:w-[18rem]" />
+            <Art src="/art/sub-start.png" alt="العبوا فردي أو فِرَق على الشاشة الكبيرة." className="mx-auto mt-3 h-auto w-[16rem] sm:w-[20rem]" />
           </div>
-          <p className="mb-5 ps-3.5 text-sm text-ink-secondary">
-            {step === 'type'
-              ? 'العبوا فردي أو فِرَق على الشاشة الكبيرة.'
-              : step === 'mode'
-                ? 'كل واحد يجمع نقاط، أو يلعبها تصفية والبقاء للأقوى.'
-                : 'النسخة المجانية ١٥ سؤالاً، أو الكاملة ٣٥ سؤالاً مع اختيار الفئات.'}
-          </p>
 
           <AnimatePresence mode="wait">
             {step === 'type' ? (
               <motion.div
                 key="type"
-                initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.2 }}
-                className="grid grid-cols-2 gap-3 sm:gap-4"
+                className="mt-7 grid grid-cols-2 gap-5 sm:gap-7"
               >
-                <BigCard
-                  icon={User} title="فردي" tagline="فز عليهم لحالك 😎"
-                  grad="linear-gradient(150deg,#38BDF8,#0EA5E9)" onClick={() => setStep('mode')}
-                />
-                <BigCard
-                  icon={Users} title="فِرَق" tagline="جمّع اخوياك واهزموهم 💪🏻"
-                  grad="linear-gradient(150deg,#FB7185,#F43F5E)" onClick={() => launch(GameType.TEAMS, GameMode.POINTS)}
-                />
+                {/* فردي (right, orange) → mode panel */}
+                <CardArt src="/art/card-fardi.png" alt="فردي — فز عليهم لحالك"
+                  onClick={() => { setPendingType(GameType.INDIVIDUAL); setStep('mode'); }} />
+                {/* فِرَق (left, yellow) → mode panel */}
+                <CardArt src="/art/card-firaq.png" alt="فِرَق — جمّع اخوياك واهزموهم"
+                  onClick={() => { setPendingType(GameType.TEAMS); setStep('mode'); }} />
               </motion.div>
             ) : step === 'mode' ? (
-              <motion.div
-                key="mode"
-                initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-3"
+              <ChooserPanel
+                key="mode" title="اختر نوع اللعبة"
+                subtitle="كل واحد يجمع نقاط، أو يلعبها تصفية والبقاء للأقوى." onBack={() => setStep('type')}
               >
-                <button
-                  onClick={() => setStep('type')}
-                  className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-bg-sunken px-4 py-2 font-display text-sm font-bold text-ink-secondary"
-                >
-                  <ChevronRight size={16} /> رجوع
-                </button>
-                <ModeRow
-                  icon={Coins} title="نقاط" desc="اجمع أكثر نقاط وتفوز" tint="from-brand-deep/12 text-brand-deep"
-                  onClick={() => { setPendingMode(GameMode.POINTS); setStep('tier'); }}
-                />
-                <ModeRow
-                  icon={Swords} title="تصفيات" desc="كل خطأ يقرّبك للخروج — والبقاء للأقوى" tint="from-action/12 text-action"
-                  onClick={() => { setPendingMode(GameMode.ELIMINATION); setStep('tier'); }}
-                />
-              </motion.div>
+                <PanelRow title="نقاط" desc="اجمع أكثر نقاط وتفوز"
+                  onClick={() => { setPendingMode(GameMode.POINTS); setStep('tier'); }} />
+                <PanelRow title="تصفيات" desc="كل خطأ يقرّبك للخروج — والبقاء للأقوى"
+                  onClick={() => { setPendingMode(GameMode.ELIMINATION); setStep('tier'); }} />
+              </ChooserPanel>
             ) : (
-              <motion.div
-                key="tier"
-                initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-3"
+              <ChooserPanel
+                key="tier" title="اختر النسخة"
+                subtitle="النسخة المجانية ١٥ سؤالاً، أو الكاملة ٣٥ سؤالاً مع اختيار الفئات." onBack={() => setStep('mode')}
               >
-                <button
-                  onClick={() => setStep('mode')}
-                  className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-bg-sunken px-4 py-2 font-display text-sm font-bold text-ink-secondary"
-                >
-                  <ChevronRight size={16} /> رجوع
-                </button>
-                <ModeRow
-                  icon={PlayIcon} title="النسخة المجانية" desc="١٥ سؤالاً متنوّعاً — ابدأ فوراً" tint="from-brand-deep/12 text-brand-deep"
-                  onClick={() => launch(GameType.INDIVIDUAL, pendingMode, GameTier.FREE)}
-                />
-                <ModeRow
-                  icon={Sparkles}
-                  title="النسخة الكاملة"
+                <PanelRow title="النسخة المجانية" desc="١٥ سؤالاً متنوّعاً — ابدأ فوراً"
+                  onClick={() => launch(pendingType, pendingMode, GameTier.FREE)} />
+                <PanelRow title="النسخة الكاملة"
                   desc={account?.paidUnlocked ? '٣٥ سؤالاً + اختيار الفئات — مفعّلة ✓' : '٣٥ سؤالاً + اختيار الفئات — للترقية'}
-                  tint="from-prize-gold/15 text-prize-deep"
-                  onClick={() => launch(GameType.INDIVIDUAL, pendingMode, GameTier.PAID)}
-                />
-              </motion.div>
+                  onClick={() => launch(pendingType, pendingMode, GameTier.PAID)} />
+              </ChooserPanel>
             )}
           </AnimatePresence>
 
-          <button
-            onClick={joinByCode}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-bg-sunken py-3.5 font-semibold text-ink-secondary transition hover:bg-bg-sunken/70"
-          >
-            <ScanLine size={18} /> عندك كود؟ ادخل به
-          </button>
+          <div className="mt-7 flex justify-center">
+            <PillButton onClick={joinByCode}>
+              <ScanLine size={17} className="opacity-90" /> عندك كود؟ ادخل به
+            </PillButton>
+          </div>
         </div>
       </section>
 
-      {/* ─────────── Categories showcase (image-backed) ─────────── */}
-      <section className="mx-auto mt-10 w-full max-w-6xl px-5 lg:px-8">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="font-display text-xl font-extrabold sm:text-2xl">استكشف الفئات</h2>
-          <span className="text-xs text-ink-muted sm:text-sm">+50 فئة</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {CATEGORIES.map((c, i) => (
-            <motion.button
-              key={c.id}
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.03 * i, type: 'spring', stiffness: 240, damping: 18 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={scrollToPlay}
-              className="group relative aspect-square overflow-hidden rounded-[1.6rem] shadow-card ring-1 ring-black/5"
-              style={{ backgroundImage: `linear-gradient(150deg, ${c.gradient[0]} 0%, ${c.gradient[1]} 100%)` }}
-            >
-              {/* cartoon sunburst rays */}
-              <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.13]"
-                style={{ background: 'repeating-conic-gradient(from 0deg at 50% 40%, #fff 0deg 7deg, transparent 7deg 14deg)' }} />
-              {/* glossy top sheen */}
-              <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent" />
-              {/* confetti dots */}
-              <span aria-hidden className="pointer-events-none absolute left-4 top-4 h-2.5 w-2.5 rounded-full bg-white/55" />
-              <span aria-hidden className="pointer-events-none absolute right-5 top-7 h-1.5 w-1.5 rounded-full bg-white/45" />
-              <span aria-hidden className="pointer-events-none absolute bottom-16 left-6 h-1.5 w-1.5 rounded-full bg-white/35" />
-              {/* big cartoon sticker (Twemoji illustration, emoji fallback) */}
-              <span
-                className="absolute inset-x-0 top-[13%] grid place-items-center transition duration-300 group-active:scale-110 group-active:-rotate-6"
-                style={{ filter: 'drop-shadow(0 6px 5px rgba(0,0,0,0.25))' }}
+      {/* ─────────── Jeep climbing the dune — bridges white → yellow ─────────── */}
+      <div className="relative bg-white pt-10">
+        {/* dune (Figma "Group 148"): its flat yellow base lines up with the yellow band */}
+        <img src="/art/dune.png" alt="" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-0 w-full select-none" />
+        <Art src="/art/jeep.png" alt="" className="relative z-10 mx-auto block h-auto w-[78%] max-w-[560px] pb-1" />
+      </div>
+
+      {/* ═══════ Yellow feature band — categories + how-to ═══════ */}
+      {/* -mt-px overlaps the white/yellow boundary by 1px to swallow the seam line */}
+      <section style={{ backgroundColor: YELLOW }} className="relative -mt-px pb-12 pt-10">
+        {/* استكشف الفئات */}
+        <div className="mx-auto w-full max-w-[1240px] px-5 lg:px-8">
+          <Art src="/art/title-categories.png" alt="استكشف الفئات" className="mx-auto h-auto w-[15rem] sm:w-[19rem]" />
+          <div dir="ltr" className="mx-auto mt-8 grid max-w-[1252px] grid-cols-3 gap-x-5 gap-y-6 sm:grid-cols-4 lg:grid-cols-5 lg:gap-x-[34px] lg:gap-y-8">
+            {TILES.map((t, i) => (
+              <motion.button
+                key={t.label}
+                initial={{ opacity: 0, scale: 0.92 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
+                transition={{ delay: 0.025 * i, type: 'spring', stiffness: 240, damping: 18 }}
+                whileHover={{ y: -7, scale: 1.05, rotate: -1.5 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={scrollToPlay}
+                aria-label={t.label}
+                className="relative block w-full overflow-hidden rounded-[1.6rem] shadow-[0_14px_30px_-18px_rgba(0,0,0,0.4)]"
               >
-                <EmojiArt emoji={c.icon} />
-              </span>
-              {/* bold label band */}
-              <span className="absolute inset-x-2.5 bottom-2.5 rounded-2xl bg-white/92 py-1.5 text-center font-display text-base font-black text-ink-primary shadow-sm sm:text-lg">
-                {c.nameAr}
-              </span>
-            </motion.button>
-          ))}
-        </div>
-      </section>
-
-      {/* ─────────── How it works ─────────── */}
-      <section className="mx-auto mt-10 w-full max-w-3xl px-5 lg:px-8">
-        <div className="glass rounded-xl3 p-5 sm:p-7">
-          <h2 className="font-display text-xl font-extrabold sm:text-2xl">كيف نلعب؟</h2>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 sm:text-base">
-            <Step icon={Tv} tint="bg-brand-deep/10 text-brand-deep" text="افتح اللعبة على شاشة كبيرة (تلفاز أو لابتوب)." />
-            <Step icon={QrCode} tint="bg-brand-cyan/12 text-brand-cyan" text="كل واحد يمسح الكود من جواله ويدخل." />
-            <Step icon={Users} tint="bg-action/12 text-action" text="العبوا فردي أو فرق، وكل واحد يختار فئته." />
-            <Step icon={Coins} tint="bg-prize-gold/12 text-prize-deep" text="اجمعوا أكثر نقاط… والبقاء للأقوى 🏆" />
+                <img src={t.src} alt={t.label} loading="eager" decoding="async" className="block h-auto w-full" />
+                {/* category logo, centered on the tile's icon plate */}
+                <CatIcon emoji={t.icon} />
+              </motion.button>
+            ))}
           </div>
         </div>
 
-        {!account && (
-          <button
-            onClick={() => set({ appView: 'login' })}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-4 font-display text-lg font-bold text-white shadow-glow"
-          >
-            <LogIn size={18} /> سجّل دخولك لحفظ نقاطك وانتصاراتك
-          </button>
-        )}
-        <p className="mt-4 text-center text-xs leading-relaxed text-ink-muted">
-          افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود ويختار فئته.
-        </p>
+        {/* كيف نلعب؟ — title's luggage/drum rest on the top edge of the four boxes */}
+        <div className="mx-auto mt-16 w-full max-w-[1240px] px-5 lg:px-8">
+          <Art src="/art/title-howto.png" alt="كيف نلعب؟" className="relative z-10 mx-auto h-auto w-full max-w-[680px] sm:max-w-[760px]" />
+          <div className="-mt-3 grid gap-6 sm:grid-cols-2 lg:-mt-5 lg:gap-8">
+            {STEPS.map((text) => (
+              <div key={text} className="flex items-center gap-5 rounded-[1.5rem] bg-white p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)] sm:p-7">
+                {/* icon plate (right) */}
+                <span aria-hidden className="h-20 w-20 shrink-0 rounded-2xl sm:h-24 sm:w-24" style={{ backgroundColor: '#FCE08A' }} />
+                {/* step text fills the rest, right-aligned */}
+                <p className="flex-1 text-start text-base font-bold leading-relaxed text-desert-ink sm:text-lg">{text}</p>
+              </div>
+            ))}
+          </div>
+
+          {!account && (
+            <div className="mt-10 flex justify-center">
+              <PillButton onClick={() => set({ appView: 'login' })} large>
+                سجّل دخولك لحفظ نقاطك وانتصاراتك
+              </PillButton>
+            </div>
+          )}
+          <p className="mt-5 text-center text-sm leading-relaxed text-desert-ink/55">
+            افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود ويختار فئته.
+          </p>
+        </div>
       </section>
+
+      {/* walking camels straddle the boundary: the yellow fills up to the camels'
+          ground surface, white below — so the desert ends exactly at their feet. */}
+      <div className="relative bg-white">
+        <div className="absolute inset-x-0 top-0 h-[46%]" style={{ backgroundColor: YELLOW }} aria-hidden />
+        <Art src="/art/camels.png" alt="" className="relative h-auto w-full" />
+      </div>
+
+      {/* ═══════ Dark newsletter + footer ═══════ */}
+      <NewsletterBand />
+      <SiteFooter />
     </div>
   );
 }
 
-function BigCard({
-  icon: Icon, title, tagline, grad, onClick,
-}: {
-  icon: LucideIcon; title: string; tagline: string; grad: string; onClick: () => void;
-}) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      className="group relative flex aspect-[4/5] flex-col items-center justify-center gap-3 overflow-hidden rounded-[1.6rem] p-4 text-center text-white shadow-card sm:aspect-[5/4]"
-      style={{ backgroundImage: grad }}
-    >
-      <span className="pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/15 blur-xl" />
-      <span className="grid h-16 w-16 place-items-center rounded-3xl bg-white/20 backdrop-blur-sm">
-        <Icon size={30} strokeWidth={2.3} />
-      </span>
-      <span className="font-display text-2xl font-black drop-shadow sm:text-3xl">{title}</span>
-      <span className="text-xs font-semibold text-white/85 sm:text-sm">{tagline}</span>
-    </motion.button>
-  );
+/** Exported-asset loader — renders a Figma slice and gracefully removes itself
+ *  if the file isn't present yet, so the layout stays correct before art lands. */
+function Art({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return <img src={src} alt={alt} loading="eager" decoding="async" onError={() => setFailed(true)} className={className} />;
 }
 
-function ModeRow({
-  icon: Icon, title, desc, tint, onClick,
-}: {
-  icon: LucideIcon; title: string; desc: string; tint: string; onClick: () => void;
-}) {
-  return (
-    <motion.button
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`glass flex w-full items-center gap-4 rounded-xl3 bg-gradient-to-l ${tint} to-white p-4 text-start shadow-card transition active:shadow-glow`}
-    >
-      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white shadow-glass">
-        <Icon size={26} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-display text-xl font-extrabold text-ink-primary">{title}</span>
-        <span className="mt-0.5 block text-sm leading-snug text-ink-secondary">{desc}</span>
-      </span>
-      <ChevronRight size={22} className="shrink-0 rotate-180 text-ink-muted" />
-    </motion.button>
-  );
-}
-
-/** Twemoji = the open-source, flat *cartoon* illustration of an emoji (real SVG
- *  files). Build the CDN path from the emoji's codepoints (dropping the FE0F
- *  variation selector, like Twemoji itself does for non-ZWJ glyphs). */
+/** Twemoji = open-source flat *illustration* of an emoji (crisp colour SVG), a more
+ *  logo-like category icon than the OS glyph. Build the CDN path from codepoints. */
 function twemojiUrl(emoji: string): string {
   const cps = [...emoji].map((ch) => ch.codePointAt(0)!);
   const hasZwj = cps.includes(0x200d);
-  const code = (hasZwj ? cps : cps.filter((cp) => cp !== 0xfe0f))
-    .map((cp) => cp.toString(16))
-    .join('-');
+  const code = (hasZwj ? cps : cps.filter((cp) => cp !== 0xfe0f)).map((cp) => cp.toString(16)).join('-');
   return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${code}.svg`;
 }
 
-/** Crisp cartoon illustration of the category, falling back to the OS emoji. */
-function EmojiArt({ emoji }: { emoji: string }) {
+/** Category logo, centred on the tile's icon plate (Twemoji, OS-emoji fallback). */
+function CatIcon({ emoji }: { emoji: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <span className="text-[3.3rem] leading-none sm:text-6xl">{emoji}</span>;
   return (
-    <img
-      src={twemojiUrl(emoji)}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-      className="h-16 w-16 sm:h-[5.5rem] sm:w-[5.5rem]"
-    />
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-1/2 top-[38%] grid -translate-x-1/2 -translate-y-1/2 place-items-center"
+    >
+      {failed ? (
+        <span className="text-3xl sm:text-4xl lg:text-[2.6rem]">{emoji}</span>
+      ) : (
+        <img
+          src={twemojiUrl(emoji)} alt="" loading="eager" decoding="async" onError={() => setFailed(true)}
+          className="h-9 w-9 drop-shadow-sm sm:h-11 sm:w-11 lg:h-[2.9rem] lg:w-[2.9rem]"
+        />
+      )}
+    </span>
   );
 }
 
-function Stat({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
+/** فردي / فِرَق card — the baked Figma slice, made into a tappable button. */
+function CardArt({ src, alt, onClick }: { src: string; alt: string; onClick: () => void }) {
   return (
-    <div className="flex items-center justify-center gap-2.5 rounded-xl2 bg-white/15 px-3 py-2.5 backdrop-blur">
-      <Icon size={20} className="text-prize-gold" />
-      <div className="text-start">
-        <div className="font-display text-xl font-bold tnum leading-none">{value}</div>
-        <div className="text-[0.7rem] text-white/75">{label}</div>
+    <motion.button
+      whileHover={{ y: -6, scale: 1.02 }} whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 20 }}
+      onClick={onClick} aria-label={alt}
+      className="block w-full overflow-hidden rounded-[1.5rem] shadow-[0_22px_50px_-30px_rgba(0,0,0,0.45)]"
+    >
+      <img src={src} alt={alt} className="block h-auto w-full" />
+    </motion.button>
+  );
+}
+
+/** Coral pill button (العب الآن / عندك كود / سجّل دخولك) — recreated in CSS. */
+function PillButton({ children, onClick, large }: { children: React.ReactNode; onClick: () => void; large?: boolean }) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.96 }}
+      transition={{ type: 'spring', stiffness: 360, damping: 18 }}
+      onClick={onClick}
+      className={`inline-flex items-center justify-center gap-2 rounded-full font-display font-bold text-white shadow-[0_12px_26px_-12px_rgba(232,71,58,0.85)] ${
+        large ? 'px-8 py-3.5 text-base sm:text-lg' : 'px-7 py-3 text-sm sm:text-base'
+      }`}
+      style={{ backgroundImage: REDBTN }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+/** Orange chooser panel (mode / tier steps) — Figma "Group 146": orange→cream
+ *  gradient, gold رجوع pill, cream rows. Pops in with a spring; rows stagger. */
+function ChooserPanel({
+  title, subtitle, onBack, children,
+}: { title: string; subtitle: string; onBack: () => void; children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -16, scale: 0.97 }}
+      transition={{ type: 'spring', stiffness: 230, damping: 23 }}
+      className="mt-7 overflow-hidden rounded-[1.75rem] p-5 shadow-[0_28px_64px_-30px_rgba(214,90,20,0.55)] sm:p-7"
+      style={{ backgroundImage: 'linear-gradient(180deg,#FB8B14 0%,#FCA13D 45%,#FFE7CF 100%)' }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        {/* header on the RIGHT (RTL start) */}
+        <div className="text-right">
+          <h2 className="font-display text-2xl font-black text-desert-ink sm:text-[1.75rem]">{title}</h2>
+          <p className="mt-1 text-sm font-semibold leading-snug text-white/80">{subtitle}</p>
+        </div>
+        {/* رجوع on the LEFT (RTL end) */}
+        <motion.button
+          whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+          onClick={onBack}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full px-4 py-1.5 font-display text-sm font-bold text-desert-ink shadow-[0_6px_14px_-6px_rgba(214,150,0,0.7)]"
+          style={{ backgroundImage: 'linear-gradient(180deg,#FFE75D 0%,#FFCB12 100%)' }}
+        >
+          <ChevronRight size={15} /> رجوع
+        </motion.button>
       </div>
+      <motion.div
+        className="mt-5 space-y-3"
+        initial="hidden" animate="show"
+        variants={{ show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } } }}
+      >
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/** A cream row inside the orange ChooserPanel. */
+function PanelRow({ title, desc, onClick }: { title: string; desc: string; onClick: () => void }) {
+  return (
+    <motion.button
+      variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+      whileHover={{ x: -5 }} whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-2xl bg-white/70 p-4 text-right shadow-sm backdrop-blur-sm transition hover:bg-white"
+    >
+      {/* text on the RIGHT (RTL start) */}
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-lg font-extrabold text-desert-ink">{title}</span>
+        <span className="mt-0.5 block text-sm leading-snug text-desert-ink/55">{desc}</span>
+      </span>
+      {/* chevron on the LEFT (RTL end) */}
+      <ChevronLeft size={20} className="shrink-0 text-desert-ink/30 transition group-hover:-translate-x-1 group-hover:text-desert-coral" />
+    </motion.button>
+  );
+}
+
+/** "ابقَ على اطلاع" — the complete dark newsletter band (Figma "Group 280 (1)",
+ *  camel + heading + email field baked in). Rendered on white before the footer. */
+function NewsletterBand() {
+  return (
+    <section className="bg-white px-5 py-12 lg:px-8">
+      <img
+        src="/art/newsletter.png"
+        alt="ابقَ على اطلاع — اشترك ليصلك كل جديد من المسابقات والتحديثات"
+        className="mx-auto block h-auto w-full max-w-[1240px]"
+      />
+    </section>
+  );
+}
+
+/** Footer — brand logo, link columns, gold socials, copyright (Figma "Group 281"). */
+function SiteFooter() {
+  return (
+    <footer className="bg-desert-night px-5 pb-8 pt-12 text-white/80 lg:px-8">
+      <div className="mx-auto grid w-full max-w-[1240px] gap-10 pb-12 sm:grid-cols-2 lg:grid-cols-3">
+        {/* brand column (right in RTL) — our logo replaces the "LOGO" placeholder */}
+        <div>
+          <img src="/art/logo-wordmark.png" alt="البقاء للأقوى" className="h-11 w-auto sm:h-12" />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/55">
+            برنامج المسابقات الأول — العبوا مع العائلة والأصدقاء على الشاشة الكبيرة.
+          </p>
+          <div className="mt-5 flex items-center gap-3">
+            <SocialIcon icon={Facebook} label="فيسبوك" />
+            <SocialIcon icon={Instagram} label="إنستغرام" />
+            <SocialIcon icon={Twitter} label="إكس" />
+            <SocialIcon icon={Linkedin} label="لينكدإن" />
+          </div>
+        </div>
+        <FooterCol title="اتصل بنا" links={['تواصلوا معنا لأي استفسار حول المسابقات والاشتراكات.', 'support@albaqaa.app']} />
+        <FooterCol title="عنّا" links={['من نحن', 'النسخة الكاملة', 'الوظائف', 'اتصل بنا']} />
+      </div>
+      <div
+        className="mx-auto w-full max-w-[1240px] border-t pt-6 text-center text-xs text-white/45"
+        style={{ borderTopColor: GOLD }}
+      >
+        حقوق النشر © ٢٠٢٦ البقاء للأقوى. جميع الحقوق محفوظة.
+      </div>
+    </footer>
+  );
+}
+
+function FooterCol({ title, links }: { title: string; links: string[] }) {
+  return (
+    <div className="text-start">
+      <h4 className="font-display text-base font-bold" style={{ color: GOLD }}>{title}</h4>
+      <ul className="mt-4 space-y-3 text-sm text-white/55">
+        {links.map((l) => (
+          <li key={l}><a href="#" className="leading-relaxed transition hover:text-white">{l}</a></li>
+        ))}
+      </ul>
     </div>
   );
 }
 
-function Step({ icon: Icon, text, tint }: { icon: LucideIcon; text: string; tint: string }) {
+function SocialIcon({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl2 ${tint}`}>
-        <Icon size={18} />
-      </span>
-      <span className="leading-relaxed text-ink-secondary">{text}</span>
-    </div>
+    <a
+      href="#" aria-label={label}
+      className="grid h-9 w-9 place-items-center rounded-full text-desert-night transition hover:opacity-80"
+      style={{ backgroundColor: GOLD }}
+    >
+      <Icon size={16} />
+    </a>
   );
 }

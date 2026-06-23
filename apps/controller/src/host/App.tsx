@@ -19,7 +19,7 @@ import { useStore } from './store.js';
 import { connectHost, disconnectHost } from './socket.js';
 import { initSfxGesture } from './lib/sfx.js';
 import { ParticleField } from './components/ParticleField.js';
-import { Brand } from './components/Brand.js';
+import { HostBg } from './components/HostBg.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { Setup } from './scenes/Setup.js';
 import { Lobby } from './scenes/Lobby.js';
@@ -237,12 +237,20 @@ function pickScene(
 }
 
 function Connecting() {
-  // Just a loading indicator (+ game logo) between scenes — no "connecting" text.
+  // Loading screen between scenes — our gold wordmark on the sky plate, no text.
   return (
-    <div className="grid min-h-dvh place-items-center lg:h-full">
-      <div className="flex flex-col items-center gap-6">
-        <Brand className="mb-2 text-screen-title" />
-        <Loader2 size={72} className="animate-spin text-brand-violet" />
+    <div className="relative grid min-h-dvh place-items-center overflow-hidden lg:h-full">
+      <HostBg variant="sky" />
+      <div className="relative z-10 flex flex-col items-center gap-8">
+        <motion.img
+          src="/art/logo-wordmark.png"
+          alt="البقاء للأقوى"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 16 }}
+          className="w-[clamp(15rem,30vw,28rem)] drop-shadow-[0_12px_40px_rgba(0,0,0,0.25)]"
+        />
+        <Loader2 size={64} className="animate-spin text-white drop-shadow-lg" />
       </div>
     </div>
   );
