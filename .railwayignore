@@ -1,0 +1,6 @@
+Assets/
+docs/
+design-system/
+infra/
+**/dist/
+*.zip
