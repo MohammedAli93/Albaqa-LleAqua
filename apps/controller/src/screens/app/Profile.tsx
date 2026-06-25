@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Sparkles, Check, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, Check, ChevronRight, Trophy, Swords, Users, Gamepad2 } from 'lucide-react';
 import { AVATARS, type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
@@ -19,6 +19,27 @@ export function Profile() {
 
   const ok = !!country;
   const returning = !!account?.country;
+
+  // Pull the latest profile (wins / games played) from the server whenever the
+  // screen opens, so stats reflect games finished since this device last synced.
+  useEffect(() => {
+    if (!account) return;
+    let alive = true;
+    api<PlayerProfile>('/api/v1/player/me', {
+      headers: { Authorization: `Bearer ${account.token}` },
+    })
+      .then((fresh) => {
+        if (!alive) return;
+        const merged: Account = { ...fresh, token: account.token };
+        saveAccount(merged);
+        set({ account: merged });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function finish() {
     if (!ok || !account || busy) return;
@@ -81,6 +102,17 @@ export function Profile() {
           </button>
         )}
 
+        {/* Player record — games played + wins by mode (client request) */}
+        <div className="mt-6">
+          <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">سجلّك</p>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <StatTile icon={Gamepad2} label="مرات اللعب" value={account?.gamesPlayed ?? 0} tone="#64748B" />
+            <StatTile icon={Trophy} label="فوز بالنقاط" value={account?.pointsWins ?? 0} tone="#D97706" />
+            <StatTile icon={Swords} label="فوز بالتصفيات" value={account?.eliminationWins ?? 0} tone="#DC2626" />
+            <StatTile icon={Users} label="فوز بالفرق" value={account?.teamWins ?? 0} tone="#7C3AED" />
+          </div>
+        </div>
+
         {/* Avatar picker — square tiles, responsive grid */}
         <div className="mt-6">
           <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">صورتك</p>
@@ -132,5 +164,26 @@ export function Profile() {
         </div>
       </AuthCard>
     </AuthShell>
+  );
+}
+
+/** One stat in the player record: icon + big number + Arabic label. */
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Trophy;
+  label: string;
+  value: number;
+  tone: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-2xl bg-white/85 px-2 py-3 text-center shadow-sm">
+      <Icon size={20} style={{ color: tone }} />
+      <span className="font-display text-2xl font-black text-desert-ink">{value}</span>
+      <span className="text-xs font-bold leading-tight text-desert-ink/60">{label}</span>
+    </div>
   );
 }

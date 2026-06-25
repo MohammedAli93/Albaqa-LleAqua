@@ -24,6 +24,7 @@ type PlayerRow = {
   avatarId: string;
   pointsWins: number;
   eliminationWins: number;
+  teamWins: number;
   gamesPlayed: number;
 };
 
@@ -37,6 +38,7 @@ async function toPublic(p: PlayerRow): Promise<PlayerProfile> {
     avatarId: p.avatarId,
     pointsWins: p.pointsWins,
     eliminationWins: p.eliminationWins,
+    teamWins: p.teamWins,
     gamesPlayed: p.gamesPlayed,
     paidUnlocked: await hasPaidUnlock(p.id),
   };

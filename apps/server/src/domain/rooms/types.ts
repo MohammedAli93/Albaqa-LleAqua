@@ -33,6 +33,9 @@ export interface LiveParticipant {
   /** Per-player-category mode: this player's chosen category id. */
   categoryId?: string;
   sessionTokenHash: string;
+  /** Linked player-account id (set when the player joined while logged in);
+   *  used to accrue wins / games-played to the profile when the game ends. */
+  playerId?: string;
   socketId?: string;
   disconnectedAt?: number; // epoch ms, set when socket drops
   eliminatedRound?: number;

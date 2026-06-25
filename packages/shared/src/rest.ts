@@ -82,6 +82,7 @@ export interface PlayerProfile {
   avatarId: string;
   pointsWins: number;
   eliminationWins: number;
+  teamWins: number;
   gamesPlayed: number;
   /** True once the account has bought the one-time paid unlock (35-question tier). */
   paidUnlocked: boolean;

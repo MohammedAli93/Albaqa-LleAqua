@@ -28,6 +28,7 @@ import { getRoom, saveRoom } from '../rooms/roomStore.js';
 import type { RoomState, SJCategory, SJCell } from '../rooms/types.js';
 import { loadQuestion } from '../content/questionLoader.js';
 import { buildSeenJeemSnapshot, buildLeaderboard, buildSnapshot } from './snapshot.js';
+import { profileStatUpdates } from './profileStats.js';
 import { getEmitter } from './emitterRef.js';
 import { withRoomLock, acquireRoomLock } from './lock.js';
 import {
@@ -424,6 +425,7 @@ async function finishSeenJeem(gameId: string): Promise<void> {
         leaderboard: leaderboard as never,
       },
     }),
+    ...profileStatUpdates(state, undefined, win.winnerTeamId ?? undefined),
   ]);
   await saveRoom(state);
 

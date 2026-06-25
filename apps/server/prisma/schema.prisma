@@ -533,6 +533,7 @@ model Player {
   // Profile stats
   pointsWins      Int @default(0)
   eliminationWins Int @default(0)
+  teamWins        Int @default(0)
   gamesPlayed     Int @default(0)
 
   wallet         Wallet?

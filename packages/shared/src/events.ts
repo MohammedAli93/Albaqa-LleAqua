@@ -275,6 +275,9 @@ export const PlayerJoinSchema = z.object({
     .min(GAME_LIMITS.NICKNAME_MIN)
     .max(GAME_LIMITS.NICKNAME_MAX),
   avatarId: z.string().min(1),
+  /** Optional player-account JWT — when present, the server links this
+   *  participation to the account so wins/games-played accrue to the profile. */
+  playerToken: z.string().min(1).optional(),
 });
 export type PlayerJoinInput = z.infer<typeof PlayerJoinSchema>;
 

@@ -25,7 +25,7 @@ import { setEmitter } from './emitterRef.js';
 import { startSeenJeem } from './seenJeemEngine.js';
 import { getRoom, saveRoom, deleteRoom } from '../rooms/roomStore.js';
 import type { RoomState, LiveParticipant, LiveTeam, LiveRound } from '../rooms/types.js';
-import { hashCapabilityToken, generateCapabilityToken } from '../auth/tokens.js';
+import { hashCapabilityToken, generateCapabilityToken, verifyPlayerToken } from '../auth/tokens.js';
 import { loadQuestion } from '../content/questionLoader.js';
 import { isValidAvatarId } from '@tahaddi/shared';
 import {
@@ -44,6 +44,7 @@ import {
   publicTeams,
 } from './snapshot.js';
 import * as fsm from './fsm.js';
+import { profileStatUpdates } from './profileStats.js';
 import { buildPerPlayerOrder, pickCategoryQuestion } from '../rooms/roomService.js';
 import {
   scheduleRoundEnd,
@@ -82,6 +83,18 @@ export async function join(
   const sessionToken = generateCapabilityToken();
   const sessionTokenHash = hashCapabilityToken(sessionToken);
 
+  // If the player joined while logged in, link this participation to their
+  // account so wins / games-played accrue to the profile when the game ends.
+  // A bad/expired token is ignored (the player still joins as a guest).
+  let playerId: string | undefined;
+  if (input.playerToken) {
+    try {
+      playerId = verifyPlayerToken(input.playerToken).sub;
+    } catch {
+      playerId = undefined;
+    }
+  }
+
   // The whole read-modify-write runs under the room lock so concurrent joins
   // (e.g. a stampede when a show starts) can't clobber each other's writes.
   const { participant, state, playerCount } = await withRoomLock(gameId, async () => {
@@ -107,6 +120,7 @@ export async function join(
         lives: state.settings.livesPerPlayer,
         joinOrder,
         sessionToken: sessionTokenHash,
+        ...(playerId ? { playerId } : {}),
       },
     });
 
@@ -121,6 +135,7 @@ export async function join(
       correctCount: 0,
       speedMs: 0,
       sessionTokenHash,
+      ...(playerId ? { playerId } : {}),
       socketId,
     };
     state.participants[participant.id] = participant;
@@ -1059,6 +1074,7 @@ export async function completeGame(
         leaderboard: leaderboard as never,
       },
     }),
+    ...profileStatUpdates(state, winnerId, winnerTeamId),
   ]);
   await saveRoom(state);
 

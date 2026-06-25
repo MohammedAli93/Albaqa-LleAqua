@@ -24,6 +24,7 @@ export interface CategoryDef {
 
 export const GROUPS: GroupDef[] = [
   { slug: 'culture-knowledge', nameAr: 'الثقافة والمعرفة', nameEn: 'Culture & Knowledge', color: '#7C3AED', icon: 'book-open' },
+  { slug: 'arab-countries', nameAr: 'الدول العربية', nameEn: 'Arab Countries', color: '#0EA371', icon: 'flag' },
   { slug: 'religion', nameAr: 'الدين الإسلامي', nameEn: 'Islam', color: '#16A34A', icon: 'moon' },
   { slug: 'sports', nameAr: 'الرياضة', nameEn: 'Sports', color: '#EF4444', icon: 'trophy' },
   { slug: 'science-tech', nameAr: 'العلوم والتقنية', nameEn: 'Science & Technology', color: '#06B6D4', icon: 'flask-conical' },
@@ -45,6 +46,26 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'islamic-history', nameAr: 'التاريخ الإسلامي', nameEn: 'Islamic History', group: 'culture-knowledge' },
   { slug: 'geography', nameAr: 'الجغرافيا', nameEn: 'Geography', group: 'culture-knowledge' },
   { slug: 'flags-capitals', nameAr: 'الأعلام والعواصم', nameEn: 'Flags & Capitals', group: 'culture-knowledge' },
+
+  // الدول العربية (دولة لكل فئة — تاريخها، دورياتها، جغرافيتها وثقافتها)
+  { slug: 'country-kuwait', nameAr: 'الكويت', nameEn: 'Kuwait', group: 'arab-countries' },
+  { slug: 'country-bahrain', nameAr: 'البحرين', nameEn: 'Bahrain', group: 'arab-countries' },
+  { slug: 'country-qatar', nameAr: 'قطر', nameEn: 'Qatar', group: 'arab-countries' },
+  { slug: 'country-uae', nameAr: 'الإمارات', nameEn: 'United Arab Emirates', group: 'arab-countries' },
+  { slug: 'country-oman', nameAr: 'عُمان', nameEn: 'Oman', group: 'arab-countries' },
+  { slug: 'country-iraq', nameAr: 'العراق', nameEn: 'Iraq', group: 'arab-countries' },
+  { slug: 'country-syria', nameAr: 'سوريا', nameEn: 'Syria', group: 'arab-countries' },
+  { slug: 'country-palestine', nameAr: 'فلسطين', nameEn: 'Palestine', group: 'arab-countries' },
+  { slug: 'country-jordan', nameAr: 'الأردن', nameEn: 'Jordan', group: 'arab-countries' },
+  { slug: 'country-lebanon', nameAr: 'لبنان', nameEn: 'Lebanon', group: 'arab-countries' },
+  { slug: 'country-yemen', nameAr: 'اليمن', nameEn: 'Yemen', group: 'arab-countries' },
+  { slug: 'country-egypt', nameAr: 'مصر', nameEn: 'Egypt', group: 'arab-countries' },
+  { slug: 'country-sudan', nameAr: 'السودان', nameEn: 'Sudan', group: 'arab-countries' },
+  { slug: 'country-libya', nameAr: 'ليبيا', nameEn: 'Libya', group: 'arab-countries' },
+  { slug: 'country-tunisia', nameAr: 'تونس', nameEn: 'Tunisia', group: 'arab-countries' },
+  { slug: 'country-algeria', nameAr: 'الجزائر', nameEn: 'Algeria', group: 'arab-countries' },
+  { slug: 'country-morocco', nameAr: 'المغرب', nameEn: 'Morocco', group: 'arab-countries' },
+  { slug: 'country-mauritania', nameAr: 'موريتانيا', nameEn: 'Mauritania', group: 'arab-countries' },
 
   // الدين الإسلامي
   { slug: 'quran', nameAr: 'القرآن الكريم', nameEn: 'The Holy Quran', group: 'religion' },

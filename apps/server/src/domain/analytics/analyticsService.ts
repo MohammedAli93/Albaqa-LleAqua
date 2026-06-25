@@ -64,6 +64,7 @@ export async function listPlayers(cursor: string | undefined, limit: number): Pr
       avatarId: true,
       pointsWins: true,
       eliminationWins: true,
+      teamWins: true,
       gamesPlayed: true,
       createdAt: true,
     },

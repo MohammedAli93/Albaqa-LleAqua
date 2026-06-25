@@ -7,6 +7,7 @@ import {
   type PlayerAnswerAck,
 } from '@tahaddi/shared';
 import { API_URL, saveSession, type Session } from './lib/config.js';
+import { loadAccount } from './lib/account.js';
 import { syncClock } from './lib/clock.js';
 import { useStore } from './store.js';
 
@@ -46,10 +47,13 @@ export function connect(roomCode: string, sessionToken?: string): Socket {
 }
 
 export function joinGame(nickname: string, avatarId: string): Promise<PlayerJoinAck> {
+  // If the player is signed in, carry their account token so this game's
+  // result accrues to their profile (games played + wins).
+  const playerToken = loadAccount()?.token;
   return new Promise((resolve, reject) => {
     socket?.emit(
       ClientEvent.PLAYER_JOIN,
-      { nickname, avatarId },
+      { nickname, avatarId, ...(playerToken ? { playerToken } : {}) },
       (res: { ok: boolean; data?: PlayerJoinAck; error?: { code: string } }) => {
         if (res?.ok && res.data) {
           const st = useStore.getState();

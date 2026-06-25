@@ -9,6 +9,7 @@ interface Player {
   country: string | null;
   pointsWins: number;
   eliminationWins: number;
+  teamWins: number;
   gamesPlayed: number;
   createdAt: string;
 }
@@ -32,6 +33,7 @@ export function Players() {
               <th className="p-3">Country</th>
               <th className="p-3">Points wins</th>
               <th className="p-3">Elimination wins</th>
+              <th className="p-3">Team wins</th>
               <th className="p-3">Games</th>
             </tr>
           </thead>
@@ -44,6 +46,7 @@ export function Players() {
                 <td className="p-3">{p.country ?? '—'}</td>
                 <td className="p-3 tnum">{p.pointsWins}</td>
                 <td className="p-3 tnum">{p.eliminationWins}</td>
+                <td className="p-3 tnum">{p.teamWins}</td>
                 <td className="p-3 tnum">{p.gamesPlayed}</td>
               </tr>
             ))}
