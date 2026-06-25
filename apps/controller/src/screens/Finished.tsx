@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Skull, Trophy } from 'lucide-react';
+import { Crown, Skull, Trophy, Heart } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
 import type { RankedEntry, TeamPublic, PublicParticipant } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
+import {
+  GameShell, GoldHeading, Pill, Squircle, LeaderRow, avatarColor,
+} from '../components/desert.js';
 
-// The player end screen mirrors the host showcase (client request 2026-06-12):
-// the SAME champion-first reveal and the SAME big fonts, then the ranking — for
-// both individual and teams. Only difference: the player's own row is marked.
+// The player end screen mirrors the host showcase: the SAME champion-first reveal
+// then the ranking — for both individual and teams. Only the player's own row is marked.
 const L = 'ar' as const;
-
-const CONFETTI = ['#F59E0B', '#0EA5E9', '#22C55E', '#FB7185', '#7C3AED', '#38BDF8'];
+const CONFETTI = ['#F6C43E', '#5BA8F5', '#2FD9A4', '#F2685B', '#A98BF0', '#FBA340'];
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -23,7 +24,7 @@ function prefersReducedMotion(): boolean {
 function Confetti() {
   if (prefersReducedMotion()) return null;
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       {Array.from({ length: 56 }).map((_, i) => (
         <motion.span
           key={i}
@@ -56,10 +57,18 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   return <span className={className}>{n}</span>;
 }
 
-/**
- * Champion celebration first, then the ranking — the two stages auto-cycle,
- * exactly like the big screen.
- */
+/** Gold gradient text (scores / champion lines). */
+function Gold({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      className={`bg-clip-text font-display font-black text-transparent ${className}`}
+      style={{ backgroundImage: 'linear-gradient(180deg,#FFE9A8 0%,#F6C43E 60%,#E89A18 100%)' }}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function Finished() {
   const { winner, leaderboard, teams, gameType, gameMode, participantId, myTeamId } = useStore();
   const [stage, setStage] = useState<'champion' | 'ranking'>('champion');
@@ -78,8 +87,6 @@ export function Finished() {
   const championTid = winner.winnerTeam?.id ?? null;
   const championPid = winner.winner?.id ?? null;
   const iWon = isTeams ? !!championTid && myTeamId === championTid : championPid === participantId;
-  // My own final position — computed from the SAME floated order the ranking uses
-  // (champion first), so the loser's "ترتيبك #N" matches the board exactly.
   const myRank = isTeams
     ? [...rankedTeams]
         .sort((a, b) => Number(b.id === championTid) - Number(a.id === championTid) || b.score - a.score)
@@ -88,63 +95,56 @@ export function Finished() {
         .sort((a, b) => Number(b.participantId === championPid) - Number(a.participantId === championPid))
         .findIndex((e) => e.participantId === participantId) + 1;
 
-  // Both winner and loser see stage 1 (their own headline) THEN the ranking, on a
-  // loop. Winner stage 1 = "أنت البطل" celebration (+ confetti); loser stage 1 =
-  // "حظ سعيد + ترتيبك #N" (no confetti). Stage 2 = the full ranking for both.
   return (
-    <div
-      className="safe relative grid h-dvh place-items-center overflow-hidden p-5"
-      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
-    >
-      <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-10%] h-[60vh] w-[70vw] -translate-x-1/2 rounded-full bg-white/20 blur-[120px]" />
-      <div aria-hidden className="pointer-events-none absolute bottom-[-10%] left-1/2 h-[40vh] w-[80vw] -translate-x-1/2 rounded-full bg-prize-gold/20 blur-[120px]" />
+    <GameShell className="items-center justify-center">
       {iWon && <Confetti />}
-
-      <AnimatePresence mode="wait">
-        {stage === 'champion' ? (
-          <motion.div
-            key="champion"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 150, damping: 18 }}
-            className="relative z-10 w-full"
-          >
-            {iWon ? (
-              <ChampionFocus winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} />
-            ) : (
-              <LoserFocus myRank={myRank} />
-            )}
-          </motion.div>
-        ) : (
-          <motion.div
-            key="ranking"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.4 }}
-            className="relative z-10 w-full"
-          >
-            {isTeams ? (
-              <TeamResult teams={rankedTeams} leaderboard={board} winnerTeam={winner.winnerTeam} myTeamId={myTeamId} championId={winner.winnerTeam?.id ?? null} />
-            ) : (
-              <PlayerResult leaderboard={board} isElim={isElim} meId={participantId} championId={winner.winner?.id ?? null} />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="relative z-10 flex w-full flex-1 items-center justify-center px-5 py-6">
+        <AnimatePresence mode="wait">
+          {stage === 'champion' ? (
+            <motion.div
+              key="champion"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 150, damping: 18 }}
+              className="w-full"
+            >
+              {iWon ? (
+                <ChampionFocus winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} />
+              ) : (
+                <LoserFocus myRank={myRank} />
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="ranking"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.4 }}
+              className="w-full"
+            >
+              {isTeams ? (
+                <TeamResult teams={rankedTeams} leaderboard={board} winnerTeam={winner.winnerTeam} myTeamId={myTeamId} championId={championTid} />
+              ) : (
+                <PlayerResult leaderboard={board} isElim={isElim} meId={participantId} championId={championPid} />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Stage indicator dots */}
-      <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
+      <div className="relative z-10 mb-5 flex gap-2">
         {(['champion', 'ranking'] as const).map((s) => (
-          <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-prize-gold' : 'w-2.5 bg-white/40'}`} />
+          <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-[#F6C43E]' : 'w-2.5 bg-white/50'}`} />
         ))}
       </div>
-    </div>
+    </GameShell>
   );
 }
 
-/** Stage 1 — the champion (or winning team) shown big, before any ranking. */
+/** Stage 1 — the champion (or winning team) shown big (reference screen 23). */
 function ChampionFocus({
   winner, team, isTeams, isElim,
 }: {
@@ -154,79 +154,51 @@ function ChampionFocus({
   isElim: boolean;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 text-center">
-      <Headline title={isTeams ? t(L, 'winningTeam') : t(L, 'youAreChampion')} />
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
+      <motion.div animate={{ y: [0, -10, 0], rotate: [-4, 4, -4] }} transition={{ duration: 3, repeat: Infinity }}>
+        <Trophy size={92} className="text-[#F6C43E]" style={{ filter: 'drop-shadow(0 0 30px rgba(246,196,62,0.85))' }} />
+      </motion.div>
+      <GoldHeading className="text-5xl">{isTeams ? t(L, 'winningTeam') : 'أنت البطل!'}</GoldHeading>
 
       {isTeams && team ? (
         <>
-          <div className="grid h-28 w-28 place-items-center rounded-full shadow-gold" style={{ background: team.color }}>
-            <Crown color="white" className="h-14 w-14" />
-          </div>
-          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,9vw,4.25rem)] font-black" style={{ color: team.color }}>{team.name}</h2>
-          <p className="tnum font-display text-screen-score font-black text-white drop-shadow"><CountUp value={team.score} /> {t(L, 'points')}</p>
+          <Squircle size={108} bg={`linear-gradient(160deg, ${team.color}dd, ${team.color})`}>
+            <Crown size={52} />
+          </Squircle>
+          <h2 className="max-w-full break-words font-display text-4xl font-black" style={{ color: '#FFE9A8' }}>{team.name}</h2>
+          <Gold className="tnum text-3xl"><CountUp value={team.score} /> {t(L, 'points')}</Gold>
         </>
       ) : winner ? (
         <>
-          <div className="scale-110">
-            <Avatar avatarId={winner.avatarId} size={120} />
-          </div>
-          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,9vw,4.25rem)] font-black text-gold-gradient">{winner.nickname}</h2>
+          <Avatar avatarId={winner.avatarId} size={112} shape="square" />
+          <h2 className="max-w-full break-words font-display text-4xl font-black" style={{ color: '#FFE9A8' }}>{winner.nickname}</h2>
           {isElim ? (
-            <Hearts lives={winner.lives} size={44} />
+            <Hearts lives={winner.lives} size={40} />
           ) : (
-            <p className="tnum font-display text-screen-score font-black text-white drop-shadow"><CountUp value={winner.score} /> {t(L, 'points')}</p>
+            <Gold className="tnum text-3xl"><CountUp value={winner.score} /> {t(L, 'points')}</Gold>
           )}
         </>
       ) : null}
-
-      <p className="mt-1 font-display text-screen-status font-bold text-white animate-pulse-glow">
-        {t(L, 'congratulations')}
-      </p>
     </div>
   );
 }
 
-/**
- * The LOSER's screen — never shows the champion (client request): just a calm
- * "better luck next time" + the player's own final rank.
- */
+/** The LOSER's screen — calm "better luck next time" + own rank (reference screen 22). */
 function LoserFocus({ myRank }: { myRank: number }) {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 text-center">
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-7 text-center">
       <motion.div
-        initial={{ opacity: 0, y: -8, scale: 0.9 }}
+        initial={{ opacity: 0, y: -8, scale: 0.85 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 170, damping: 16 }}
+        transition={{ type: 'spring', stiffness: 170, damping: 14 }}
       >
-        <span className="text-[clamp(3.5rem,16vw,7rem)]">❤️</span>
+        <Heart size={128} className="text-[#F2685B]" fill="currentColor" strokeWidth={0} style={{ filter: 'drop-shadow(0 16px 30px rgba(224,57,44,0.45))' }} />
       </motion.div>
-      <h1 className="max-w-full font-display text-[clamp(2rem,9vw,4rem)] font-black text-white drop-shadow">
+      <h1 className="max-w-[18ch] font-display text-4xl font-black text-[#F2685B]" style={{ filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.25))' }}>
         {t(L, 'betterLuck')}
       </h1>
-      {myRank > 0 && (
-        <span className="rounded-full bg-white/95 px-7 py-2.5 font-display text-screen-status font-black text-brand-deep shadow-card">
-          {t(L, 'yourRank', { rank: myRank })}
-        </span>
-      )}
+      {myRank > 0 && <Pill color="green" className="px-8 py-2.5 text-lg">{t(L, 'yourRank', { rank: myRank })}</Pill>}
     </div>
-  );
-}
-
-function Headline({ title }: { title: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8, y: -10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 180, damping: 16 }}
-      className="mb-4 flex flex-col items-center gap-1"
-    >
-      <motion.div animate={{ y: [0, -10, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
-        <Trophy className="h-[1.05em] w-[1.05em] text-[clamp(3rem,11vw,6rem)] text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
-      </motion.div>
-      <h1 className="w-full text-center font-display text-[clamp(2.5rem,11vw,6rem)] font-black text-gold-gradient" style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}>
-        {title}
-      </h1>
-    </motion.div>
   );
 }
 
@@ -234,60 +206,28 @@ function Headline({ title }: { title: string }) {
 
 function PlayerResult({ leaderboard, isElim, meId, championId }: { leaderboard: RankedEntry[]; isElim: boolean; meId: string | null; championId: string | null }) {
   if (leaderboard.length === 0) return null;
-  // The champion is whoever the server DECLARED the winner (a sudden-death winner
-  // may not be the top scorer) — float them to the top and label only them.
   const rows = championId
     ? [...leaderboard].sort((a, b) => Number(b.participantId === championId) - Number(a.participantId === championId))
     : leaderboard;
 
   return (
-    <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center">
-      <Headline title={t(L, 'finalRanking')} />
-      <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
-
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4">
+      <FinalHeading />
+      <div className="flex max-h-[62vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
         {rows.map((e, i) => {
           const out = e.status === 'ELIMINATED';
           const champ = championId ? e.participantId === championId : e.rank === 1 && !out;
-          const mine = e.participantId === meId;
           return (
-            <motion.div
+            <LeaderRow
               key={e.participantId}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: out ? 0.5 : 1, x: 0 }}
-              transition={{ delay: Math.min(0.15 + i * 0.07, 1.4) }}
-              className={`glass-strong flex items-center gap-3 rounded-xl2 p-3 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : mine ? 'ring-2 ring-brand-deep' : ''}`}
-            >
-              <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
-              <Avatar avatarId={e.avatarId} size={52} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                {champ ? (
-                  <div className="flex min-w-0 items-center gap-5 lg:gap-7">
-                    <span className="truncate font-display text-screen-rankname font-bold" dir="auto">
-                      {e.nickname}
-                      {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
-                    </span>
-                    <span className="shrink-0 font-display text-screen-meta font-black text-prize-gold">
-                      {t(L, 'champion')} 🏆
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <span className="truncate font-display text-screen-rankname font-bold" dir="auto">
-                      {e.nickname}
-                      {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
-                    </span>
-                    <span className="font-display text-screen-meta text-ink-muted">{t(L, 'betterLuck')}</span>
-                  </>
-                )}
-              </div>
-              {isElim ? (
-                out ? <Skull className="shrink-0 text-danger" size={26} /> : <Hearts lives={e.lives} size={24} />
-              ) : (
-                <span className="tnum font-display text-screen-score font-black">
-                  {champ ? <CountUp value={e.score} /> : e.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
-                </span>
-              )}
-            </motion.div>
+              rank={i + 1}
+              name={e.nickname + (e.participantId === meId ? ` (${t(L, 'you')})` : '')}
+              color={champ ? '#F6A41C' : avatarColor(e.avatarId)}
+              avatar={<Avatar avatarId={e.avatarId} size={36} shape="square" />}
+              highlight={champ || e.participantId === meId}
+              dimmed={out}
+              value={isElim ? (out ? <Skull size={16} /> : <Hearts lives={e.lives} size={14} />) : (champ ? <CountUp value={e.score} /> : e.score)}
+            />
           );
         })}
       </div>
@@ -307,8 +247,6 @@ function TeamResult({
   championId: string | null;
 }) {
   const all = teams.length > 0 ? teams : winnerTeam ? [winnerTeam] : [];
-  // Declared winning team first (a tie-break winner may not be the top scorer),
-  // then by score.
   const ranked = [...all].sort(
     (a, b) => Number(b.id === championId) - Number(a.id === championId) || b.score - a.score,
   );
@@ -316,54 +254,51 @@ function TeamResult({
   const membersOf = (teamId: string) => leaderboard.filter((e) => e.teamId === teamId);
 
   return (
-    <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col items-center">
-      <Headline title={t(L, 'finalRanking')} />
-      <div className="flex max-h-[64vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
-
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4">
+      <FinalHeading />
+      <div className="flex max-h-[62vh] w-full flex-col gap-3 overflow-y-auto px-0.5 pb-1">
         {ranked.map((team, i) => {
           const champ = championId ? team.id === championId : i === 0;
           const mine = team.id === myTeamId;
           const members = membersOf(team.id);
           return (
-            <motion.div
+            <div
               key={team.id}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: Math.min(0.15 + i * 0.08, 1.4) }}
-              className={`glass-strong flex flex-col gap-2.5 rounded-xl2 p-3.5 ${champ ? 'ring-2 ring-prize-gold shadow-gold' : mine ? 'ring-2 ring-brand-deep' : ''}`}
-              style={{ borderInlineStart: `7px solid ${team.color}` }}
+              className={`flex flex-col gap-2 rounded-3xl p-3 text-white shadow-[0_14px_26px_-12px_rgba(0,0,0,0.45),inset_0_2px_1px_rgba(255,255,255,0.3)] ${champ ? 'ring-4 ring-[#F6C43E]' : mine ? 'ring-2 ring-white/70' : ''}`}
+              style={{ background: `linear-gradient(180deg, ${team.color}cc, ${team.color})` }}
             >
-              {/* Header: rank · team name · status (its own colour) · score */}
               <div className="flex items-center gap-3">
-                <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black ${champ ? 'text-gold-gradient' : 'text-ink-muted'}`}>{i + 1}</span>
-                {champ && <Crown className="shrink-0 text-prize-gold" style={{ filter: 'drop-shadow(0 0 12px rgba(245,197,24,0.8))' }} />}
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5">
-                  <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>
-                    {team.name}
-                    {mine && <span className="ms-1.5 text-screen-meta font-bold text-ink-muted">({t(L, 'you')})</span>}
-                  </span>
-                  {champ ? (
-                    <span className="shrink-0 font-display text-screen-meta font-black text-prize-gold">{t(L, 'champion')} 🏆</span>
-                  ) : (
-                    <span className="shrink-0 font-display text-screen-meta font-black" style={{ color: '#E11D48' }}>{t(L, 'betterLuck')} 🙏🏻</span>
-                  )}
-                </div>
-                <span className="tnum shrink-0 font-display text-screen-score font-black">
-                  {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(L, 'points')}</span>
+                <span className="tnum w-7 text-center font-display text-lg font-black">{i + 1}</span>
+                {champ && <Crown size={22} className="shrink-0 text-[#FFE9A8]" />}
+                <span className="min-w-0 flex-1 truncate font-display text-xl font-black">
+                  {team.name}{mine && <span className="text-sm font-bold text-white/80"> ({t(L, 'you')})</span>}
+                </span>
+                <span className="tnum font-display text-2xl font-black">
+                  {champ ? <CountUp value={team.score} /> : team.score}
                 </span>
               </div>
-              {/* Members — one player per row */}
               {members.length > 0 && (
-                <div className="flex flex-col gap-1 ps-[3.25rem]">
+                <div className="flex flex-wrap gap-x-3 ps-10 text-sm font-bold text-white/85">
                   {members.map((m) => (
-                    <span key={m.participantId} className="truncate font-display text-screen-meta font-semibold text-ink-secondary">{m.nickname}</span>
+                    <span key={m.participantId} className="truncate">{m.nickname}</span>
                   ))}
                 </div>
               )}
-            </motion.div>
+            </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function FinalHeading() {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <motion.div animate={{ y: [0, -8, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
+        <Trophy size={64} className="text-[#F6C43E]" style={{ filter: 'drop-shadow(0 0 24px rgba(246,196,62,0.8))' }} />
+      </motion.div>
+      <GoldHeading className="text-4xl">{t(L, 'finalRanking')}</GoldHeading>
     </div>
   );
 }

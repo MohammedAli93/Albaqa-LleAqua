@@ -10,21 +10,29 @@ const ICONS: Record<string, LucideIcon> = {
   anchor: Anchor, leaf: Leaf, moon: Moon, sun: Sun,
 };
 
-export function Avatar({ avatarId, size = 64 }: { avatarId: string; size?: number }) {
+export function Avatar({
+  avatarId,
+  size = 64,
+  shape = 'circle',
+}: {
+  avatarId: string;
+  size?: number;
+  shape?: 'circle' | 'square';
+}) {
   const def = getAvatar(avatarId);
   const Icon = (def && ICONS[def.icon]) ?? User;
   const [from, to] = def?.gradient ?? ['#7C3AED', '#C026D3'];
   return (
     <div
-      className="grid place-items-center rounded-full shadow-glow"
+      className={`grid place-items-center shadow-glow ${shape === 'square' ? 'rounded-[26%]' : 'rounded-full'}`}
       style={{
         width: size,
         height: size,
-        background: `linear-gradient(135deg, ${from}, ${to})`,
+        background: `linear-gradient(160deg, ${from}, ${to})`,
       }}
       aria-label={def?.labelEn ?? 'player'}
     >
-      <Icon color="white" size={size * 0.5} strokeWidth={2.2} />
+      <Icon color="white" size={size * 0.52} strokeWidth={2.2} />
     </div>
   );
 }

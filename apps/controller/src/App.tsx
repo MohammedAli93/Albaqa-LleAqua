@@ -103,9 +103,14 @@ export default function App() {
   }
 
   // ── In-game flow ──
+  // Every in-game phase is now a full-bleed desert screen that brings its own sky
+  // plate + black top bar (components/desert.tsx), so they fill the viewport on
+  // phone, desktop and TV alike. Only SeenJeem keeps the old phone-width column +
+  // ambient Aurora until it is reskinned.
+  const isSeenJeem = phase === 'seenjeem';
   return (
     <div className="relative min-h-dvh">
-      <Aurora />
+      {isSeenJeem && <Aurora />}
       <AnimatePresence mode="wait">
         <motion.div
           key={phase}
@@ -113,10 +118,7 @@ export default function App() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15, ease: 'easeOut' }}
-          // Phone-width column for the in-game flow, but the join (desert card) and
-          // end-game showcase are full-bleed so on desktop they fill the screen like
-          // the TV (instead of a narrow mobile strip).
-          className={phase === 'finished' || phase === 'join' ? 'w-full' : 'mx-auto w-full max-w-md'}
+          className={isSeenJeem ? 'mx-auto w-full max-w-md' : 'w-full'}
         >
           {phase === 'join' && <Join />}
           {phase === 'lobby' && <Lobby />}

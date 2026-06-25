@@ -1,31 +1,38 @@
 import { motion } from 'framer-motion';
-import { Skull } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
-import { Hearts } from '../components/Hearts.js';
+import { GameShell, Pill } from '../components/desert.js';
 
+/** Loss / elimination screen (reference screen 22). */
 export function Eliminated() {
   const { myRank, locale } = useStore();
   return (
-    <div className="grid min-h-dvh place-items-center px-6 text-center">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center gap-5"
-      >
-        <motion.div initial={{ rotate: -10 }} animate={{ rotate: [0, -8, 8, 0] }} transition={{ duration: 0.6 }}>
-          <Skull size={96} className="text-danger" />
+    <GameShell className="items-center justify-center px-6 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-7">
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.85 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 14 }}
+        >
+          <Heart
+            size={132}
+            className="text-[#F2685B]"
+            fill="currentColor"
+            strokeWidth={0}
+            style={{ filter: 'drop-shadow(0 16px 30px rgba(224,57,44,0.45))' }}
+          />
         </motion.div>
-        <p className="font-display text-5xl font-black text-danger">{t(locale, 'eliminated')}</p>
-        {/* All hearts lost — survival is the story, not a score. */}
-        <Hearts lives={0} size={34} />
+        <h1
+          className="max-w-[18ch] font-display text-4xl font-black text-[#F2685B]"
+          style={{ filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.25))' }}
+        >
+          {t(locale, 'betterLuck')}
+        </h1>
         {myRank > 0 && (
-          <p className="text-2xl text-ink-secondary">
-            {t(locale, 'rank')}: <b className="tnum text-ink-primary">#{myRank}</b>
-          </p>
+          <Pill color="green" className="px-8 py-2.5 text-lg">{t(locale, 'yourRank', { rank: myRank })}</Pill>
         )}
-        <p className="text-xl text-ink-muted">{t(locale, 'betterLuck')}</p>
-      </motion.div>
-    </div>
+      </div>
+    </GameShell>
   );
 }

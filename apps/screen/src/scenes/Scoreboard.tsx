@@ -1,10 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Skull } from 'lucide-react';
+import { Skull } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
+import { HostBg } from '../components/HostBg.js';
+import { GoldTitle, LeaderRow, avatarColor } from '../components/desert.js';
+
+const TEAM_CARD = 'linear-gradient(180deg,#FCEE5F 0%,#F8DE34 46%,#F3CC13 100%)';
 
 export function Scoreboard() {
   const { leaderboard, eliminatedThisRound, teams, mode, locale } = useStore();
@@ -14,54 +18,29 @@ export function Scoreboard() {
   const isElimination = mode === GameMode.ELIMINATION;
   const eliminated = new Set(eliminatedThisRound);
   return (
-    <div className="safe flex min-h-dvh flex-col lg:h-full">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-8">
-        {t(locale, 'leaderboard')}
-      </h2>
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-2.5 lg:gap-3.5 lg:overflow-hidden">
+    <div className="safe relative flex min-h-dvh flex-col overflow-hidden lg:h-full">
+      <HostBg variant="sky" />
+      <GoldTitle className="relative z-10 mb-5 text-screen-title lg:mb-8">{t(locale, 'leaderboard')}</GoldTitle>
+      <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col gap-2.5 lg:gap-3.5 lg:overflow-hidden">
         <AnimatePresence>
           {leaderboard.map((e) => {
             const isOut = eliminated.has(e.participantId) || e.status === 'ELIMINATED';
             const isLeader = e.rank === 1 && !isOut;
             return (
-              <motion.div
+              <LeaderRow
                 key={e.participantId}
-                layout
-                layoutId={e.participantId}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{
-                  opacity: isOut ? 0.4 : 1,
-                  filter: isOut ? 'grayscale(1)' : 'none',
-                  scale: isOut ? 0.97 : 1,
-                }}
-                transition={{ type: 'spring', stiffness: 240, damping: 26 }}
-                className={`glass-strong flex items-center gap-3 rounded-xl2 p-3.5 lg:gap-5 lg:p-5 ${
-                  isLeader ? 'ring-2 ring-prize-gold shadow-gold' : ''
-                }`}
-              >
-                <span className={`tnum w-10 text-center font-display text-screen-ranknum font-black lg:w-16 ${isLeader ? 'text-gold-gradient' : 'text-ink-secondary'}`}>
-                  {e.rank}
-                </span>
-                <Avatar avatarId={e.avatarId} size={56} />
-                <span className="flex-1 truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
-                {isLeader && !isElimination ? <Crown className="shrink-0 text-prize-gold" size={32} /> : null}
-                {isElimination ? (
-                  // Survival mode: show hearts (or a skull when out), never a score.
-                  isOut ? <Skull className="shrink-0 text-danger" size={32} /> : <Hearts lives={e.lives} size={30} />
-                ) : (
-                  <>
-                    {isOut ? <Skull className="shrink-0 text-danger" size={32} /> : null}
-                    <div className="flex items-baseline gap-2">
-                      <span className="tnum font-display text-screen-score font-black">{e.score}</span>
-                      {e.delta > 0 && (
-                        <motion.span initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="tnum font-display text-screen-meta font-bold text-success">
-                          +{e.delta}
-                        </motion.span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </motion.div>
+                rank={e.rank}
+                name={e.nickname}
+                color={avatarColor(e.avatarId)}
+                avatar={<Avatar avatarId={e.avatarId} size={52} shape="square" />}
+                highlight={isLeader}
+                dimmed={isOut}
+                value={
+                  isElimination
+                    ? (isOut ? <Skull size={22} /> : <Hearts lives={e.lives} size={22} />)
+                    : e.score
+                }
+              />
             );
           })}
         </AnimatePresence>
@@ -70,18 +49,21 @@ export function Scoreboard() {
   );
 }
 
-/** Team-vs-team scoreboard: one card per team with total score + members. */
+/** Team-vs-team standings on the warm sand plate (reference screen 20). */
 function TeamBoard() {
   const { teams, leaderboard, locale } = useStore();
   const ranked = [...teams].sort((a, b) => b.score - a.score);
-  const maxScore = Math.max(1, ...ranked.map((t) => t.score));
 
   return (
-    <div className="safe flex min-h-dvh flex-col lg:h-full">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-gradient lg:mb-8">
+    <div className="safe relative flex min-h-dvh flex-col overflow-hidden lg:h-full">
+      <HostBg variant="team" />
+      <h2
+        className="relative z-10 mb-5 text-center font-display text-screen-title font-black text-desert-ink lg:mb-8"
+        style={{ filter: 'drop-shadow(0 3px 10px rgba(255,255,255,0.5))' }}
+      >
         {t(locale, 'leaderboard')}
       </h2>
-      <div className="mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
         {ranked.map((team, idx) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);
           const isLeader = idx === 0;
@@ -92,34 +74,21 @@ function TeamBoard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1 }}
               transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-              className={`glass-strong flex flex-col rounded-xl3 p-5 lg:p-7 ${isLeader ? 'shadow-gold ring-2 ring-prize-gold' : ''}`}
-              style={{ borderTop: `8px solid ${team.color}` }}
+              className={`flex flex-col overflow-hidden rounded-[1.75rem] shadow-[0_30px_70px_-34px_rgba(120,70,10,0.7)] ring-1 ring-white/50 ${
+                isLeader ? 'ring-4 ring-[#FFE9A8]' : ''
+              }`}
+              style={{ backgroundImage: TEAM_CARD }}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>
+              <div className="flex flex-col items-end gap-1 px-6 py-5 lg:px-8 lg:py-6" style={{ background: 'linear-gradient(180deg,#FFD93A 0%,#F6C81E 100%)' }}>
+                <span className="max-w-full truncate font-display text-screen-team font-black" style={{ color: team.color }}>
                   {team.name}
                 </span>
-                {isLeader && <Crown className="shrink-0 text-prize-gold" size={36} />}
+                <span className="tnum font-display font-black leading-none text-desert-night text-[clamp(2.75rem,5.5vw,5.5rem)]">
+                  {team.score}
+                </span>
+                <span className="font-display text-screen-status font-black text-desert-ink/80">{t(locale, 'points')}</span>
               </div>
-
-              {/* big score */}
-              <div className="mt-2 flex items-end gap-3">
-                <span className="tnum font-display font-black text-[clamp(2.75rem,5.5vw,5.5rem)] leading-none">{team.score}</span>
-                <span className="mb-1 font-display text-screen-status font-semibold text-ink-muted">{t(locale, 'points')}</span>
-              </div>
-
-              {/* score bar */}
-              <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-ink-muted/10">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: team.color }}
-                  animate={{ width: `${(team.score / maxScore) * 100}%` }}
-                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                />
-              </div>
-
-              {/* members — names only; the score is team-owned, never per-player */}
-              <div className="mt-5 flex flex-1 flex-col gap-2 lg:overflow-hidden">
+              <div className="flex flex-1 flex-col gap-2 p-4 lg:overflow-hidden lg:p-5">
                 <AnimatePresence>
                   {members.map((m) => (
                     <motion.div
@@ -127,10 +96,10 @@ function TeamBoard() {
                       layout
                       initial={{ opacity: 0, x: 12 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-3 rounded-xl2 bg-white px-3.5 py-2.5 shadow-glass"
+                      className="flex items-center gap-3 rounded-2xl bg-white/85 px-3.5 py-2.5 shadow-sm"
                     >
-                      <Avatar avatarId={m.avatarId} size={42} />
-                      <span className="flex-1 truncate font-display text-screen-rankname font-semibold">{m.nickname}</span>
+                      <Avatar avatarId={m.avatarId} size={42} shape="square" />
+                      <span className="flex-1 truncate font-display text-screen-rankname font-bold text-desert-ink">{m.nickname}</span>
                     </motion.div>
                   ))}
                 </AnimatePresence>

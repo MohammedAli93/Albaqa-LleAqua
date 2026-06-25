@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Timer } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
@@ -8,17 +8,18 @@ import { Hearts } from '../components/Hearts.js';
 import { submitAnswer } from '../socket.js';
 import { serverNow } from '../lib/clock.js';
 import { haptic } from '../hooks/useDevice.js';
-
-const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
-const TINTS = ['#4F46E5', '#14B8A6', '#F59E0B', '#FB7185', '#22C55E', '#A855F7'];
+import {
+  GameShell, CenterStage, YellowCard, Pill, Squircle, AnswerPill,
+} from '../components/desert.js';
 
 export function Answer() {
-  const { question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered, myLives, gameMode, round, totalRounds, isTiebreak, locale } = useStore();
+  const {
+    question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered,
+    myLives, gameMode, round, totalRounds, isTiebreak, locale,
+  } = useStore();
 
-  // Tick the 3-2-1 pre-roll on requestAnimationFrame (≈16ms), the SAME cadence as
-  // the big screen — not a coarse 150ms interval. Combined with the server-synced
-  // serverNow() clock, the phone flips to the live question at the exact same
-  // instant as the screen (the ~150ms polling gap was why the TV showed it first).
+  // Tick the 3-2-1 pre-roll on requestAnimationFrame, server-synced so the phone
+  // flips to the live question at the same instant as the big screen.
   const [now, setNow] = useState(() => serverNow());
   useEffect(() => {
     if (!startsAt) return;
@@ -41,114 +42,118 @@ export function Answer() {
     submitAnswer(roundId, optionId).catch(() => {});
   };
 
-  // 3-2-1 lead-in: show the category + a big countdown, hold the options back so
-  // nobody can answer before the question is live.
+  // ── Round badge (blue pill) shown on pre-roll. ──
+  const roundBadge = isTiebreak ? (
+    <Pill color="orange">{t(locale, 'tieBreaker')} ⚡</Pill>
+  ) : isElimination && round > 0 ? (
+    <Pill color="blue">{t(locale, 'roundNum', { current: round })}</Pill>
+  ) : round > 0 && totalRounds > 0 ? (
+    <Pill color="blue">{t(locale, 'roundOf', { current: round, total: totalRounds })}</Pill>
+  ) : null;
+
+  // ── 3-2-1 lead-in (reference screens 19 / 21) ──
   if (inPreroll) {
     const n = Math.max(1, Math.ceil((startsAt! - now) / 1000));
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
-        {isTiebreak ? (
-          <span className="rounded-full bg-prize-gold px-5 py-1.5 font-display text-sm font-black text-brand-deep shadow-glow">
-            {t(locale, 'tieBreaker')} ⚡
-          </span>
-        ) : isElimination && round > 0 ? (
-          <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
-            {t(locale, 'roundNum', { current: round })}
-          </span>
-        ) : round > 0 && totalRounds > 0 ? (
-          <span className="rounded-full bg-brand-deep px-5 py-1.5 font-display text-sm font-black text-white shadow-glow">
-            {t(locale, 'roundOf', { current: round, total: totalRounds })}
-          </span>
-        ) : null}
-        {question.category && (
-          <div className="rounded-full px-4 py-1 text-sm font-bold text-white" style={{ background: question.category.color }}>
-            {question.category.nameAr}
-          </div>
-        )}
-        <p className="font-display text-xl font-bold text-ink-secondary">{t(locale, 'getReady')}</p>
-        <motion.span
-          key={n}
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 220, damping: 16 }}
-          className="font-display text-[7rem] font-black leading-none text-brand-deep"
-        >
-          {n}
-        </motion.span>
-      </div>
+      <GameShell>
+        <CenterStage>
+          <YellowCard className="text-center">
+            <div className="flex flex-col items-center gap-5">
+              {roundBadge}
+              {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
+              <p className="font-display text-3xl font-black text-desert-ink">{t(locale, 'getReady')}</p>
+              <Squircle size={104}>
+                <motion.span
+                  key={n}
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+                  className="font-display text-6xl font-black text-desert-night"
+                >
+                  {n}
+                </motion.span>
+              </Squircle>
+            </div>
+          </YellowCard>
+        </CenterStage>
+      </GameShell>
     );
   }
 
-  // Drive the timer bar with a single GPU-accelerated keyframe animation instead
-  // of a per-frame React countdown — no re-renders of the whole question/options
-  // tree 60×/sec. Keyed by roundId so it restarts cleanly for each new question.
+  // ── Answered & waiting (reference screen 17) ──
+  if (hasAnswered) {
+    return (
+      <GameShell>
+        <CenterStage>
+          <YellowCard className="text-center">
+            <div className="flex flex-col items-center gap-5">
+              <Squircle size={92}><Timer size={46} strokeWidth={2.4} /></Squircle>
+              <p className="font-display text-3xl font-black text-desert-ink">{t(locale, 'answerLocked')}</p>
+              {isElimination && <Hearts lives={myLives} size={26} />}
+              <Pill color="red" className="px-7 py-2.5 text-base">{t(locale, 'waitingForResults')}</Pill>
+            </div>
+          </YellowCard>
+        </CenterStage>
+      </GameShell>
+    );
+  }
+
+  // ── Live question (reference screen 16) ──
   const totalMs = roundTotalMs || 1;
   const remainingMs = endsAt ? Math.max(0, endsAt - serverNow()) : totalMs;
   const startPct = Math.max(0, Math.min(1, remainingMs / totalMs));
 
   return (
-    <div className="flex min-h-dvh flex-col px-4 py-5">
-      {/* timer bar */}
-      <div className="mb-4 h-2.5 w-full shrink-0 overflow-hidden rounded-full bg-ink-muted/15">
-        <motion.div
-          key={roundId}
-          className="h-full rounded-full"
-          initial={{ width: `${startPct * 100}%`, backgroundColor: '#14B8A6' }}
-          animate={{ width: '0%', backgroundColor: ['#14B8A6', '#14B8A6', '#F59E0B', '#EF4444'] }}
-          transition={{
-            width: { duration: remainingMs / 1000, ease: 'linear' },
-            backgroundColor: { duration: remainingMs / 1000, times: [0, 0.5, 0.75, 1], ease: 'linear' },
-          }}
-        />
-      </div>
-
-      {question.category && (
-        <div
-          className="mx-auto mb-3 w-fit shrink-0 rounded-full px-4 py-1 text-sm font-bold text-white"
-          style={{ background: question.category.color }}
-        >
-          {question.category.nameAr}
-        </div>
-      )}
-      <h2 className="mb-5 shrink-0 text-center font-display text-2xl font-bold leading-snug" dir="rtl">
-        {question.promptAr}
-      </h2>
-
-      {/* Scrollable, vertically-centred option list. `min-h-0` lets this flex
-          child shrink so it can scroll; `my-auto` centres when there's room and
-          collapses when options overflow — so 5–6 options never get clipped on
-          short screens or in landscape. */}
-      <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1 py-1">
-        <div className="my-auto grid w-full grid-cols-1 gap-3">
-        {question.options.map((opt, i) => {
-          const picked = selectedOptionId === opt.id;
-          const dimmed = hasAnswered && !picked;
-          const tint = TINTS[i % TINTS.length];
-          return (
-            <motion.button
-              key={opt.id}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => onPick(opt.id)}
-              disabled={hasAnswered}
-              animate={{ opacity: dimmed ? 0.4 : 1, scale: picked ? 1.03 : 1 }}
-              className={`flex min-h-[68px] items-center gap-4 overflow-hidden rounded-2xl p-4 text-start text-white shadow-card ${picked ? 'ring-4 ring-white' : ''}`}
-              style={{ background: `linear-gradient(135deg, ${tint}, ${tint}cc)` }}
-            >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/25 font-display text-2xl font-black backdrop-blur-sm">
-                {LETTERS[i]}
-              </span>
-              <span className="flex-1 text-xl font-bold drop-shadow-sm" dir="rtl">{opt.textAr}</span>
-              {picked && <Check size={26} />}
-            </motion.button>
-          );
-        })}
+    <GameShell>
+      {/* slim countdown bar (kept off the card so it stays clean like the ref) */}
+      <div className="px-5 pt-3">
+        <div className="mx-auto h-2 w-full max-w-[460px] overflow-hidden rounded-full bg-black/20">
+          <motion.div
+            key={roundId}
+            className="h-full rounded-full"
+            initial={{ width: `${startPct * 100}%`, backgroundColor: '#18BC85' }}
+            animate={{ width: '0%', backgroundColor: ['#18BC85', '#18BC85', '#FBA340', '#E0392C'] }}
+            transition={{
+              width: { duration: remainingMs / 1000, ease: 'linear' },
+              backgroundColor: { duration: remainingMs / 1000, times: [0, 0.5, 0.75, 1], ease: 'linear' },
+            }}
+          />
         </div>
       </div>
 
-      <div className="mt-4 shrink-0 flex items-center justify-between text-ink-secondary">
-        {isElimination ? <Hearts lives={myLives} size={26} /> : <span />}
-        {hasAnswered && <span className="font-bold text-prize-gold animate-pulse-glow">{t(locale, 'answerLocked')}</span>}
-      </div>
-    </div>
+      <CenterStage className="pt-3">
+        <YellowCard>
+          <div className="flex flex-col items-center gap-4">
+            {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
+            <h2 className="text-center font-display text-2xl font-black leading-snug text-desert-ink" dir="rtl">
+              {question.promptAr}
+            </h2>
+            {question.promptMediaUrl && (
+              <img src={question.promptMediaUrl} alt="" className="max-h-[24vh] rounded-2xl object-contain" />
+            )}
+
+            <div className="mt-1 grid w-full grid-cols-1 gap-3">
+              {question.options.map((opt, i) => (
+                <AnswerPill
+                  key={opt.id}
+                  index={i}
+                  text={opt.textAr}
+                  picked={selectedOptionId === opt.id}
+                  dimmed={hasAnswered && selectedOptionId !== opt.id}
+                  disabled={hasAnswered}
+                  onClick={() => onPick(opt.id)}
+                />
+              ))}
+            </div>
+
+            {isElimination && (
+              <div className="mt-1">
+                <Hearts lives={myLives} size={26} />
+              </div>
+            )}
+          </div>
+        </YellowCard>
+      </CenterStage>
+    </GameShell>
   );
 }

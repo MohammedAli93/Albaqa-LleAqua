@@ -25,14 +25,19 @@ export function Avatar({
   const def = getAvatar(avatarId);
   const Icon = (def && ICONS[def.icon]) ?? User;
   const [from, to] = def?.gradient ?? ['#7C3AED', '#C026D3'];
-  const radius = shape === 'square' ? 'rounded-[28%]' : 'rounded-full';
+  const square = shape === 'square';
+  const radius = square ? 'rounded-[26%]' : 'rounded-full';
+  // Glossy squircle tile (new desert design): soft top sheen + warm drop shadow.
+  const tileShadow = square
+    ? 'shadow-[0_12px_24px_-10px_rgba(0,0,0,0.45),inset_0_2px_2px_rgba(255,255,255,0.45)]'
+    : '';
   return (
     <div
-      className={`grid place-items-center transition ${radius} ${selected ? 'ring-4 ring-prize-gold scale-105' : ''}`}
-      style={{ width: size, height: size, background: `linear-gradient(135deg, ${from}, ${to})` }}
+      className={`grid place-items-center transition ${radius} ${tileShadow} ${selected ? 'ring-4 ring-prize-gold scale-105' : ''}`}
+      style={{ width: size, height: size, background: `linear-gradient(160deg, ${from}, ${to})` }}
       aria-label={def?.labelAr ?? 'player'}
     >
-      <Icon color="white" size={size * 0.5} strokeWidth={2.2} />
+      <Icon color="white" size={size * 0.52} strokeWidth={2.2} />
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
 import { ConfettiRain } from '../components/Confetti.js';
+import { HostBg } from '../components/HostBg.js';
+import { GoldTitle, LeaderRow, avatarColor } from '../components/desert.js';
 
 /** Eased count-up number for the dramatic score reveal. */
 function CountUp({ value, className }: { value: number; className?: string }) {
@@ -28,28 +30,13 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   return <span className={className}>{n}</span>;
 }
 
-// #1 wears the trophy 🏆 (the البطل), #2/#3 the silver/bronze medals.
-const MEDALS = ['🏆', '🥈', '🥉'];
-function RankBadge({ rank, size = 'md' }: { rank: number; size?: 'md' | 'lg' }) {
-  const cls = size === 'lg' ? 'text-4xl lg:text-5xl' : 'text-2xl lg:text-3xl';
-  if (rank <= 3) return <span className={cls}>{MEDALS[rank - 1]}</span>;
-  return (
-    <span className={`tnum grid place-items-center font-display font-black text-ink-secondary ${size === 'lg' ? 'h-12 w-12 text-3xl' : 'h-9 w-9 text-2xl'}`}>
-      {rank}
-    </span>
-  );
-}
-
 /**
- * End-game showcase — a cycling carousel (client-requested flow):
- *   Stage 1: Champion focus → Stage 2: Full ranking → cycle back to champion.
- * One component, three variants: individual points, individual elimination, teams.
+ * End-game showcase — a cycling carousel: Champion focus → full ranking → repeat.
  */
 export function Winner() {
   const { winner, leaderboard, teams, type, mode, locale } = useStore();
   const [stage, setStage] = useState<'champion' | 'ranking'>('champion');
 
-  // Auto-cycle: champion holds a beat, ranking lingers a little longer, repeat.
   useEffect(() => {
     const hold = stage === 'champion' ? 5500 : 8500;
     const id = window.setTimeout(() => setStage((s) => (s === 'champion' ? 'ranking' : 'champion')), hold);
@@ -61,10 +48,8 @@ export function Winner() {
   const isElim = mode === GameMode.ELIMINATION;
 
   return (
-    <div
-      className="relative grid min-h-dvh place-items-center overflow-hidden p-5 lg:h-full lg:p-0"
-      style={{ backgroundImage: 'linear-gradient(165deg, #0284C7 0%, #0EA5E9 48%, #38BDF8 100%)' }}
-    >
+    <div className="safe relative grid min-h-dvh place-items-center overflow-hidden p-5 lg:h-full lg:p-8">
+      <HostBg variant="sky" />
       <ConfettiRain />
       <AnimatePresence mode="wait">
         {stage === 'champion' ? (
@@ -74,7 +59,7 @@ export function Winner() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 150, damping: 18 }}
-            className="w-full"
+            className="relative z-10 w-full"
           >
             <Champion winner={winner.winner} team={winner.winnerTeam} isTeams={isTeams} isElim={isElim} locale={locale} />
           </motion.div>
@@ -85,7 +70,7 @@ export function Winner() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.4 }}
-            className="w-full"
+            className="relative z-10 w-full"
           >
             {isTeams ? (
               <TeamRanking teams={teams} leaderboard={leaderboard} locale={locale} />
@@ -96,21 +81,26 @@ export function Winner() {
         )}
       </AnimatePresence>
 
-      {/* Stage indicator dots */}
       <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
         {(['champion', 'ranking'] as const).map((s) => (
-          <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-prize-gold' : 'w-2.5 bg-white/40'}`} />
+          <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-[#F6C43E]' : 'w-2.5 bg-white/50'}`} />
         ))}
       </div>
     </div>
   );
 }
 
-/**
- * Stage 1 — the climax. The FIRST thing the room sees is 🏆 البطل, oversized and
- * high-contrast at the very top, THEN the avatar + name. Order and size make the
- * title the unmistakable headline of the screen.
- */
+function Headline({ title }: { title: string }) {
+  return (
+    <div className="mb-5 flex flex-col items-center gap-1 lg:mb-7">
+      <motion.div animate={{ y: [0, -12, 0], rotate: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity }}>
+        <Trophy className="h-[1.1em] w-[1.1em] text-[clamp(3rem,5.5vw,6rem)] text-[#F6C43E]" style={{ filter: 'drop-shadow(0 0 36px rgba(246,196,62,0.9))' }} />
+      </motion.div>
+      <GoldTitle className="text-[clamp(3rem,5.5vw,6rem)]">{title}</GoldTitle>
+    </div>
+  );
+}
+
 function Champion({
   winner, team, isTeams, isElim, locale,
 }: {
@@ -122,43 +112,26 @@ function Champion({
 }) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 text-center lg:gap-5">
-      {/* 🏆 البطل — the headline, top of the layout, biggest thing on screen */}
-      <div className="flex flex-col items-center gap-2 lg:gap-3">
-        <motion.div
-          animate={{ y: [0, -12, 0], rotate: [-3, 3, -3] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          <Trophy className="h-[1.1em] w-[1.1em] text-[clamp(3rem,5.5vw,6rem)] text-prize-gold" style={{ filter: 'drop-shadow(0 0 36px rgba(245,197,24,0.9))' }} />
-        </motion.div>
-        <motion.h1
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 14 }}
-          className="font-display text-[clamp(3rem,5.5vw,6rem)] font-black text-gold-gradient"
-          style={{ filter: 'drop-shadow(0 6px 30px rgba(245,158,11,0.35))' }}
-        >
-          {isTeams ? t(locale, 'winningTeam') : t(locale, 'champion')}
-        </motion.h1>
-      </div>
+      <Headline title={isTeams ? t(locale, 'winningTeam') : t(locale, 'champion')} />
 
       {isTeams && team ? (
         <>
-          <div className="grid h-24 w-24 place-items-center rounded-full shadow-gold lg:h-36 lg:w-36" style={{ background: team.color }}>
+          <div className="grid h-24 w-24 place-items-center rounded-[26%] shadow-[0_18px_36px_-14px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.4)] lg:h-36 lg:w-36" style={{ background: `linear-gradient(160deg, ${team.color}dd, ${team.color})` }}>
             <Crown color="white" className="h-12 w-12 lg:h-20 lg:w-20" />
           </div>
-          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black" style={{ color: team.color }}>{team.name}</h2>
-          <p className="tnum font-display text-screen-score font-black"><CountUp value={team.score} /> {t(locale, 'points')}</p>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black" style={{ color: '#FFE9A8' }}>{team.name}</h2>
+          <p className="tnum font-display text-screen-score font-black text-[#FFE9A8] drop-shadow"><CountUp value={team.score} /> {t(locale, 'points')}</p>
         </>
       ) : winner ? (
         <>
           <div className="scale-110 lg:scale-[1.35]">
-            <Avatar avatarId={winner.avatarId} size={120} />
+            <Avatar avatarId={winner.avatarId} size={120} shape="square" />
           </div>
-          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black text-gold-gradient">{winner.nickname}</h2>
+          <h2 className="max-w-full break-words font-display text-[clamp(2.25rem,4vw,4.25rem)] font-black" style={{ color: '#FFE9A8' }}>{winner.nickname}</h2>
           {isElim ? (
             <Hearts lives={winner.lives} size={48} />
           ) : (
-            <p className="tnum font-display text-screen-score font-black"><CountUp value={winner.score} /> {t(locale, 'points')}</p>
+            <p className="tnum font-display text-screen-score font-black text-[#FFE9A8] drop-shadow"><CountUp value={winner.score} /> {t(locale, 'points')}</p>
           )}
         </>
       ) : null}
@@ -170,39 +143,26 @@ function Champion({
   );
 }
 
-/** Stage 2 (individual) — full ranking. Points: scores. Elimination: hearts + labels. */
 function PlayerRanking({ leaderboard, isElim, locale }: { leaderboard: RankedEntry[]; isElim: boolean; locale: Locale }) {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-white drop-shadow lg:mb-7">{t(locale, 'finalRanking')}</h2>
-      <div className="flex flex-col gap-2.5 lg:gap-3">
-        {leaderboard.map((e, i) => {
+    <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
+      <Headline title={t(locale, 'finalRanking')} />
+      <div className="flex max-h-[62vh] w-full flex-col gap-2.5 overflow-y-auto px-0.5 pb-1 lg:gap-3">
+        {leaderboard.map((e) => {
           const out = e.status === 'ELIMINATED';
-          const champ = e.rank === 1;
+          const champ = e.rank === 1 && !out;
           return (
-            <motion.div
+            <LeaderRow
               key={e.participantId}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: Math.min(i * 0.06, 0.5) }}
-              className={`flex items-center gap-3 rounded-xl2 p-3 lg:gap-4 lg:p-4 ${champ ? 'glass-strong ring-2 ring-prize-gold shadow-gold' : 'glass'}`}
-            >
-              <RankBadge rank={e.rank} size={champ ? 'lg' : 'md'} />
-              <Avatar avatarId={e.avatarId} size={52} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-display text-screen-rankname font-bold">{e.nickname}</span>
-                {champ ? (
-                  <span className="font-display text-screen-meta font-black text-prize-gold">{t(locale, 'champion')} 🏆</span>
-                ) : isElim ? (
-                  <span className="font-display text-screen-meta text-ink-muted">{t(locale, 'betterLuck')}</span>
-                ) : null}
-              </div>
-              {isElim ? (
-                out ? <Skull className="shrink-0 text-danger" size={28} /> : <Hearts lives={e.lives} size={26} />
-              ) : (
-                <span className="tnum font-display text-screen-score font-black">{e.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(locale, 'points')}</span></span>
-              )}
-            </motion.div>
+              rank={e.rank}
+              name={e.nickname}
+              color={champ ? '#F6A41C' : avatarColor(e.avatarId)}
+              avatar={<Avatar avatarId={e.avatarId} size={52} shape="square" />}
+              highlight={champ}
+              dimmed={out}
+              badge={champ ? <Crown className="shrink-0 text-[#FFE9A8]" /> : undefined}
+              value={isElim ? (out ? <Skull size={24} /> : <Hearts lives={e.lives} size={24} />) : e.score}
+            />
           );
         })}
       </div>
@@ -210,47 +170,37 @@ function PlayerRanking({ leaderboard, isElim, locale }: { leaderboard: RankedEnt
   );
 }
 
-/** Stage 2 (teams) — team rankings with contributing player names. */
 function TeamRanking({ teams, leaderboard, locale }: { teams: TeamPublic[]; leaderboard: RankedEntry[]; locale: Locale }) {
   const ranked = [...teams].sort((a, b) => b.score - a.score);
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col">
-      <h2 className="mb-5 text-center font-display text-screen-title font-black text-white drop-shadow lg:mb-7">{t(locale, 'finalRanking')}</h2>
-      <div className="flex flex-col gap-3 lg:gap-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
+      <Headline title={t(locale, 'finalRanking')} />
+      <div className="flex max-h-[62vh] w-full flex-col gap-3 overflow-y-auto px-0.5 pb-1">
         {ranked.map((team, i) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);
           const champ = i === 0;
           return (
-            <motion.div
+            <div
               key={team.id}
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className={`glass-strong rounded-xl3 p-4 lg:p-6 ${champ ? 'shadow-gold ring-2 ring-prize-gold' : ''}`}
-              style={{ borderTop: `7px solid ${team.color}` }}
+              className={`flex flex-col gap-2 rounded-[1.5rem] p-3.5 text-white shadow-[0_18px_34px_-16px_rgba(0,0,0,0.5),inset_0_2px_1px_rgba(255,255,255,0.3)] lg:p-4 ${champ ? 'ring-4 ring-[#FFE9A8]' : ''}`}
+              style={{ background: `linear-gradient(180deg, ${team.color}cc, ${team.color})` }}
             >
               <div className="flex items-center gap-3 lg:gap-4">
-                <RankBadge rank={i + 1} size="lg" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-display text-screen-team font-black" style={{ color: team.color }}>{team.name}</span>
-                  <span className={`font-display text-screen-meta font-black ${champ ? 'text-prize-gold' : 'text-ink-muted'}`}>
-                    {champ ? `${t(locale, 'champion')} 🏆` : t(locale, 'betterLuck')}
-                  </span>
-                </div>
-                {champ && <Crown className="shrink-0 text-prize-gold" />}
-                <span className="tnum font-display text-screen-score font-black">{team.score} <span className="text-screen-meta font-semibold text-ink-muted">{t(locale, 'points')}</span></span>
+                <span className="tnum w-9 text-center font-display text-screen-ranknum font-black lg:w-12">{i + 1}</span>
+                {champ && <Crown className="shrink-0 text-[#FFE9A8]" />}
+                <span className="min-w-0 flex-1 truncate font-display text-screen-team font-black">{team.name}</span>
+                <span className="tnum shrink-0 font-display text-screen-score font-black">
+                  {champ ? <CountUp value={team.score} /> : team.score} <span className="text-screen-meta font-bold text-white/80">{t(locale, 'points')}</span>
+                </span>
               </div>
-              {/* Contributing players — names only (the score is team-owned). */}
               {members.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 ps-[3.25rem] text-white/85">
                   {members.map((m) => (
-                    <span key={m.participantId} className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 font-display text-screen-meta font-semibold shadow-glass">
-                      <Avatar avatarId={m.avatarId} size={26} /> {m.nickname}
-                    </span>
+                    <span key={m.participantId} className="truncate font-display text-screen-meta font-bold">{m.nickname}</span>
                   ))}
                 </div>
               )}
-            </motion.div>
+            </div>
           );
         })}
       </div>
