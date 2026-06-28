@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Lock } from 'lucide-react';
-import { t } from '@tahaddi/i18n';
+import { ChevronLeft, Lock, Check } from 'lucide-react';
+import { t, type Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
-import { fetchCategoryGroups, type PickerGroup } from '../lib/categories.js';
+import { fetchCategoryGroups, type PickerGroup, type PickerCategory } from '../lib/categories.js';
 import { categoryEmoji } from './CategoryArt.js';
+import { GOLD } from './desert.js';
 import { Spinner } from './Spinner.js';
 
 /**
@@ -63,7 +64,7 @@ export function CategoryPicker({
     );
   }
 
-  // ── Step 2: sub-categories of the chosen group ──
+  // ── Step 2: sub-categories of the chosen group — an iOS-style scroll wheel ──
   if (openGroup) {
     const live = liveGroups.find((g) => g.id === openGroup.id);
     const cats = live?.categories ?? [];
@@ -71,32 +72,19 @@ export function CategoryPicker({
       <div className="mt-4 pb-8">
         <button
           onClick={() => setOpenGroup(null)}
-          className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-bg-raised/70 px-4 py-2 font-display text-sm font-bold text-ink-primary"
+          className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 font-display text-sm font-bold text-white"
         >
           <ChevronLeft size={18} />
           {t(locale, 'back')}
         </button>
         <div className="mb-3 flex items-center gap-2">
           <span className="h-3 w-3 rounded-full" style={{ background: openGroup.color }} />
-          <h2 className="font-display text-xl font-black text-ink-primary">{openGroup.nameAr}</h2>
+          <h2 className="font-display text-xl font-black text-white">{openGroup.nameAr}</h2>
         </div>
         {cats.length === 0 ? (
-          <p className="mt-8 text-center font-semibold text-ink-primary">{t(locale, 'allCategoriesTaken')}</p>
+          <p className="mt-8 text-center font-semibold text-white">{t(locale, 'allCategoriesTaken')}</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {cats.map((c, i) => (
-              <Tile
-                key={c.id}
-                slug={c.slug}
-                label={c.nameAr}
-                color={c.color}
-                index={i}
-                taken={taken.has(c.id)}
-                takenLabel={locale === 'ar' ? 'مأخوذة' : 'Taken'}
-                onClick={() => onPick(c.id)}
-              />
-            ))}
-          </div>
+          <CategoryWheel cats={cats} taken={taken} onPick={onPick} locale={locale} />
         )}
       </div>
     );
@@ -176,9 +164,17 @@ function Tile({
 }
 
 /** Twemoji cartoon illustration of an emoji, falling back to the OS emoji. */
-function EmojiSticker({ emoji }: { emoji: string }) {
+function EmojiSticker({
+  emoji,
+  imgClass = 'h-12 w-12 sm:h-16 sm:w-16',
+  txtClass = 'text-[2.6rem] leading-none sm:text-5xl',
+}: {
+  emoji: string;
+  imgClass?: string;
+  txtClass?: string;
+}) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <span className="text-[2.6rem] leading-none sm:text-5xl">{emoji}</span>;
+  if (failed) return <span className={txtClass}>{emoji}</span>;
   return (
     <img
       src={twemojiUrl(emoji)}
@@ -186,8 +182,125 @@ function EmojiSticker({ emoji }: { emoji: string }) {
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
-      className="h-12 w-12 sm:h-16 sm:w-16"
+      className={imgClass}
     />
+  );
+}
+
+/**
+ * iOS-style scroll wheel for picking a sub-category (e.g. the 18 Arab countries).
+ * Names scroll vertically; the centered row sits in a gold band and is the active
+ * selection. A confirm button commits it. Categories already claimed by other
+ * players show greyed + locked and can't be confirmed.
+ */
+function CategoryWheel({
+  cats,
+  taken,
+  onPick,
+  locale,
+}: {
+  cats: PickerCategory[];
+  taken: Set<string>;
+  onPick: (id: string) => void;
+  locale: Locale;
+}) {
+  const ITEM_H = 64;
+  const VISIBLE = 5;
+  const PAD = ((VISIBLE - 1) / 2) * ITEM_H;
+  const scroller = useRef<HTMLDivElement>(null);
+  const raf = useRef<number | undefined>(undefined);
+  const [selected, setSelected] = useState(() => {
+    const i = cats.findIndex((c) => !taken.has(c.id));
+    return i < 0 ? 0 : i;
+  });
+
+  // Land on the first selectable row when the wheel mounts.
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = selected * ITEM_H;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function onScroll() {
+    const el = scroller.current;
+    if (!el) return;
+    if (raf.current) cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(() => {
+      const idx = Math.max(0, Math.min(cats.length - 1, Math.round(el.scrollTop / ITEM_H)));
+      setSelected((prev) => (prev === idx ? prev : idx));
+    });
+  }
+
+  const current = cats[selected];
+  const blocked = !current || taken.has(current.id);
+
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <div className="relative">
+        {/* gold selection band over the centered row */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-1/2 z-20 -translate-y-1/2 px-1"
+          style={{ height: ITEM_H }}
+        >
+          <div className="h-full rounded-2xl border-2 bg-white/10" style={{ borderColor: GOLD }} />
+        </div>
+        {/* top / bottom fades into the night plate */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1/3 bg-gradient-to-b from-desert-night to-transparent" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-1/3 bg-gradient-to-t from-desert-night to-transparent" />
+
+        <div
+          ref={scroller}
+          onScroll={onScroll}
+          className="relative overflow-y-auto [&::-webkit-scrollbar]:hidden"
+          style={{ height: VISIBLE * ITEM_H, scrollSnapType: 'y mandatory', scrollbarWidth: 'none' }}
+        >
+          <div style={{ height: PAD }} />
+          {cats.map((c, i) => {
+            const dist = Math.abs(i - selected);
+            const isTaken = taken.has(c.id);
+            const active = i === selected;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => scroller.current?.scrollTo({ top: i * ITEM_H, behavior: 'smooth' })}
+                className="flex w-full items-center justify-center"
+                style={{ height: ITEM_H, scrollSnapAlign: 'center' }}
+              >
+                <motion.div
+                  animate={{
+                    scale: dist === 0 ? 1 : dist === 1 ? 0.88 : 0.76,
+                    opacity: isTaken ? 0.35 : dist === 0 ? 1 : dist === 1 ? 0.6 : 0.32,
+                  }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                  className="flex items-center gap-3"
+                >
+                  <EmojiSticker emoji={categoryEmoji(c.slug)} imgClass="h-9 w-9" txtClass="text-3xl leading-none" />
+                  <span className={`font-display text-2xl font-black ${active ? 'text-white' : 'text-white/90'}`} dir="auto">
+                    {c.nameAr}
+                  </span>
+                  {isTaken && <Lock size={16} className="text-white/70" />}
+                </motion.div>
+              </button>
+            );
+          })}
+          <div style={{ height: PAD }} />
+        </div>
+      </div>
+
+      <p className="mt-1 text-center font-display text-xs font-bold text-white/60">{t(locale, 'scrollToChoose')}</p>
+
+      <motion.button
+        whileTap={blocked ? undefined : { scale: 0.96 }}
+        disabled={blocked}
+        onClick={() => current && onPick(current.id)}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-display text-xl font-black text-white shadow-[0_16px_30px_-14px_rgba(0,0,0,0.55)] disabled:opacity-45"
+        style={{ backgroundImage: blocked ? 'linear-gradient(180deg,#9aa0a6,#6b7177)' : 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)' }}
+      >
+        <Check size={22} strokeWidth={3} />
+        {blocked ? (locale === 'ar' ? 'مأخوذة' : 'Taken') : t(locale, 'confirmChoice')}
+      </motion.button>
+    </div>
   );
 }
 

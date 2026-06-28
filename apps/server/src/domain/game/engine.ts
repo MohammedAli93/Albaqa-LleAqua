@@ -60,8 +60,9 @@ export function initEngine(e: GameEmitter): void {
   setEmitter(e); // shared with the Seen-Jeem orchestrator
 }
 
-/** "Get ready" pre-roll before every question opens for answering (3-2-1). */
-const GET_READY_MS = 3000;
+/** "Get ready" countdown before every question opens for answering (5-4-3-2-1).
+ *  This is the client-visible "next question in N" lead-in between rounds. */
+const GET_READY_MS = 5000;
 
 // ─────────────────────────────── Join / leave ───────────────────────────────
 
@@ -628,11 +629,11 @@ export async function resolveRound(gameId: string): Promise<void> {
     for (const o of outcomes) {
       if (o.selectedOptionId) distribution[o.selectedOptionId] = (distribution[o.selectedOptionId] ?? 0) + 1;
     }
-    // Podium: the fastest correct answers, ranked 1st / 2nd / 3rd for the reveal.
+    // Everyone who answered correctly, ranked fastest → slowest. The reveal shows
+    // the full list (not just the top 3) — `place` still marks 1st/2nd/3rd.
     const topAnswerers = outcomes
       .filter((o) => o.isCorrect)
       .sort((a, b) => a.responseMs - b.responseMs)
-      .slice(0, 3)
       .map((o, i) => {
         const p = state.participants[o.participantId]!;
         return { participantId: o.participantId, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };
@@ -946,7 +947,6 @@ async function resolveTiebreakRound(gameId: string, state: RoomState, round: Liv
     .filter(([pid, ans]) => contenderPids.has(pid) && ans.optionId === round.correctOptionId)
     .map(([pid, ans]) => ({ pid, ms: ans.serverTs - round.startedAt }))
     .sort((a, b) => a.ms - b.ms)
-    .slice(0, 3)
     .map((x, i) => {
       const p = state.participants[x.pid]!;
       return { participantId: x.pid, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };

@@ -14,8 +14,8 @@ import { RoundPill, GoldTitle, LeaderRow, avatarColor } from '../components/dese
 const MEDALS = ['🥇', '🥈', '🥉'];
 const TEAM_CARD = 'linear-gradient(180deg,#FCEE5F 0%,#F8DE34 46%,#F3CC13 100%)';
 
-/** How long the correct-answer + 1st/2nd/3rd recap holds before the standings. */
-const RECAP_MS = 3800;
+/** How long the correct-answer + fastest-answerers recap holds before the standings. */
+const RECAP_MS = 10000;
 
 export function Scoreboard() {
   const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, topAnswerers, round, totalRounds } = useStore();
@@ -102,20 +102,27 @@ function Recap({ correctText, answerers, locale }: { correctText: string; answer
 
         {answerers.length > 0 && (
           <div className="flex w-full flex-col gap-3">
-            {answerers.map((a, i) => (
-              <motion.div
-                key={a.participantId}
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.25 + i * 0.18, type: 'spring', stiffness: 220, damping: 20 }}
-                className="flex items-center gap-4 rounded-full px-5 py-3 text-white shadow-[0_16px_30px_-16px_rgba(0,0,0,0.5),inset_0_2px_1px_rgba(255,255,255,0.3)]"
-                style={{ background: `linear-gradient(180deg, ${avatarColor(a.avatarId)}cc, ${avatarColor(a.avatarId)})` }}
-              >
-                <span className="text-3xl lg:text-4xl">{MEDALS[i] ?? a.place}</span>
-                <Avatar avatarId={a.avatarId} size={52} shape="square" />
-                <span className="flex-1 truncate text-start font-display text-screen-rankname font-black">{a.nickname}</span>
-              </motion.div>
-            ))}
+            <p className="font-display text-screen-status font-black text-white/95 drop-shadow">
+              {t(locale, 'correctAnswerers')}
+            </p>
+            {/* Everyone who answered correctly, fastest → slowest. Scrolls for big
+                rooms; medals mark the top three, the rest are numbered by place. */}
+            <div className="flex max-h-[46vh] w-full flex-col gap-2.5 overflow-y-auto pe-1 lg:max-h-[52vh]">
+              {answerers.map((a, i) => (
+                <motion.div
+                  key={a.participantId}
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: Math.min(0.25 + i * 0.06, 1.6), type: 'spring', stiffness: 220, damping: 20 }}
+                  className="flex shrink-0 items-center gap-3 rounded-full px-4 py-2 text-white shadow-[0_14px_26px_-16px_rgba(0,0,0,0.5),inset_0_2px_1px_rgba(255,255,255,0.3)] lg:gap-4 lg:px-5 lg:py-2.5"
+                  style={{ background: `linear-gradient(180deg, ${avatarColor(a.avatarId)}cc, ${avatarColor(a.avatarId)})` }}
+                >
+                  <span className="w-9 shrink-0 text-center text-2xl tnum lg:text-3xl">{MEDALS[i] ?? a.place}</span>
+                  <Avatar avatarId={a.avatarId} size={44} shape="square" />
+                  <span className="flex-1 truncate text-start font-display text-screen-rankname font-black">{a.nickname}</span>
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
       </div>

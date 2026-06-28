@@ -204,9 +204,9 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   questionTimerSec: 15,
   livesPerPlayer: 1,
   speedBonus: false,
-  // Between-round window: holds the correct-answer + 1st/2nd/3rd recap, then the
-  // standings, before the next question's 3-2-1 pre-roll.
-  intermissionSec: 7,
+  // Between-round window: holds the correct-answer + fastest-answerers recap (~10s),
+  // then the full standings (~10s), before the next question's 5-4-3-2-1 pre-roll.
+  intermissionSec: 20,
   autoAdvance: true,
   totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
   scoringMode: ScoringMode.PLACEMENT,
@@ -229,7 +229,7 @@ export const POINTS_SETTINGS: GameSettings = {
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
   totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
-  intermissionSec: 7,
+  intermissionSec: 20,
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.

@@ -32,6 +32,7 @@ const ar = {
   correct: 'إجابة صحيحة! 🎉',
   wrong: 'إجابة خطأ',
   correctAnswer: 'الإجابة الصحيحة',
+  correctAnswerers: 'من جاوب صح (الأسرع فالأسرع)',
   // status
   score: 'النقاط',
   lives: 'المحاولات',
@@ -75,6 +76,8 @@ const ar = {
   orPickOneForAll: 'أو اختر فئة واحدة للجميع',
   pickYourCategory: 'اختر فئتك',
   pickCategoryHint: 'اختر الموضوع الرئيسي ثم الفئة',
+  confirmChoice: 'تأكيد الاختيار',
+  scrollToChoose: 'مرّر للاختيار',
   categoryChosen: 'اخترت فئتك',
   categoryTaken: 'هذه الفئة اختارها لاعب آخر، اختر غيرها',
   allCategoriesTaken: 'كل الفئات في هذا الموضوع محجوزة',
