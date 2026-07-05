@@ -446,6 +446,10 @@ function NewsletterBand() {
 
 /** Footer — brand logo, link columns, gold socials, copyright (Figma "Group 281"). */
 function SiteFooter() {
+  const { set } = useStore();
+  const openLegal = (doc: 'pricing' | 'terms' | 'privacy' | 'refund') =>
+    set({ appView: 'legal', legalDoc: doc });
+
   return (
     <footer className="bg-desert-night px-5 pb-8 pt-12 text-white/80 lg:px-8">
       <div className="mx-auto grid w-full max-w-[1240px] gap-10 pb-12 sm:grid-cols-2 lg:grid-cols-3">
@@ -462,8 +466,22 @@ function SiteFooter() {
             <SocialIcon icon={Linkedin} label="لينكدإن" />
           </div>
         </div>
-        <FooterCol title="اتصل بنا" links={['تواصلوا معنا لأي استفسار حول المسابقات والاشتراكات.', 'support@albaqaa.app']} />
-        <FooterCol title="عنّا" links={['من نحن', 'النسخة الكاملة', 'الوظائف', 'اتصل بنا']} />
+        {/* الأسعار والمساعدة القانونية — روابط الصفحات المطلوبة لاعتماد بوابة الدفع */}
+        <FooterCol
+          title="الأسعار والدعم"
+          links={[
+            { label: 'الأسعار والباقات', onClick: () => openLegal('pricing') },
+            { label: 'الدعم — support@albaqaa.app' },
+          ]}
+        />
+        <FooterCol
+          title="قانوني"
+          links={[
+            { label: 'الشروط والأحكام', onClick: () => openLegal('terms') },
+            { label: 'سياسة الخصوصية', onClick: () => openLegal('privacy') },
+            { label: 'سياسة الاسترداد والإلغاء', onClick: () => openLegal('refund') },
+          ]}
+        />
       </div>
       <div
         className="mx-auto w-full max-w-[1240px] border-t pt-6 text-center text-xs text-white/45"
@@ -475,13 +493,23 @@ function SiteFooter() {
   );
 }
 
-function FooterCol({ title, links }: { title: string; links: string[] }) {
+type FooterLink = { label: string; onClick?: () => void };
+
+function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   return (
     <div className="text-start">
       <h4 className="font-display text-base font-bold" style={{ color: GOLD }}>{title}</h4>
       <ul className="mt-4 space-y-3 text-sm text-white/55">
         {links.map((l) => (
-          <li key={l}><a href="#" className="leading-relaxed transition hover:text-white">{l}</a></li>
+          <li key={l.label}>
+            {l.onClick ? (
+              <button onClick={l.onClick} className="text-start leading-relaxed transition hover:text-white">
+                {l.label}
+              </button>
+            ) : (
+              <span className="leading-relaxed">{l.label}</span>
+            )}
+          </li>
         ))}
       </ul>
     </div>

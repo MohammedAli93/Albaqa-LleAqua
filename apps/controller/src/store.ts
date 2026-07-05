@@ -27,7 +27,10 @@ import type { Locale } from '@tahaddi/i18n';
 import { loadAccount, type Account } from './lib/account.js';
 
 /** Top-level app surface, above the in-game flow. */
-export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game' | 'host' | 'upgrade';
+export type AppView = 'splash' | 'login' | 'profile' | 'home' | 'play' | 'game' | 'host' | 'upgrade' | 'legal';
+
+/** Which legal / info document the Legal screen opens on. */
+export type LegalDoc = 'pricing' | 'terms' | 'privacy' | 'refund';
 
 /** Config the landing hands to Host mode (type + mode already chosen). */
 export interface HostLaunch {
@@ -94,6 +97,8 @@ export interface ControllerState {
   account: Account | null;
   /** When entering Host mode from the landing — the chosen type + mode. */
   hostLaunch: HostLaunch | null;
+  /** Which document the Legal screen shows (pricing / terms / privacy / refund). */
+  legalDoc: LegalDoc;
 
   // Seen-Jeem mode
   seenJeem: SeenJeemSnapshot | null;
@@ -146,6 +151,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   appView: 'login',
   account: loadAccount(),
   hostLaunch: null,
+  legalDoc: 'pricing',
   seenJeem: null,
   myTeamId: null,
   perPlayerCategory: false,

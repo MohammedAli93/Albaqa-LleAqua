@@ -22,6 +22,7 @@ import { Profile } from './screens/app/Profile.js';
 import { Home } from './screens/app/Home.js';
 import { Play } from './screens/app/Play.js';
 import { Upgrade } from './screens/app/Upgrade.js';
+import { Legal } from './screens/app/Legal.js';
 import { HostApp } from './host/App.js';
 
 export default function App() {
@@ -85,7 +86,7 @@ export default function App() {
             // Landing + auth screens are full-bleed desert pages (they centre their
             // own card); the other shell screens stay a phone-width column.
             className={
-              appView === 'home' || appView === 'login' || appView === 'profile'
+              appView === 'home' || appView === 'login' || appView === 'profile' || appView === 'legal'
                 ? 'w-full'
                 : 'mx-auto w-full max-w-md'
             }
@@ -96,6 +97,7 @@ export default function App() {
             {appView === 'home' && <Home />}
             {appView === 'play' && <Play />}
             {appView === 'upgrade' && <Upgrade />}
+            {appView === 'legal' && <Legal />}
           </motion.div>
         </AnimatePresence>
       </div>
