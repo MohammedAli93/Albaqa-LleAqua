@@ -131,6 +131,7 @@ export const ROLE_RANK: Record<UserRole, number> = {
 
 export const PaymentProviderId = {
   STRIPE: 'STRIPE',
+  TAP: 'TAP',
   PAYMOB: 'PAYMOB',
   MADA: 'MADA',
   FAWRY: 'FAWRY',

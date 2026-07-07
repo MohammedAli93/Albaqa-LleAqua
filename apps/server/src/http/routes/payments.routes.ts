@@ -32,7 +32,7 @@ paymentsRouter.get(
 
 /** Buy the one-time paid unlock (35-question tier) for the logged-in account. */
 const UnlockCheckoutSchema = z.object({
-  provider: z.enum(['STRIPE', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
+  provider: z.enum(['STRIPE', 'TAP', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
   /** The app's base URL — Stripe routes success/cancel back here. */
   returnUrl: z.string().url(),
 });
@@ -72,7 +72,7 @@ paymentsRouter.post(
  * with express.raw (the global JSON parser is bypassed for this path in app.ts).
  */
 const ProviderParam = z.object({
-  provider: z.enum(['STRIPE', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
+  provider: z.enum(['STRIPE', 'TAP', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
 });
 
 paymentsRouter.post(

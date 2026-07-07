@@ -303,6 +303,6 @@ export interface Page<T> {
 
 export const CheckoutSchema = z.object({
   packageId: z.string().uuid(),
-  provider: z.enum(['STRIPE', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
+  provider: z.enum(['STRIPE', 'TAP', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
 });
 export type CheckoutInput = z.infer<typeof CheckoutSchema>;

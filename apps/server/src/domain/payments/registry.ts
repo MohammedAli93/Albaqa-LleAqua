@@ -2,6 +2,7 @@
 import { PaymentProviderId, AppError, ErrorCode } from '@tahaddi/shared';
 import type { PaymentProvider } from './PaymentProvider.js';
 import { StripeProvider } from './adapters/stripeProvider.js';
+import { TapProvider } from './adapters/tapProvider.js';
 import { StubProvider } from './adapters/stubProvider.js';
 
 const providers = new Map<PaymentProviderId, PaymentProvider>();
@@ -12,6 +13,7 @@ function register(p: PaymentProvider): void {
 
 // Fully implemented.
 register(new StripeProvider());
+register(new TapProvider());
 
 // Regional placeholders — same interface, ready to be implemented.
 register(new StubProvider(PaymentProviderId.PAYMOB, { currencies: ['EGP', 'SAR', 'AED'], methods: ['card'], regions: ['EG', 'SA', 'AE'] }));

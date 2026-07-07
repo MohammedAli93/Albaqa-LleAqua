@@ -113,7 +113,7 @@ export function Upgrade() {
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${account.token}` },
-          body: JSON.stringify({ provider: 'STRIPE', returnUrl }),
+          body: JSON.stringify({ provider: 'TAP', returnUrl }),
         },
       );
       if (checkout.kind === 'redirect' && checkout.url) {

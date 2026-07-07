@@ -432,6 +432,7 @@ enum OrderStatus {
 
 enum PaymentProvider {
   STRIPE
+  TAP
   PAYMOB
   MADA
   FAWRY

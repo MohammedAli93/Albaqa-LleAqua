@@ -43,6 +43,14 @@ const EnvSchema = z.object({
   STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
 
+  // Tap Payments (tap.company) — MENA gateway (mada, Visa/MC, Apple Pay, KNET).
+  // When TAP_SECRET_KEY is empty the provider is disabled. Tap signs webhooks
+  // with the secret key (no separate webhook secret); we also re-retrieve the
+  // charge server-side as the source of truth.
+  TAP_SECRET_KEY: z.string().optional().default(''),
+  TAP_PUBLISHABLE_KEY: z.string().optional().default(''),
+  TAP_MERCHANT_ID: z.string().optional().default(''),
+
   // AI question generation (Claude). When ANTHROPIC_API_KEY is empty, generation
   // is disabled and games fall back to the seeded package questions.
   ANTHROPIC_API_KEY: z.string().optional().default(''),
