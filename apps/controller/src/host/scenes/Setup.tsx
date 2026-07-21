@@ -111,7 +111,10 @@ export function Setup({
             </div>
           ) : (
             <div className="space-y-4 lg:space-y-5">
-              <BotsToggle bots={bots} onToggle={() => setBots((b) => !b)} />
+              {/* Bots are a local testing aid only — never expose them in the
+                  production build, so a real host can't accidentally fill the room
+                  with auto-players (client feedback 2026-07-20). */}
+              {import.meta.env.DEV && <BotsToggle bots={bots} onToggle={() => setBots((b) => !b)} />}
 
               {isTeams ? (
                 // ── Step 2b: name exactly two teams, then create (points only) ──

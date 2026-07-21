@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Check, ChevronRight, Trophy, Swords, Users, Gamepad2 } from 'lucide-react';
+import { Sparkles, ChevronRight, Trophy, Swords, Users, Gamepad2 } from 'lucide-react';
 import { AVATARS, type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
@@ -82,25 +82,25 @@ export function Profile() {
       }
     >
       <AuthCard header={header}>
-        {/* Subscription status / upgrade entry */}
-        {account?.paidUnlocked ? (
-          <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-white/70 px-4 py-3 font-display font-bold text-emerald-600 shadow-sm">
-            <Check size={20} /> النسخة الكاملة مفعّلة
-          </div>
-        ) : (
-          <button
-            onClick={() => set({ appView: 'upgrade' })}
-            className="mt-5 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start text-white shadow-[0_14px_30px_-14px_rgba(214,90,20,0.8)] transition hover:brightness-105"
-            style={{ backgroundImage: 'linear-gradient(135deg,#FBA94D,#EE5340)' }}
-          >
-            <Sparkles size={22} className="shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-display text-base font-black sm:text-lg">ترقية إلى النسخة الكاملة</span>
-              <span className="block text-sm text-white/85">٣٥ سؤالاً + اختيار الفئات</span>
+        {/* Wallet balance / buy-packages entry */}
+        <button
+          onClick={() => set({ appView: 'upgrade' })}
+          className="mt-5 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-start text-white shadow-[0_14px_30px_-14px_rgba(214,90,20,0.8)] transition hover:brightness-105"
+          style={{ backgroundImage: 'linear-gradient(135deg,#FBA94D,#EE5340)' }}
+        >
+          <Sparkles size={22} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-base font-black sm:text-lg">
+              {account?.credits
+                ? `رصيدك: ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
+                : 'باقات الألعاب'}
             </span>
-            <ChevronRight size={20} className="shrink-0 rotate-180" />
-          </button>
-        )}
+            <span className="block text-sm text-white/85">
+              {account?.credits ? 'اشترِ المزيد — ٣٥ سؤالاً لكل لعبة' : '٣٥ سؤالاً + اختيار الفئات — اشترِ باقة'}
+            </span>
+          </span>
+          <ChevronRight size={20} className="shrink-0 rotate-180" />
+        </button>
 
         {/* Player record — games played + wins by mode (client request) */}
         <div className="mt-6">

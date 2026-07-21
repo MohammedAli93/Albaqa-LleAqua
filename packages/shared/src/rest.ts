@@ -84,7 +84,9 @@ export interface PlayerProfile {
   eliminationWins: number;
   teamWins: number;
   gamesPlayed: number;
-  /** True once the account has bought the one-time paid unlock (35-question tier). */
+  /** Remaining game-credits in the host's wallet (each PAID game consumes one). */
+  credits: number;
+  /** Convenience flag = credits > 0: the account can start a PAID (35-Q) game now. */
   paidUnlocked: boolean;
 }
 

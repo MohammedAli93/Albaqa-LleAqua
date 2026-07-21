@@ -1,43 +1,50 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Check, Loader2, ChevronRight, LogIn, Lock } from 'lucide-react';
+import { Sparkles, Check, Loader2, ChevronRight, LogIn, Wallet } from 'lucide-react';
 import { type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
 
-type Product = { sku: string; nameAr: string; priceMinor: number; currency: string };
+type Product = { sku: string; nameAr: string; nameEn?: string | null; kind: string; credits: number | null; priceMinor: number; currency: string };
 type Stage = 'offer' | 'confirming' | 'success' | 'cancelled' | 'error';
 
 const CURRENCY_AR: Record<string, string> = { SAR: 'ر.س', AED: 'د.إ', EGP: 'ج.م', KWD: 'د.ك', USD: '$' };
 const money = (minor: number, cur: string) => `${(minor / 100).toLocaleString('en')} ${CURRENCY_AR[cur] ?? cur}`;
+/** Per-package saving vs. buying single games, in the package's currency. */
+const savingMinor = (p: Product, unitMinor: number) => (p.credits ?? 1) * unitMinor - p.priceMinor;
 
 /**
- * Upgrade screen — buy the one-time "Full Version" unlock (35-question paid tier).
- * Buying requires a logged-in account. The buy button starts a hosted Stripe
- * checkout (redirect); on return (`?upgrade=success&order=<id>`) we poll the order
- * and, once PAID, refresh the account so it shows as unlocked.
+ * Storefront — buy a game-credit package (1 / 2 / 5 / 10 full-version games).
+ * Buying adds credits to the account; each PAID (35-question) game the host
+ * starts consumes one. On return from Tap (`?upgrade=success&order=<id>`) we poll
+ * the order and, once PAID, refresh the account so the new balance shows.
  */
 export function Upgrade() {
   const { account, locale, set } = useStore();
-  const [product, setProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>('offer');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Load the unlock product (for the price). Non-fatal if it fails.
+  // Load the credit packages. Non-fatal if it fails (offer just shows nothing).
   useEffect(() => {
     api<{ products: Product[] }>('/api/v1/payments/products')
-      .then(({ products }) => setProduct(products.find((p) => p.sku === 'paid_unlock') ?? null))
+      .then(({ products }) => {
+        const credits = products.filter((p) => p.kind === 'CREDITS');
+        setProducts(credits);
+        // Default-select the single-game package (or the first available).
+        setSelected(credits.find((p) => p.credits === 1)?.sku ?? credits[0]?.sku ?? null);
+      })
       .catch(() => {});
   }, []);
 
-  // Returning from Stripe → confirm the order, then flip the account to unlocked.
+  // Returning from Tap → confirm the order, then refresh the credit balance.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const outcome = params.get('upgrade');
     const orderId = params.get('order');
-    // Strip the query so a refresh doesn't re-trigger this.
     window.history.replaceState({}, '', window.location.pathname);
     if (outcome === 'cancel') {
       setStage('cancelled');
@@ -52,19 +59,12 @@ export function Upgrade() {
 
   async function confirmOrder(orderId: string): Promise<void> {
     const token = account?.token;
-    // The webhook marks the order PAID asynchronously — poll briefly.
+    // The webhook credits the wallet asynchronously — poll briefly.
     for (let i = 0; i < 12; i++) {
       try {
         const order = await api<{ status: string }>(`/api/v1/payments/orders/${orderId}`);
         if (order.status === 'PAID') {
-          if (token) {
-            const me = await api<PlayerProfile>('/api/v1/player/me', {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const updated: Account = { ...me, token };
-            saveAccount(updated);
-            set({ account: updated });
-          }
+          if (token) await refreshAccount(token);
           setStage('success');
           return;
         }
@@ -78,42 +78,25 @@ export function Upgrade() {
     setStage('error');
   }
 
-  // DEV ONLY (Vite dev build): unlock without paying, for testing. The matching
-  // server route 404s in production, so this is safe even if the build slips out.
-  async function devGrant(): Promise<void> {
-    if (!account || busy) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await api('/api/v1/payments/dev/grant-unlock', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${account.token}` },
-      });
-      const me = await api<PlayerProfile>('/api/v1/player/me', {
-        headers: { Authorization: `Bearer ${account.token}` },
-      });
-      const updated: Account = { ...me, token: account.token };
-      saveAccount(updated);
-      set({ account: updated });
-      setStage('success');
-    } catch (e) {
-      setErr(mapErr(e instanceof Error ? e.message : 'ERROR', locale));
-    }
-    setBusy(false);
+  async function refreshAccount(token: string): Promise<void> {
+    const me = await api<PlayerProfile>('/api/v1/player/me', { headers: { Authorization: `Bearer ${token}` } });
+    const updated: Account = { ...me, token };
+    saveAccount(updated);
+    set({ account: updated });
   }
 
   async function buy(): Promise<void> {
-    if (!account || busy) return;
+    if (!account || !selected || busy) return;
     setBusy(true);
     setErr(null);
     try {
       const returnUrl = window.location.origin + window.location.pathname;
       const { checkout } = await api<{ orderId: string; checkout: { kind: string; url?: string } }>(
-        '/api/v1/payments/checkout/unlock',
+        '/api/v1/payments/checkout/package',
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${account.token}` },
-          body: JSON.stringify({ provider: 'TAP', returnUrl }),
+          body: JSON.stringify({ provider: 'TAP', returnUrl, sku: selected }),
         },
       );
       if (checkout.kind === 'redirect' && checkout.url) {
@@ -127,7 +110,9 @@ export function Upgrade() {
     }
   }
 
-  const alreadyUnlocked = !!account?.paidUnlocked || stage === 'success';
+  // Unit price (single game) used to compute per-package savings.
+  const unitMinor = products.find((p) => p.credits === 1)?.priceMinor ?? 2000;
+  const balance = account?.credits ?? 0;
 
   return (
     <div className="flex min-h-dvh flex-col px-6 py-10">
@@ -138,101 +123,109 @@ export function Upgrade() {
         <ChevronRight size={16} /> رجوع
       </button>
 
-      {/* Offer card */}
+      {/* Header card */}
       <div className="relative overflow-hidden rounded-xl4 p-7 text-center text-white shadow-card"
         style={{ backgroundImage: 'linear-gradient(150deg,#F59E0B,#F43F5E)' }}>
         <span className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
         <Sparkles className="mx-auto" size={40} />
-        <h1 className="mt-3 font-display text-3xl font-black">النسخة الكاملة</h1>
-        <p className="mx-auto mt-2 max-w-xs text-white/90">٣٥ سؤالاً في كل لعبة، مع اختيار الفئات — تفعيل لمرة واحدة على حسابك.</p>
-        {product && !alreadyUnlocked && (
-          <div className="mt-4 inline-block rounded-2xl bg-white/20 px-5 py-2 font-display text-2xl font-black backdrop-blur">
-            {money(product.priceMinor, product.currency)}
+        <h1 className="mt-3 font-display text-3xl font-black">باقات الألعاب</h1>
+        <p className="mx-auto mt-2 max-w-xs text-white/90">اشترِ رصيد ألعاب — كل لعبة كاملة (٣٥ سؤالاً مع اختيار الفئات) تستهلك رصيداً واحداً.</p>
+        {account && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/20 px-5 py-2 font-display text-lg font-black backdrop-blur">
+            <Wallet size={18} /> رصيدك: {balance} {balance === 1 ? 'لعبة' : 'ألعاب'}
           </div>
         )}
       </div>
 
-      {/* Feature bullets */}
-      <ul className="mt-6 space-y-3">
-        <Bullet text="٣٥ سؤالاً لكل لعبة (بدل ١٥)" />
-        <Bullet text="اختيار الفئات لكل لاعب" />
-        <Bullet text="تفعيل دائم على حسابك — دفعة واحدة" />
-      </ul>
-
-      {err && <p className="mt-5 text-center text-danger">{err}</p>}
-
-      {/* CTA */}
-      <div className="mt-auto pt-8">
-        {stage === 'confirming' ? (
-          <div className="flex items-center justify-center gap-3 py-5 text-ink-secondary">
-            <Loader2 className="animate-spin" size={22} /> نؤكّد عملية الدفع…
+      {stage === 'confirming' ? (
+        <div className="mt-10 flex items-center justify-center gap-3 py-5 text-ink-secondary">
+          <Loader2 className="animate-spin" size={22} /> نؤكّد عملية الدفع…
+        </div>
+      ) : stage === 'success' ? (
+        <div className="mt-10">
+          <div className="mb-4 flex items-center justify-center gap-2 font-display text-xl font-bold text-success">
+            <Check size={22} /> تم إضافة الرصيد — رصيدك الآن {balance}
           </div>
-        ) : alreadyUnlocked ? (
-          <>
-            <div className="mb-4 flex items-center justify-center gap-2 font-display text-xl font-bold text-success">
-              <Check size={22} /> النسخة الكاملة مفعّلة
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={() => set({ appView: 'home' })}
-              className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow"
-            >
-              ابدأ لعبة كاملة
-            </motion.button>
-          </>
-        ) : !account ? (
-          <>
-            <p className="mb-3 text-center text-ink-secondary">سجّل الدخول أولاً لتفعيل النسخة الكاملة على حسابك.</p>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={() => set({ appView: 'login' })}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow"
-            >
-              <LogIn size={22} /> تسجيل الدخول
-            </motion.button>
-          </>
-        ) : (
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={buy}
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow disabled:opacity-40"
+            onClick={() => set({ appView: 'home' })}
+            className="w-full rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow"
           >
-            {busy ? <Loader2 className="animate-spin" size={22} /> : <Lock size={20} />}
-            {busy ? 'لحظة…' : 'فعّل النسخة الكاملة'}
+            ابدأ لعبة كاملة
           </motion.button>
-        )}
-
-        {/* DEV-only test shortcut (never rendered in a production build). */}
-        {import.meta.env.DEV && account && !alreadyUnlocked && stage !== 'confirming' && (
-          <button
-            onClick={devGrant}
-            disabled={busy}
-            className="mt-3 w-full rounded-2xl border border-dashed border-ink-muted/40 py-3 text-sm font-bold text-ink-muted disabled:opacity-40"
+        </div>
+      ) : !account ? (
+        <div className="mt-10">
+          <p className="mb-3 text-center text-ink-secondary">سجّل الدخول أولاً لشراء الباقات وإضافتها إلى حسابك.</p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => set({ appView: 'login' })}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow"
           >
-            تفعيل تجريبي بدون دفع (وضع التطوير)
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+            <LogIn size={22} /> تسجيل الدخول
+          </motion.button>
+        </div>
+      ) : (
+        <>
+          {/* Package grid */}
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {products.map((p) => {
+              const active = p.sku === selected;
+              const save = savingMinor(p, unitMinor);
+              const best = p.credits === 10;
+              return (
+                <button
+                  key={p.sku}
+                  onClick={() => setSelected(p.sku)}
+                  className={`relative flex flex-col items-center rounded-2xl border-2 p-4 text-center transition ${
+                    active ? 'border-brand-coral bg-brand-coral/5' : 'border-black/10 bg-white hover:border-black/20'
+                  }`}
+                >
+                  {best && (
+                    <span className="absolute -top-2.5 rounded-full bg-warning px-2 py-0.5 text-[11px] font-black text-white">
+                      أفضل قيمة
+                    </span>
+                  )}
+                  <span className="font-display text-lg font-extrabold text-ink-primary">{p.nameAr}</span>
+                  <span className="mt-1 font-display text-2xl font-black text-ink-primary">{money(p.priceMinor, p.currency)}</span>
+                  {save > 0 ? (
+                    <span className="mt-1 text-xs font-bold text-success">وفّر {money(save, p.currency)}</span>
+                  ) : (
+                    <span className="mt-1 text-xs text-ink-muted">&nbsp;</span>
+                  )}
+                  {active && (
+                    <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-brand-coral text-white">
+                      <Check size={13} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-function Bullet({ text }: { text: string }) {
-  return (
-    <li className="flex items-center gap-3 rounded-2xl glass px-4 py-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-success/15 text-success">
-        <Check size={18} />
-      </span>
-      <span className="font-semibold text-ink-primary">{text}</span>
-    </li>
+          {err && <p className="mt-5 text-center text-danger">{err}</p>}
+
+          {/* CTA */}
+          <div className="mt-auto pt-8">
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={buy}
+              disabled={busy || !selected}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow disabled:opacity-40"
+            >
+              {busy ? <Loader2 className="animate-spin" size={22} /> : <Wallet size={20} />}
+              {busy ? 'لحظة…' : 'شراء الباقة'}
+            </motion.button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
 function mapErr(code: string, locale: 'ar' | 'en'): string {
   if (code === 'PAYMENT_PROVIDER_UNSUPPORTED')
     return locale === 'ar' ? 'الدفع غير متاح حالياً — لم تُضبط بوابة الدفع بعد.' : 'Payments not configured yet.';
-  if (code === 'CONFLICT') return locale === 'ar' ? 'حسابك مفعّل بالفعل.' : 'Already unlocked.';
   if (code === 'UNAUTHENTICATED') return locale === 'ar' ? 'سجّل الدخول أولاً.' : 'Log in first.';
   return locale === 'ar' ? 'تعذّر بدء الدفع — حاول مجدداً.' : 'Could not start checkout.';
 }

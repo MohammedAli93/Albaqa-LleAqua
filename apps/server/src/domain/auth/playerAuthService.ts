@@ -13,7 +13,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { signPlayerToken } from './tokens.js';
-import { hasPaidUnlock } from '../payments/paymentService.js';
+import { getPlayerCredits } from '../payments/paymentService.js';
 
 type PlayerRow = {
   id: string;
@@ -29,6 +29,7 @@ type PlayerRow = {
 };
 
 async function toPublic(p: PlayerRow): Promise<PlayerProfile> {
+  const credits = await getPlayerCredits(p.id);
   return {
     id: p.id,
     username: p.username,
@@ -40,7 +41,8 @@ async function toPublic(p: PlayerRow): Promise<PlayerProfile> {
     eliminationWins: p.eliminationWins,
     teamWins: p.teamWins,
     gamesPlayed: p.gamesPlayed,
-    paidUnlocked: await hasPaidUnlock(p.id),
+    credits,
+    paidUnlocked: credits > 0,
   };
 }
 

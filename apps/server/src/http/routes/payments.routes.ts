@@ -30,20 +30,22 @@ paymentsRouter.get(
   asyncHandler(async (_req, res) => ok(res, { products: await payments.listActiveProducts() })),
 );
 
-/** Buy the one-time paid unlock (35-question tier) for the logged-in account. */
-const UnlockCheckoutSchema = z.object({
+/** Buy a game-credit package (by SKU) for the logged-in account. */
+const PackageCheckoutSchema = z.object({
   provider: z.enum(['STRIPE', 'TAP', 'PAYMOB', 'MADA', 'FAWRY', 'APPLE_PAY', 'GOOGLE_PAY']),
-  /** The app's base URL — Stripe routes success/cancel back here. */
+  /** The app's base URL — the gateway routes success/cancel back here. */
   returnUrl: z.string().url(),
+  /** Which package to buy (e.g. game_1, game_2, game_5, game_10). */
+  sku: z.string().min(1),
 });
 
 paymentsRouter.post(
-  '/checkout/unlock',
-  validate(UnlockCheckoutSchema),
+  '/checkout/package',
+  validate(PackageCheckoutSchema),
   asyncHandler(async (req, res) => {
     const playerId = requirePlayerId(req.headers.authorization);
-    const { provider, returnUrl } = valid<typeof UnlockCheckoutSchema>(req);
-    ok(res, await payments.createUnlockCheckout(provider as PaymentProviderId, playerId, returnUrl));
+    const { provider, returnUrl, sku } = valid<typeof PackageCheckoutSchema>(req);
+    ok(res, await payments.createPackageCheckout(provider as PaymentProviderId, playerId, returnUrl, sku));
   }),
 );
 

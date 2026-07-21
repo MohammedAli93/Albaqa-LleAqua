@@ -187,8 +187,11 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
             key={scene}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
+            // Snappy scene change: quick fade-out then fade-in. The old 0.4s each
+            // way (0.8s total) left the screen blank long enough to read as a
+            // freeze between questions on the TV — this halves the dead time.
+            exit={{ opacity: 0, transition: { duration: 0.14 } }}
+            transition={{ duration: 0.22 }}
             className="min-h-dvh w-full lg:h-full"
           >
             {scene === 'connecting' && <Connecting />}

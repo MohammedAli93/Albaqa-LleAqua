@@ -60,9 +60,11 @@ export function initEngine(e: GameEmitter): void {
   setEmitter(e); // shared with the Seen-Jeem orchestrator
 }
 
-/** "Get ready" countdown before every question opens for answering (5-4-3-2-1).
- *  This is the client-visible "next question in N" lead-in between rounds. */
-const GET_READY_MS = 5000;
+/** "Get ready" countdown before every question opens for answering (3-2-1).
+ *  This is the client-visible "next question in N" lead-in between rounds. Kept
+ *  short (client feedback 2026-07-21: the between-question flow still felt slow —
+ *  trimmed the pre-roll further so questions land quickly and never drag). */
+const GET_READY_MS = 2000;
 
 // ─────────────────────────────── Join / leave ───────────────────────────────
 

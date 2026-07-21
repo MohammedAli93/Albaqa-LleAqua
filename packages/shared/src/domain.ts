@@ -65,8 +65,24 @@ export const TIER_ROUNDS: Record<GameTier, number> = {
 /** Slug of the seeded free pack (the fixed 15-question, no-category set). */
 export const FREE_PACKAGE_SLUG = 'free-15';
 
-/** SKU of the one-time, account-wide unlock that grants the PAID tier. */
+/** SKU of the legacy one-time unlock (retired — replaced by credit packages). */
 export const PAID_UNLOCK_SKU = 'paid_unlock';
+
+/**
+ * The paid catalog: game-credit packages (البقاء للأقوى). Buying a package adds
+ * `credits` game-starts to the host's wallet; each PAID (35-question) game a host
+ * starts consumes one credit. Prices are minor units (halalas; 2000 = 20 SAR).
+ * This is the single source of truth for the seed and the storefront.
+ */
+export const CREDIT_PACKAGES = [
+  { sku: 'game_1', nameAr: 'باقة لعبة واحدة', nameEn: '1 Game', credits: 1, priceMinor: 2000 },
+  { sku: 'game_2', nameAr: 'باقة لعبتين', nameEn: '2 Games', credits: 2, priceMinor: 3500 },
+  { sku: 'game_5', nameAr: 'باقة ٥ ألعاب', nameEn: '5 Games', credits: 5, priceMinor: 7500 },
+  { sku: 'game_10', nameAr: 'باقة ١٠ ألعاب', nameEn: '10 Games', credits: 10, priceMinor: 10000 },
+] as const;
+
+/** The valid package SKUs a checkout may request. */
+export const CREDIT_PACKAGE_SKUS = CREDIT_PACKAGES.map((p) => p.sku) as readonly string[];
 
 export const GameStatus = {
   LOBBY: 'LOBBY',
@@ -205,11 +221,12 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   questionTimerSec: 15,
   livesPerPlayer: 1,
   speedBonus: false,
-  // Between-round window: holds the correct-answer + fastest-answerers recap (~10s),
-  // then the full standings (~10s), before the next question's 5-4-3-2-1 pre-roll.
-  intermissionSec: 20,
+  // Between-round window: holds the correct-answer recap (~2.5s) then the standings
+  // before the next question's short pre-roll. Kept tight so the game never drags
+  // between questions (client feedback 2026-07-21: still felt slow → 8s → 5s).
+  intermissionSec: 5,
   autoAdvance: true,
-  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
+  totalRounds: 15, // production (2026-07-17): 15-round game for single + teams; PAID individual games use TIER_ROUNDS (35) + category selection.
   scoringMode: ScoringMode.PLACEMENT,
 };
 
@@ -229,8 +246,8 @@ export const POINTS_SETTINGS: GameSettings = {
   livesPerPlayer: 1, // unused in points mode (no elimination)
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
-  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
-  intermissionSec: 20,
+  totalRounds: 15, // production (2026-07-17): 15-round game for single + teams; PAID individual games use TIER_ROUNDS (35) + category selection.
+  intermissionSec: 5,
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.
@@ -243,5 +260,5 @@ export const ELIMINATION_SETTINGS: GameSettings = {
   livesPerPlayer: 3,
   speedBonus: true,
   scoringMode: ScoringMode.SPEED, // points only matter for tie-breaks
-  totalRounds: 3, // TESTING (2026-06-12): short game to validate the full flow — restore to 35 for production.
+  totalRounds: 15, // production (2026-07-17): 15-round game for single + teams; PAID individual games use TIER_ROUNDS (35) + category selection.
 };

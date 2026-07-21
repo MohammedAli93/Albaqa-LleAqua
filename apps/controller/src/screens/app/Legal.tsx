@@ -212,7 +212,7 @@ function Pricing() {
           className="rounded-full px-9 py-3 font-display text-base font-bold text-white shadow-[0_12px_26px_-12px_rgba(232,71,58,0.85)]"
           style={{ backgroundImage: REDBTN }}
         >
-          فعّل النسخة الكاملة
+          اشترِ باقة الآن
         </motion.button>
       </div>
     </>

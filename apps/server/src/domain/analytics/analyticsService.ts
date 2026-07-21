@@ -67,11 +67,33 @@ export async function listPlayers(cursor: string | undefined, limit: number): Pr
       teamWins: true,
       gamesPlayed: true,
       createdAt: true,
+      // Paid/upgrade signal: any successful order this account owns, plus its
+      // current play wallet (a purchase leaves credits behind even after use).
+      orders: {
+        where: { status: 'PAID' },
+        select: { amountMinor: true, currency: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      },
+      wallet: { select: { credits: true, freeGameUsed: true } },
     },
   });
   const hasMore = items.length > limit;
   const page = hasMore ? items.slice(0, limit) : items;
-  return { items: page, nextCursor: hasMore ? page[page.length - 1]!.id : null };
+  // Flatten the paid signal so the admin UI stays dumb: a boolean, a total, and
+  // the most recent purchase date. Multiple currencies are summed per currency.
+  const shaped = page.map(({ orders, wallet, ...p }) => {
+    const spentByCurrency: Record<string, number> = {};
+    for (const o of orders) spentByCurrency[o.currency] = (spentByCurrency[o.currency] ?? 0) + o.amountMinor;
+    return {
+      ...p,
+      isPaid: orders.length > 0,
+      paidOrderCount: orders.length,
+      spentByCurrency,
+      lastPurchaseAt: orders[0]?.createdAt ?? null,
+      walletCredits: wallet?.credits ?? 0,
+    };
+  });
+  return { items: shaped, nextCursor: hasMore ? shaped[shaped.length - 1]!.id : null };
 }
 
 export async function sessionDetail(gameId: string) {

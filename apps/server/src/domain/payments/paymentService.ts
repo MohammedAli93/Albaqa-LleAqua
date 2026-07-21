@@ -2,7 +2,7 @@
  * Provider-agnostic payment business logic. Knows only "orders" and "outcomes".
  * The source of truth for access is the verified webhook, never the client redirect.
  */
-import { AppError, ErrorCode, PAID_UNLOCK_SKU, type PaymentProviderId } from '@tahaddi/shared';
+import { AppError, ErrorCode, type PaymentProviderId } from '@tahaddi/shared';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { getProvider } from './registry.js';
@@ -63,7 +63,7 @@ export async function handleWebhook(provider: PaymentProviderId, req: RawWebhook
     if (!order) return;
 
     if (event.type === 'payment.succeeded') {
-      if (order.status === 'PAID') return; // already granted
+      if (order.status === 'PAID') return; // already granted (idempotent)
       await tx.order.update({ where: { id: order.id }, data: { status: 'PAID' } });
       await tx.payment.create({
         data: {
@@ -71,7 +71,18 @@ export async function handleWebhook(provider: PaymentProviderId, req: RawWebhook
           amountMinor: event.amountMinor, currency: event.currency, status: 'PAID',
         },
       });
-      // Entitlement: the buyer now owns the package (a PAID order is the grant).
+      // Grant: a CREDITS package adds its game-credits to the host's wallet. The
+      // status-guard above makes this run exactly once per order.
+      if (order.ownerId && order.productId) {
+        const product = await tx.product.findUnique({ where: { id: order.productId } });
+        if (product?.kind === 'CREDITS' && product.credits && product.credits > 0) {
+          await tx.wallet.upsert({
+            where: { ownerId: order.ownerId },
+            update: { credits: { increment: product.credits } },
+            create: { ownerId: order.ownerId, credits: product.credits },
+          });
+        }
+      }
     } else if (event.type === 'payment.failed') {
       await tx.order.update({ where: { id: order.id }, data: { status: 'FAILED' } });
     } else if (event.type === 'refund.succeeded') {
@@ -90,31 +101,47 @@ export async function getOrder(orderId: string) {
 }
 
 /**
- * DEV/TEST ONLY: grant the paid unlock to a player without a real payment, by
- * recording a PAID order. The caller (route) MUST gate this to non-production.
- * Idempotent — does nothing if the account is already unlocked.
+ * DEV/TEST ONLY: grant a few game-credits to a player without paying. The caller
+ * (route) MUST gate this to non-production.
  */
 export async function devGrantUnlock(playerId: string): Promise<void> {
-  const product = await prisma.product.findUnique({ where: { sku: PAID_UNLOCK_SKU } });
-  if (!product) throw new AppError(ErrorCode.NOT_FOUND, 'Unlock product not available');
-  if (await hasPaidUnlock(playerId)) return;
-  await prisma.order.create({
-    data: {
-      ownerId: playerId,
-      productId: product.id,
-      amountMinor: product.priceMinor,
-      currency: product.currency,
-      status: 'PAID',
-    },
+  await prisma.wallet.upsert({
+    where: { ownerId: playerId },
+    update: { credits: { increment: 3 } },
+    create: { ownerId: playerId, credits: 3 },
   });
 }
 
-/** Active products for the storefront (e.g. the paid unlock), price included. */
+/** Active products for the storefront (the game-credit packages), price + credits. */
 export async function listActiveProducts() {
   return prisma.product.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: 'asc' },
-    select: { sku: true, nameAr: true, nameEn: true, kind: true, priceMinor: true, currency: true },
+    select: { sku: true, nameAr: true, nameEn: true, kind: true, credits: true, priceMinor: true, currency: true },
+  });
+}
+
+/** Remaining game-credits in a host's wallet (0 if they have no wallet yet). */
+export async function getPlayerCredits(playerId: string): Promise<number> {
+  const wallet = await prisma.wallet.findUnique({ where: { ownerId: playerId }, select: { credits: true } });
+  return wallet?.credits ?? 0;
+}
+
+/** Atomically spend one credit. Returns false (no decrement) if the host has none. */
+export async function consumeCredit(playerId: string): Promise<boolean> {
+  const res = await prisma.wallet.updateMany({
+    where: { ownerId: playerId, credits: { gt: 0 } },
+    data: { credits: { decrement: 1 } },
+  });
+  return res.count > 0;
+}
+
+/** Return a spent credit to the wallet (e.g. when game creation fails afterwards). */
+export async function refundCredit(playerId: string): Promise<void> {
+  await prisma.wallet.upsert({
+    where: { ownerId: playerId },
+    update: { credits: { increment: 1 } },
+    create: { ownerId: playerId, credits: 1 },
   });
 }
 
@@ -127,32 +154,28 @@ export async function hasEntitlement(packageId: string, userId?: string): Promis
 }
 
 /**
- * Has this Player account bought the one-time paid unlock (the 35-question tier)?
- * Entitlement = at least one PAID order for the unlock product owned by the player.
+ * Start a checkout for a game-credit package (by SKU), owned by the host's Player
+ * account. The PAID order it eventually produces adds credits to the wallet via
+ * the verified webhook (see handleWebhook).
  */
-export async function hasPaidUnlock(playerId: string): Promise<boolean> {
-  const count = await prisma.order.count({
-    where: { ownerId: playerId, status: 'PAID', product: { sku: PAID_UNLOCK_SKU } },
-  });
-  return count > 0;
-}
-
-/**
- * Start a checkout for the one-time paid unlock, owned by the host's Player
- * account. The PAID order it eventually produces IS the entitlement.
- */
-export async function createUnlockCheckout(
+export async function createPackageCheckout(
   provider: PaymentProviderId,
   playerId: string,
   returnUrl: string,
+  sku: string,
 ): Promise<{ orderId: string; checkout: CheckoutResult }> {
-  const product = await prisma.product.findUnique({ where: { sku: PAID_UNLOCK_SKU } });
-  if (!product || !product.isActive) {
-    throw new AppError(ErrorCode.NOT_FOUND, 'Unlock product not available');
+  const product = await prisma.product.findUnique({ where: { sku } });
+  if (!product || !product.isActive || product.kind !== 'CREDITS') {
+    throw new AppError(ErrorCode.NOT_FOUND, 'Package not available');
   }
-  if (await hasPaidUnlock(playerId)) {
-    throw new AppError(ErrorCode.CONFLICT, 'Account already unlocked');
-  }
+
+  // Tap (and most gateways) reject a charge with no customer email/phone. The
+  // player always has a verified email + mobile from registration — pass the
+  // email so the hosted charge is accepted and the receipt reaches the buyer.
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { email: true },
+  });
 
   const order = await prisma.order.create({
     data: {
@@ -169,6 +192,7 @@ export async function createUnlockCheckout(
     amountMinor: product.priceMinor,
     currency: product.currency,
     description: product.nameEn ?? product.nameAr,
+    customerEmail: player?.email,
     returnUrl,
   });
 

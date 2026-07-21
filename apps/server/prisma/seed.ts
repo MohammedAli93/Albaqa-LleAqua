@@ -11,8 +11,17 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
 import argon2 from 'argon2';
 import { GROUPS, CATEGORIES } from './taxonomy.js';
+
+/** Paid catalog: game-credit packages. Kept in sync with shared CREDIT_PACKAGES;
+ *  inlined here so the seed is self-contained (no cross-package import at run). */
+const CREDIT_PACKAGES = [
+  { sku: 'game_1', nameAr: 'باقة لعبة واحدة', nameEn: '1 Game', credits: 1, priceMinor: 2000 },
+  { sku: 'game_2', nameAr: 'باقة لعبتين', nameEn: '2 Games', credits: 2, priceMinor: 3500 },
+  { sku: 'game_5', nameAr: 'باقة ٥ ألعاب', nameEn: '5 Games', credits: 5, priceMinor: 7500 },
+  { sku: 'game_10', nameAr: 'باقة ١٠ ألعاب', nameEn: '10 Games', credits: 10, priceMinor: 10000 },
+];
 import { QUESTION_BANK } from './questionBank.js';
-import { isAnswerLeak } from './questionFilter.js';
+import { isAnswerLeak, normalizeAr } from './questionFilter.js';
 
 const prisma = new PrismaClient();
 
@@ -83,6 +92,12 @@ async function main() {
   // no AI/API involved in serving questions.
   let totalQuestions = 0;
   let skippedLeaks = 0;
+  let skippedDupes = 0;
+  // Global de-dup by NORMALIZED prompt (ignores diacritics / alef-hamza / ta-marbuta
+  // variants) so the same question can't be seeded twice — not within a category, and
+  // not across categories. Prevents a game from ever showing the same question again
+  // (client feedback 2026-07-20: "أسئلة متكررة"). First occurrence in bank order wins.
+  const seenNorm = new Set<string>();
   const sampleForPackage: string[] = []; // a mixed sample backs the fallback "demo" package
   for (const [slug, questions] of Object.entries(QUESTION_BANK)) {
     const categoryId = categories[slug];
@@ -94,6 +109,13 @@ async function main() {
         skippedLeaks++;
         continue;
       }
+      // Skip a repeat of a question already seeded (by normalized prompt).
+      const norm = normalizeAr(q.ar);
+      if (seenNorm.has(norm)) {
+        skippedDupes++;
+        continue;
+      }
+      seenNorm.add(norm);
       const optionDefs = q.o.map((text, i) => ({ id: String.fromCharCode(97 + i), textAr: text }));
       const data = {
         type: 'MULTIPLE_CHOICE' as const,
@@ -122,23 +144,39 @@ async function main() {
   const createdQuestionIds = sampleForPackage;
   console.log(`  ✓ questions: ${totalQuestions} (${Object.keys(QUESTION_BANK).length} categories)`);
   console.log(`  ⊘ filtered ${skippedLeaks} answer-leak questions (answer visible in prompt)`);
+  console.log(`  ⊘ filtered ${skippedDupes} duplicate questions (already seeded)`);
 
-  // Clean up any answer-leak questions left over from earlier seeds: soft-delete
-  // them so live games (which filter `deletedAt: null`) never serve them again.
+  // Clean up leftovers from earlier seeds so live games (which filter
+  // `deletedAt: null`) never serve them again:
+  //   1. answer-leak questions (the answer is spelled out in the prompt), and
+  //   2. duplicate questions (same normalized prompt seeded more than once).
+  // Kept oldest-first so a stable copy of each question survives.
   const liveQuestions = await prisma.question.findMany({
     where: { deletedAt: null },
+    orderBy: { createdAt: 'asc' },
     select: { id: true, promptAr: true, options: true, correctOptionId: true },
   });
   let purgedLeaks = 0;
+  let purgedDupes = 0;
+  const seenLive = new Set<string>();
   for (const q of liveQuestions) {
     const opts = (q.options as unknown as { id: string; textAr: string }[]) ?? [];
     const correct = opts.find((o) => o.id === q.correctOptionId)?.textAr ?? '';
     if (isAnswerLeak(q.promptAr, correct)) {
       await prisma.question.update({ where: { id: q.id }, data: { deletedAt: new Date() } });
       purgedLeaks++;
+      continue;
     }
+    const norm = normalizeAr(q.promptAr);
+    if (seenLive.has(norm)) {
+      await prisma.question.update({ where: { id: q.id }, data: { deletedAt: new Date() } });
+      purgedDupes++;
+      continue;
+    }
+    seenLive.add(norm);
   }
   if (purgedLeaks > 0) console.log(`  ⊘ soft-deleted ${purgedLeaks} pre-existing answer-leak questions`);
+  if (purgedDupes > 0) console.log(`  ⊘ soft-deleted ${purgedDupes} pre-existing duplicate questions`);
 
   // ── Demo package ──────────────────────────────────────────────────────────────
   const pkg = await prisma.package.upsert({
@@ -194,24 +232,31 @@ async function main() {
   });
   console.log(`  ✓ free pack "${freePkg.slug}" with ${FREE_QS.length} questions`);
 
-  // ── Paid unlock product (one-time, account-wide) ───────────────────────────────
-  // Grants the 35-question paid tier permanently. Adjust priceMinor to taste
-  // (minor units — halalas; 2000 = 20 SAR).
-  await prisma.product.upsert({
-    where: { sku: 'paid_unlock' },
-    update: { nameAr: 'النسخة الكاملة', nameEn: 'Full Version', kind: 'UNLOCK', isActive: true },
-    create: {
-      sku: 'paid_unlock',
-      nameAr: 'النسخة الكاملة',
-      nameEn: 'Full Version',
-      kind: 'UNLOCK',
-      priceMinor: 2000,
-      currency: 'SAR',
-      isActive: true,
-      sortOrder: 0,
-    },
-  });
-  console.log('  ✓ product "paid_unlock" (one-time unlock)');
+  // ── Paid catalog: game-credit packages ─────────────────────────────────────────
+  // Each package adds `credits` game-starts to the host's wallet; a PAID (35-Q)
+  // game consumes one credit. Prices in minor units (halalas; 2000 = 20 SAR).
+  for (let i = 0; i < CREDIT_PACKAGES.length; i++) {
+    const p = CREDIT_PACKAGES[i]!;
+    await prisma.product.upsert({
+      where: { sku: p.sku },
+      update: { nameAr: p.nameAr, nameEn: p.nameEn, kind: 'CREDITS', credits: p.credits, priceMinor: p.priceMinor, isActive: true, sortOrder: i },
+      create: {
+        sku: p.sku,
+        nameAr: p.nameAr,
+        nameEn: p.nameEn,
+        kind: 'CREDITS',
+        credits: p.credits,
+        priceMinor: p.priceMinor,
+        currency: 'SAR',
+        isActive: true,
+        sortOrder: i,
+      },
+    });
+  }
+  console.log(`  ✓ ${CREDIT_PACKAGES.length} credit packages (1/2/5/10 games)`);
+
+  // Retire the legacy one-time unlock so the storefront lists only the packages.
+  await prisma.product.updateMany({ where: { sku: 'paid_unlock' }, data: { isActive: false } });
 
   console.log('✅ Seed complete.');
 }

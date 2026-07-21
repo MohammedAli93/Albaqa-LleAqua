@@ -16,7 +16,7 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { generateCapabilityToken, hashCapabilityToken } from '../auth/tokens.js';
-import { hasPaidUnlock } from '../payments/paymentService.js';
+import { getPlayerCredits, consumeCredit, refundCredit } from '../payments/paymentService.js';
 import { ensureCategoryQuestions } from '../content/questionGen.js';
 import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
@@ -188,8 +188,9 @@ export async function createRoom(input: {
   } else {
     // PAID (individual) or TEAMS / SEEN_JEEM: the full category game.
     if (isIndividual && tier === GameTier.PAID) {
-      if (!input.hostPlayerId || !(await hasPaidUnlock(input.hostPlayerId))) {
-        throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'Paid unlock required for the 35-question game');
+      // Fail fast (no decrement) if the host isn't logged in or has no credits.
+      if (!input.hostPlayerId || (await getPlayerCredits(input.hostPlayerId)) < 1) {
+        throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
       }
       settings = { ...settings, totalRounds: TIER_ROUNDS.PAID };
     }
@@ -230,18 +231,33 @@ export async function createRoom(input: {
     totalRounds = questionOrder.length;
   }
 
-  const game = await prisma.game.create({
-    data: {
-      roomCode,
-      type: settings.type,
-      mode: settings.mode,
-      status: GameStatus.LOBBY,
-      packageId,
-      hostPlayerId: input.hostPlayerId ?? null,
-      settings: settings as never,
-      hostToken: hostTokenHash,
-    },
-  });
+  // Spend one game-credit for a PAID individual game — atomically, right before
+  // we commit the game, so a lost race is denied and a failed create is refunded.
+  const paidIndividual = isIndividual && tier === GameTier.PAID;
+  if (paidIndividual) {
+    if (!input.hostPlayerId || !(await consumeCredit(input.hostPlayerId))) {
+      throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
+    }
+  }
+
+  let game;
+  try {
+    game = await prisma.game.create({
+      data: {
+        roomCode,
+        type: settings.type,
+        mode: settings.mode,
+        status: GameStatus.LOBBY,
+        packageId,
+        hostPlayerId: input.hostPlayerId ?? null,
+        settings: settings as never,
+        hostToken: hostTokenHash,
+      },
+    });
+  } catch (e) {
+    if (paidIndividual && input.hostPlayerId) await refundCredit(input.hostPlayerId);
+    throw e;
+  }
 
   const state: RoomState = {
     gameId: game.id,

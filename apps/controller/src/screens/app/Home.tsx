@@ -215,7 +215,11 @@ export function Home() {
                 <PanelRow title="النسخة المجانية" desc="١٥ سؤالاً متنوّعاً — ابدأ فوراً"
                   onClick={() => launch(pendingType, pendingMode, GameTier.FREE)} />
                 <PanelRow title="النسخة الكاملة"
-                  desc={account?.paidUnlocked ? '٣٥ سؤالاً + اختيار الفئات — مفعّلة ✓' : '٣٥ سؤالاً + اختيار الفئات — للترقية'}
+                  desc={
+                    account?.credits
+                      ? `٣٥ سؤالاً + اختيار الفئات — رصيدك ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
+                      : '٣٥ سؤالاً + اختيار الفئات — اشترِ باقة'
+                  }
                   onClick={() => launch(pendingType, pendingMode, GameTier.PAID)} />
               </ChooserPanel>
             )}

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skull, Check } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
-import type { RevealAnswerer } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import type { Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
@@ -11,14 +10,15 @@ import { Hearts } from '../components/Hearts.js';
 import { HostBg } from '../components/HostBg.js';
 import { RoundPill, GoldTitle, LeaderRow, avatarColor } from '../components/desert.js';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
 const TEAM_CARD = 'linear-gradient(180deg,#FCEE5F 0%,#F8DE34 46%,#F3CC13 100%)';
 
-/** How long the correct-answer + fastest-answerers recap holds before the standings. */
-const RECAP_MS = 10000;
+/** How long the correct-answer recap holds before the standings. Kept short so the
+ *  game moves briskly between questions (client feedback 2026-07-21: still felt
+ *  slow — trimmed the recap so it reads at a glance and moves on). */
+const RECAP_MS = 2500;
 
 export function Scoreboard() {
-  const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, topAnswerers, round, totalRounds } = useStore();
+  const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, round, totalRounds } = useStore();
 
   const hasRecap = !!correctOptionId && !!question;
   const [stage, setStage] = useState<'recap' | 'standings'>(hasRecap ? 'recap' : 'standings');
@@ -30,7 +30,7 @@ export function Scoreboard() {
 
   if (stage === 'recap' && hasRecap) {
     const correct = question!.options.find((o) => o.id === correctOptionId);
-    return <Recap correctText={correct?.textAr ?? ''} answerers={topAnswerers} locale={locale} />;
+    return <Recap correctText={correct?.textAr ?? ''} locale={locale} />;
   }
 
   if (teams.length > 0) return <TeamBoard />;
@@ -53,6 +53,11 @@ export function Scoreboard() {
           {leaderboard.map((e) => {
             const isOut = eliminated.has(e.participantId) || e.status === 'ELIMINATED';
             const isLeader = e.rank === 1 && !isOut;
+            // Points earned THIS round beside the rank (+3 / +2 / +1, or nothing when
+            // the answer was wrong / missing). Points modes only. (client 2026-07-20)
+            const gained = !isElimination && e.delta > 0
+              ? <RoundDelta value={e.delta} />
+              : undefined;
             return (
               <LeaderRow
                 key={e.participantId}
@@ -62,6 +67,7 @@ export function Scoreboard() {
                 avatar={<Avatar avatarId={e.avatarId} size={52} shape="square" />}
                 highlight={isLeader}
                 dimmed={isOut}
+                badge={gained}
                 value={
                   isElimination
                     ? (isOut ? <Skull size={22} /> : <Hearts lives={e.lives} size={22} />)
@@ -76,8 +82,9 @@ export function Scoreboard() {
   );
 }
 
-/** Reveal recap: the correct answer, then the 1st / 2nd / 3rd fastest answerers. */
-function Recap({ correctText, answerers, locale }: { correctText: string; answerers: RevealAnswerer[]; locale: Locale }) {
+/** Reveal recap: just the correct answer. The fastest-answerers list was removed
+ *  per client request (2026-07-20) — the recap now reads at a glance and moves on. */
+function Recap({ correctText, locale }: { correctText: string; locale: Locale }) {
   return (
     <div className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full" dir="rtl">
       <HostBg variant="sky" />
@@ -99,34 +106,23 @@ function Recap({ correctText, answerers, locale }: { correctText: string; answer
             <span className="font-display text-screen-name font-black drop-shadow">{correctText}</span>
           </div>
         </motion.div>
-
-        {answerers.length > 0 && (
-          <div className="flex w-full flex-col gap-3">
-            <p className="font-display text-screen-status font-black text-white/95 drop-shadow">
-              {t(locale, 'correctAnswerers')}
-            </p>
-            {/* Everyone who answered correctly, fastest → slowest. Scrolls for big
-                rooms; medals mark the top three, the rest are numbered by place. */}
-            <div className="flex max-h-[46vh] w-full flex-col gap-2.5 overflow-y-auto pe-1 lg:max-h-[52vh]">
-              {answerers.map((a, i) => (
-                <motion.div
-                  key={a.participantId}
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: Math.min(0.25 + i * 0.06, 1.6), type: 'spring', stiffness: 220, damping: 20 }}
-                  className="flex shrink-0 items-center gap-3 rounded-full px-4 py-2 text-white shadow-[0_14px_26px_-16px_rgba(0,0,0,0.5),inset_0_2px_1px_rgba(255,255,255,0.3)] lg:gap-4 lg:px-5 lg:py-2.5"
-                  style={{ background: `linear-gradient(180deg, ${avatarColor(a.avatarId)}cc, ${avatarColor(a.avatarId)})` }}
-                >
-                  <span className="w-9 shrink-0 text-center text-2xl tnum lg:text-3xl">{MEDALS[i] ?? a.place}</span>
-                  <Avatar avatarId={a.avatarId} size={44} shape="square" />
-                  <span className="flex-1 truncate text-start font-display text-screen-rankname font-black">{a.nickname}</span>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
+  );
+}
+
+/** Green "+N" pill shown next to a player's rank on the standings — the points they
+ *  earned in the round just played. */
+function RoundDelta({ value }: { value: number }) {
+  return (
+    <motion.span
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+      className="tnum grid h-9 min-w-11 shrink-0 place-items-center rounded-full bg-white/85 px-2.5 font-display text-screen-status font-black text-[#129E6E] shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] lg:h-11 lg:min-w-14"
+    >
+      +{value}
+    </motion.span>
   );
 }
 

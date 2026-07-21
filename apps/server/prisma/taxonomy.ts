@@ -40,7 +40,6 @@ export const CATEGORIES: CategoryDef[] = [
   // الثقافة والمعرفة
   { slug: 'general', nameAr: 'الثقافة العامة', nameEn: 'General Culture', group: 'culture-knowledge' },
   { slug: 'arab-world', nameAr: 'العالم العربي', nameEn: 'Arab World', group: 'culture-knowledge' },
-  { slug: 'saudi', nameAr: 'السعودية', nameEn: 'Saudi Arabia', group: 'culture-knowledge' },
   { slug: 'gulf', nameAr: 'الخليج العربي', nameEn: 'The Gulf', group: 'culture-knowledge' },
   { slug: 'history', nameAr: 'التاريخ', nameEn: 'History', group: 'culture-knowledge' },
   { slug: 'islamic-history', nameAr: 'التاريخ الإسلامي', nameEn: 'Islamic History', group: 'culture-knowledge' },
@@ -48,6 +47,9 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'flags-capitals', nameAr: 'الأعلام والعواصم', nameEn: 'Flags & Capitals', group: 'culture-knowledge' },
 
   // الدول العربية (دولة لكل فئة — تاريخها، دورياتها، جغرافيتها وثقافتها)
+  // السعودية تتصدّر الدول العربية (كانت سابقًا ضمن «الثقافة والمعرفة» — نُقلت هنا
+  // بطلب العميل 2026-07-21 لتظهر مع بقية الدول العربية).
+  { slug: 'saudi', nameAr: 'السعودية', nameEn: 'Saudi Arabia', group: 'arab-countries' },
   { slug: 'country-kuwait', nameAr: 'الكويت', nameEn: 'Kuwait', group: 'arab-countries' },
   { slug: 'country-bahrain', nameAr: 'البحرين', nameEn: 'Bahrain', group: 'arab-countries' },
   { slug: 'country-qatar', nameAr: 'قطر', nameEn: 'Qatar', group: 'arab-countries' },

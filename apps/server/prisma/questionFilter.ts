@@ -25,13 +25,32 @@ export function normalizeAr(s: string): string {
     .toLowerCase();
 }
 
+/** Latin tokens (≥2 chars, containing at least one letter) in a string, lowercased
+ *  — e.g. "PES", "GTA", "EA", "VHS". Used to catch cross-script leaks the Arabic
+ *  matcher can't see. Pure numbers (years like "2030", counts) are ignored: they're
+ *  usually incidental to both prompt and answer, not a giveaway. */
+function latinTokens(s: string): string[] {
+  return (s.match(/[A-Za-z0-9]{2,}/g) ?? [])
+    .filter((t) => /[A-Za-z]/.test(t))
+    .map((t) => t.toLowerCase());
+}
+
 /** True when `correctAnswer` appears verbatim (whole word/phrase) in `prompt`. */
 export function isAnswerLeak(prompt: string, correctAnswer: string): boolean {
   const ans = normalizeAr(correctAnswer);
   // True/false answers are format, not leaks.
-  if (ans === 'صح' || ans === 'خطا') return false;
-  // Too short to be a meaningful giveaway (single letter / empty).
-  if (ans.length < 2) return false;
-  const q = ` ${normalizeAr(prompt)} `;
-  return q.includes(` ${ans} `);
+  if (ans !== 'صح' && ans !== 'خطا' && ans.length >= 2) {
+    const q = ` ${normalizeAr(prompt)} `;
+    if (q.includes(` ${ans} `)) return true;
+  }
+  // Cross-script leak: a Latin token that is part of the correct answer also shows
+  // up in the prompt (e.g. prompt "...(PES)؟" ✓ "PES (إي فوتبول)"). The Arabic
+  // normaliser above can't catch these because the scripts differ.
+  const promptLatin = new Set(latinTokens(prompt));
+  if (promptLatin.size > 0) {
+    for (const tok of latinTokens(correctAnswer)) {
+      if (promptLatin.has(tok)) return true;
+    }
+  }
+  return false;
 }
