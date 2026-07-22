@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, ChevronRight, Trophy, Swords, Users, Gamepad2 } from 'lucide-react';
+import { Sparkles, ChevronRight, Trophy, Swords, Users, Gamepad2, Check } from 'lucide-react';
 import { AVATARS, type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
@@ -7,6 +7,14 @@ import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
 import { COUNTRIES } from '../../lib/catalog.js';
 import { AuthShell, AuthCard, CtaButton } from './AuthShell.js';
+
+/** Warm tile gradients for the country picker — rotated by index so each flag
+ *  sits on a colourful card like the category tiles (client request 2026-07-23). */
+const COUNTRY_TILES: [string, string][] = [
+  ['#F2A65A', '#E17E2B'], ['#5AA9E6', '#2E7FC2'], ['#7BC47F', '#4C9A50'],
+  ['#B58BE0', '#8A5FC0'], ['#EF8A6B', '#DC5038'], ['#5EC2C7', '#2E9BA0'],
+  ['#E9C15A', '#D69B23'], ['#E0798F', '#C64C67'],
+];
 
 /** Profile completion after registration — avatar + country, on the desert card.
  *  Full-bleed + responsive (mobile / desktop / TV); logic unchanged. */
@@ -133,22 +141,33 @@ export function Profile() {
         {/* Country picker */}
         <div className="mt-6">
           <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">دولتك</p>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-            {COUNTRIES.map((c) => {
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+            {COUNTRIES.map((c, i) => {
               const selected = country === c.code;
+              const [from, to] = COUNTRY_TILES[i % COUNTRY_TILES.length]!;
               return (
                 <button
                   key={c.code}
                   onClick={() => setCountry(c.code)}
-                  className={[
-                    'flex items-center gap-2 rounded-2xl px-3 py-2.5 text-right font-display font-bold transition',
-                    selected
-                      ? 'bg-white text-desert-ink ring-2 ring-[#E8473A]'
-                      : 'bg-[#FFF7DF]/85 text-desert-ink/80 hover:bg-white',
-                  ].join(' ')}
+                  aria-pressed={selected}
+                  className={`group relative aspect-square overflow-hidden rounded-3xl shadow-card ring-1 ring-black/5 transition active:scale-95 ${selected ? 'ring-[3px] ring-[#E8473A]' : ''}`}
+                  style={{ backgroundImage: `linear-gradient(150deg, ${from} 0%, ${to} 100%)` }}
                 >
-                  <span className="text-xl">{c.flag}</span>
-                  <span className="min-w-0 flex-1 truncate">{c.nameAr}</span>
+                  {/* glossy top sheen */}
+                  <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/35 to-transparent" />
+                  {/* big flag */}
+                  <span className="absolute inset-x-0 top-[13%] grid place-items-center text-[2.4rem] leading-none drop-shadow-[0_4px_4px_rgba(0,0,0,0.22)] sm:text-5xl">
+                    {c.flag}
+                  </span>
+                  {/* name band */}
+                  <span className="absolute inset-x-1.5 bottom-1.5 rounded-xl bg-white/92 px-1 py-1 text-center font-display text-xs font-black leading-tight text-desert-ink shadow-sm sm:text-sm">
+                    {c.nameAr}
+                  </span>
+                  {selected && (
+                    <span className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-[#E8473A] text-white shadow-md">
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                  )}
                 </button>
               );
             })}
