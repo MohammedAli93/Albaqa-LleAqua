@@ -95,6 +95,16 @@ export function registerPlayNamespace(playNs: Namespace): void {
 
     on(socket, ClientEvent.PLAYER_HEARTBEAT, EmptySchema, async () => ({ serverTs: Date.now() }));
 
+    // Resync: the app came back to the foreground / regained network. Re-send the
+    // authoritative snapshot so a device that silently missed an event (e.g. a
+    // backgrounded phone that dropped QUESTION_SHOW) rejoins the live state without
+    // the player having to reload the page.
+    on(socket, ClientEvent.PLAYER_RESYNC, EmptySchema, async () => {
+      const state = await getRoom(ctx.gameId);
+      if (state) socket.emit(ServerEvent.ROOM_STATE, engine.snapshotFor(state, ctx.participantId));
+      return { ok: true };
+    });
+
     // Clock sync: reply with server wall-clock so the controller can offset its
     // pre-roll/timer to true server time (keeps every device's reveal in lockstep).
     on(socket, ClientEvent.TIME_SYNC, EmptySchema, async () => ({ serverTime: Date.now() }));

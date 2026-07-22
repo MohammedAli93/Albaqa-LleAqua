@@ -61,6 +61,15 @@ export function registerScreenNamespace(screenNs: Namespace): void {
     // pre-roll/timer to true server time (keeps every device's reveal in lockstep).
     on(socket, ClientEvent.TIME_SYNC, EmptySchema, async () => ({ serverTime: Date.now() }));
 
+    // Resync: the screen came back to the foreground / regained network. Re-push the
+    // authoritative snapshot so a TV that silently missed an event self-heals without
+    // a manual page reload.
+    on(socket, ClientEvent.PLAYER_RESYNC, EmptySchema, async () => {
+      const st = await getRoom(ctx.gameId);
+      if (st) socket.emit(ServerEvent.ROOM_STATE, engine.snapshotFor(st));
+      return { ok: true };
+    });
+
     on(socket, ClientEvent.GAME_START, EmptySchema, async () => {
       await engine.startGame(ctx.gameId);
       return { ok: true };

@@ -8,6 +8,29 @@ let socket: Socket | null = null;
 
 const ALL_SERVER_EVENTS = Object.values(ServerEvent);
 
+/**
+ * Self-heal on resume. If the screen tab is backgrounded (or the network blips)
+ * it can silently miss an event and appear "stuck". When it returns to the
+ * foreground / regains network, force an immediate reconnect if the socket
+ * dropped, or ask the server to re-push the authoritative snapshot if it still
+ * looks connected — automating a manual page reload.
+ */
+let resumeHooked = false;
+function hookResume(): void {
+  if (resumeHooked || typeof document === 'undefined') return;
+  resumeHooked = true;
+  const resume = () => {
+    if (document.visibilityState === 'hidden') return;
+    const s = socket;
+    if (!s) return;
+    if (!s.connected) s.connect();
+    else s.emit(ClientEvent.PLAYER_RESYNC, {});
+  };
+  document.addEventListener('visibilitychange', resume);
+  window.addEventListener('focus', resume);
+  window.addEventListener('online', resume);
+}
+
 export function connectHost(hostToken: string, roomCode: string): Socket {
   socket = io(`${API_URL}/screen`, {
     transports: ['websocket'],
@@ -23,6 +46,7 @@ export function connectHost(hostToken: string, roomCode: string): Socket {
   for (const ev of ALL_SERVER_EVENTS) {
     socket.on(ev, (payload: unknown) => applyServerEvent(ev, payload));
   }
+  hookResume();
   return socket;
 }
 

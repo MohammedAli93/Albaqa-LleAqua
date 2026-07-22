@@ -15,6 +15,30 @@ let socket: Socket | null = null;
 
 const ALL_SERVER_EVENTS = Object.values(ServerEvent);
 
+/**
+ * Self-heal on resume. Mobile browsers freeze a backgrounded tab's timers and
+ * socket, so a phone can silently miss an event (e.g. QUESTION_SHOW) and appear
+ * "stuck" until the player reloads the page. When the tab returns to the
+ * foreground / regains network we force an immediate reconnect if the socket
+ * dropped, or (if it still looks connected) ask the server to re-push the
+ * authoritative snapshot — automating the manual page-refresh that unstuck it.
+ */
+let resumeHooked = false;
+function hookResume(): void {
+  if (resumeHooked || typeof document === 'undefined') return;
+  resumeHooked = true;
+  const resume = () => {
+    if (document.visibilityState === 'hidden') return;
+    const s = socket;
+    if (!s) return;
+    if (!s.connected) s.connect(); // skip reconnection backoff — reconnect now
+    else s.emit(ClientEvent.PLAYER_RESYNC, {}); // connected but maybe stale → refresh
+  };
+  document.addEventListener('visibilitychange', resume);
+  window.addEventListener('focus', resume);
+  window.addEventListener('online', resume);
+}
+
 export function connect(roomCode: string, sessionToken?: string): Socket {
   if (socket) socket.disconnect();
   socket = io(`${API_URL}/play`, {
@@ -43,6 +67,7 @@ export function connect(roomCode: string, sessionToken?: string): Socket {
   for (const ev of ALL_SERVER_EVENTS) {
     socket.on(ev, (payload: unknown) => applyServerEvent(ev, payload));
   }
+  hookResume();
   return socket;
 }
 

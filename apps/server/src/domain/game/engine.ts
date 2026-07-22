@@ -703,8 +703,19 @@ export async function resolveRound(gameId: string): Promise<void> {
     const questionsExhausted = state.roundIndex + 1 >= state.questionOrder.length;
     const win = evaluateWinCondition(state, questionsExhausted);
     if (win.isOver) {
+      // Final question: hold on the answer reveal (correct option + who got it) for
+      // the normal between-round window BEFORE the results / champion screen takes
+      // over. Previously the last question jumped straight from the reveal to the
+      // standings and the right answer was never seen (client feedback 2026-07-22:
+      // "المفروض تظهر الاجابة ثم بعدها تنتهي اللعبة").
+      round.phase = RoundPhase.INTERMISSION;
+      await saveRoom(state);
       await release();
-      await concludeGame(gameId);
+      const holdMs = Math.max(3000, state.settings.intermissionSec * 1000);
+      setTimeout(
+        () => void concludeGame(gameId).catch((err) => logger.error({ err, gameId }, 'final conclude failed')),
+        holdMs,
+      );
       return;
     }
 
