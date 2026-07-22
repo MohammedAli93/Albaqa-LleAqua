@@ -12,10 +12,10 @@ import { RoundPill, GoldTitle, LeaderRow, avatarColor } from '../components/dese
 
 const TEAM_CARD = 'linear-gradient(180deg,#FCEE5F 0%,#F8DE34 46%,#F3CC13 100%)';
 
-/** How long the correct-answer recap holds before the standings. Kept short so the
- *  game moves briskly between questions (client feedback 2026-07-21: still felt
- *  slow — trimmed the recap so it reads at a glance and moves on). */
-const RECAP_MS = 2500;
+/** How long the correct-answer recap holds before the standings. Client feedback
+ *  2026-07-22: 2.5s felt too fast to read the answer — raised to 5s (the
+ *  between-round window widened to match so the standings still get a moment). */
+const RECAP_MS = 5000;
 
 export function Scoreboard() {
   const { leaderboard, eliminatedThisRound, teams, mode, locale, question, correctOptionId, round, totalRounds } = useStore();

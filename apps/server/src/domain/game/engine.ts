@@ -711,7 +711,9 @@ export async function resolveRound(gameId: string): Promise<void> {
       round.phase = RoundPhase.INTERMISSION;
       await saveRoom(state);
       await release();
-      const holdMs = Math.max(3000, state.settings.intermissionSec * 1000);
+      // Show the final answer for the same 5s as the between-round recap before the
+      // results screen takes over (client feedback 2026-07-22).
+      const holdMs = 5000;
       setTimeout(
         () => void concludeGame(gameId).catch((err) => logger.error({ err, gameId }, 'final conclude failed')),
         holdMs,

@@ -221,10 +221,11 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   questionTimerSec: 15,
   livesPerPlayer: 1,
   speedBonus: false,
-  // Between-round window: holds the correct-answer recap (~2.5s) then the standings
-  // before the next question's short pre-roll. Kept tight so the game never drags
-  // between questions (client feedback 2026-07-21: still felt slow → 8s → 5s).
-  intermissionSec: 5,
+  // Between-round window: holds the correct-answer recap (5s) then the standings
+  // (~3s) before the next question's short pre-roll. Client feedback 2026-07-22:
+  // the recap was too fast to read → recap raised to 5s, window widened 5s → 8s so
+  // the standings still get a moment.
+  intermissionSec: 8,
   autoAdvance: true,
   totalRounds: 15, // production (2026-07-17): 15-round game for single + teams; PAID individual games use TIER_ROUNDS (35) + category selection.
   scoringMode: ScoringMode.PLACEMENT,
@@ -247,7 +248,7 @@ export const POINTS_SETTINGS: GameSettings = {
   speedBonus: false,
   scoringMode: ScoringMode.PLACEMENT,
   totalRounds: 15, // production (2026-07-17): 15-round game for single + teams; PAID individual games use TIER_ROUNDS (35) + category selection.
-  intermissionSec: 5,
+  intermissionSec: 8, // 5s answer recap + ~3s standings (client feedback 2026-07-22)
 };
 
 /** لعبة التصفيات — 3 lives, wrong answer loses a life, last one standing wins.
