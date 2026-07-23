@@ -61,10 +61,11 @@ export function initEngine(e: GameEmitter): void {
 }
 
 /** "Get ready" countdown before every question opens for answering (3-2-1).
- *  This is the client-visible "next question in N" lead-in between rounds. Kept
- *  short (client feedback 2026-07-21: the between-question flow still felt slow —
- *  trimmed the pre-roll further so questions land quickly and never drag). */
-const GET_READY_MS = 2000;
+ *  This is the client-visible "next question in N" lead-in before each question,
+ *  including the very first one after the host starts. Client feedback 2026-07-23:
+ *  the first question appeared too abruptly → raised 2s → 4s so every question
+ *  (especially the first) leads in with a visible countdown. */
+const GET_READY_MS = 4000;
 
 // ─────────────────────────────── Join / leave ───────────────────────────────
 

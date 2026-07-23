@@ -22,31 +22,58 @@ import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
 import type { RoomState } from './types.js';
 
-/** Fisher–Yates shuffle (returns a new array). */
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j]!, a[i]!];
-  }
-  return a;
+/** Mark questions as shown (increments usageCount) so the NEXT game skips them
+ *  until the whole pool has cycled. This is what makes a question "never seen
+ *  again" across games until every other approved question has been used. */
+export async function markQuestionsUsed(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await prisma.question.updateMany({
+    where: { id: { in: ids } },
+    data: { usageCount: { increment: 1 } },
+  });
+}
+
+/**
+ * Draw up to `count` approved MCQs, least-recently-used first, then mark them used.
+ * Ordering: fewest usageCount first — so a game never repeats what recent games
+ * already showed; the entire pool cycles before any question can reappear — with a
+ * random tiebreak among equally-used questions so games at the same usage level
+ * still feel fresh. Pass `categoryId` to draw from one category; omit it to draw
+ * from the WHOLE approved bank (free + normal games). Marking used here means the
+ * next game automatically excludes these until the pool wraps.
+ */
+export async function drawFreshQuestions(count: number, categoryId?: string): Promise<string[]> {
+  const rows = await prisma.question.findMany({
+    where: {
+      deletedAt: null,
+      isApproved: true,
+      type: 'MULTIPLE_CHOICE',
+      ...(categoryId ? { categoryId } : {}),
+    },
+    select: { id: true, usageCount: true },
+  });
+  if (rows.length === 0) return [];
+  const ids = rows
+    .map((r) => ({ id: r.id, used: r.usageCount, rand: Math.random() }))
+    .sort((a, b) => a.used - b.used || a.rand - b.rand)
+    .slice(0, count)
+    .map((r) => r.id);
+  await markQuestionsUsed(ids);
+  return ids;
 }
 
 /**
  * Build the round question order for a category game: ensure the category has
- * enough questions (generating on demand), then draw a randomized set. Falls back
- * to an empty list (caller uses the package) if the category can't be filled.
+ * enough questions (generating on demand), then draw the least-recently-used set
+ * (marking them used). Falls back to an empty list (caller widens the pool) if the
+ * category can't be filled.
  */
 async function categoryQuestionOrder(categoryId: string, desiredRounds: number): Promise<string[]> {
   // Cap the synchronous fill at 15 so a brand-new category starts quickly; the
   // pool grows on each subsequent play. The game then draws up to desiredRounds
   // from whatever is available.
   await ensureCategoryQuestions(categoryId, Math.min(desiredRounds, 15));
-  const rows = await prisma.question.findMany({
-    where: { categoryId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
-    select: { id: true },
-  });
-  return shuffle(rows.map((r) => r.id)).slice(0, desiredRounds);
+  return drawFreshQuestions(desiredRounds, categoryId);
 }
 
 /**
@@ -121,9 +148,16 @@ export async function buildPerPlayerOrder(
       await ensureCategoryQuestions(catId, Math.min(perPlayer + 4, 15));
       const rows = await prisma.question.findMany({
         where: { categoryId: catId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
-        select: { id: true },
+        select: { id: true, usageCount: true },
       });
-      catPool.set(catId, shuffle(rows.map((r) => r.id)));
+      // Least-recently-used first (random tiebreak) so a paid game never repeats
+      // what recent games in this category already showed — the category cycles
+      // before any question reappears.
+      const ordered = rows
+        .map((r) => ({ id: r.id, used: r.usageCount, rand: Math.random() }))
+        .sort((a, b) => a.used - b.used || a.rand - b.rand)
+        .map((r) => r.id);
+      catPool.set(catId, ordered);
       catCursor.set(catId, 0);
     }
   }
@@ -152,6 +186,9 @@ export async function buildPerPlayerOrder(
     }
     if (!placed) break; // no player has any questions at all
   }
+  // Mark this game's questions used so the next paid game skips them until the
+  // category cycles — a question is never seen again while fresher ones remain.
+  await markQuestionsUsed(questionOrder);
   return { questionOrder, roundOwners };
 }
 
@@ -235,17 +272,20 @@ export async function createRoom(input: {
     questionOrder = [];
     totalRounds = settings.totalRounds ?? 35;
   } else {
-    let base = packageOrder;
+    // Draw the least-recently-used approved questions and mark them used, so a game
+    // never repeats what recent games showed — the whole bank (or the chosen
+    // category) cycles before any question can reappear, in FREE and paid alike.
+    const requested = settings.totalRounds ?? 15;
+    let base: string[] = [];
     if (settings.categoryId) {
-      const desired = settings.totalRounds ?? 35;
-      const catOrder = await categoryQuestionOrder(settings.categoryId, desired);
-      if (catOrder.length >= 4) base = catOrder;
+      base = await categoryQuestionOrder(settings.categoryId, requested);
+      if (base.length < 4) base = await drawFreshQuestions(requested); // thin category → widen to whole bank
+    } else {
+      base = await drawFreshQuestions(requested); // FREE + normal: least-used across the whole bank
     }
-    // Draw only distinct questions — never recycle — so a question never repeats in
-    // a game. If the pool is smaller than the requested count the game simply runs
-    // fewer rounds. `base` is already shuffled & distinct.
-    const requested = settings.totalRounds ?? base.length;
-    questionOrder = base.slice(0, requested);
+    // Last-resort fallback to the curated package only if the bank query returns
+    // nothing (empty/unseeded DB) so a game is always playable.
+    questionOrder = base.length > 0 ? base : packageOrder.slice(0, requested);
     totalRounds = questionOrder.length;
   }
 
