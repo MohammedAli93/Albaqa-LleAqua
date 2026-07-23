@@ -33,14 +33,21 @@ export async function markQuestionsUsed(ids: string[]): Promise<void> {
   });
 }
 
+/** Harder-first tiebreak within a usage tier: EXPERT/HARD are drawn before
+ *  MEDIUM/EASY, so games skew a bit more difficult (client 2026-07-23) WITHOUT
+ *  breaking the least-used rotation or starving thin categories (easy questions
+ *  still get their turn once the harder ones at the same usage level are spent). */
+const DIFFICULTY_RANK: Record<string, number> = { EXPERT: 0, HARD: 1, MEDIUM: 2, EASY: 3 };
+
 /**
  * Draw up to `count` approved MCQs, least-recently-used first, then mark them used.
  * Ordering: fewest usageCount first — so a game never repeats what recent games
- * already showed; the entire pool cycles before any question can reappear — with a
- * random tiebreak among equally-used questions so games at the same usage level
- * still feel fresh. Pass `categoryId` to draw from one category; omit it to draw
- * from the WHOLE approved bank (free + normal games). Marking used here means the
- * next game automatically excludes these until the pool wraps.
+ * already showed; the entire pool cycles before any question can reappear — then
+ * harder-first within the same usage tier (so games skew a little harder), then a
+ * random tiebreak so games at the same level still feel fresh. Pass `categoryId`
+ * to draw from one category; omit it to draw from the WHOLE approved bank (free +
+ * normal games). Marking used here means the next game automatically excludes
+ * these until the pool wraps.
  */
 export async function drawFreshQuestions(count: number, categoryId?: string): Promise<string[]> {
   const rows = await prisma.question.findMany({
@@ -50,12 +57,12 @@ export async function drawFreshQuestions(count: number, categoryId?: string): Pr
       type: 'MULTIPLE_CHOICE',
       ...(categoryId ? { categoryId } : {}),
     },
-    select: { id: true, usageCount: true },
+    select: { id: true, usageCount: true, difficulty: true },
   });
   if (rows.length === 0) return [];
   const ids = rows
-    .map((r) => ({ id: r.id, used: r.usageCount, rand: Math.random() }))
-    .sort((a, b) => a.used - b.used || a.rand - b.rand)
+    .map((r) => ({ id: r.id, used: r.usageCount, rank: DIFFICULTY_RANK[r.difficulty] ?? 2, rand: Math.random() }))
+    .sort((a, b) => a.used - b.used || a.rank - b.rank || a.rand - b.rand)
     .slice(0, count)
     .map((r) => r.id);
   await markQuestionsUsed(ids);
@@ -148,14 +155,15 @@ export async function buildPerPlayerOrder(
       await ensureCategoryQuestions(catId, Math.min(perPlayer + 4, 15));
       const rows = await prisma.question.findMany({
         where: { categoryId: catId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
-        select: { id: true, usageCount: true },
+        select: { id: true, usageCount: true, difficulty: true },
       });
-      // Least-recently-used first (random tiebreak) so a paid game never repeats
-      // what recent games in this category already showed — the category cycles
-      // before any question reappears.
+      // Least-recently-used first, then harder-first within a usage tier, then a
+      // random tiebreak — so a paid game never repeats what recent games in this
+      // category showed (the category cycles before any question reappears) while
+      // skewing a little harder.
       const ordered = rows
-        .map((r) => ({ id: r.id, used: r.usageCount, rand: Math.random() }))
-        .sort((a, b) => a.used - b.used || a.rand - b.rand)
+        .map((r) => ({ id: r.id, used: r.usageCount, rank: DIFFICULTY_RANK[r.difficulty] ?? 2, rand: Math.random() }))
+        .sort((a, b) => a.used - b.used || a.rank - b.rank || a.rand - b.rand)
         .map((r) => r.id);
       catPool.set(catId, ordered);
       catCursor.set(catId, 0);

@@ -63,9 +63,10 @@ export function initEngine(e: GameEmitter): void {
 /** "Get ready" countdown before every question opens for answering (3-2-1).
  *  This is the client-visible "next question in N" lead-in before each question,
  *  including the very first one after the host starts. Client feedback 2026-07-23:
- *  the first question appeared too abruptly → raised 2s → 4s so every question
- *  (especially the first) leads in with a visible countdown. */
-const GET_READY_MS = 4000;
+ *  the first question appeared too abruptly → raised to 5s (client 2026-07-23:
+ *  transition still felt fast, wants ~5s) so every question (especially the
+ *  first) leads in with a visible countdown. */
+const GET_READY_MS = 5000;
 
 // ─────────────────────────────── Join / leave ───────────────────────────────
 
