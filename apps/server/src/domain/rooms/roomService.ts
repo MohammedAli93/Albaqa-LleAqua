@@ -60,11 +60,29 @@ export async function pickCategoryQuestion(categoryId: string, exclude: Set<stri
     where: { categoryId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
     select: { id: true },
   });
-  const ids = rows.map((r) => r.id);
-  if (ids.length === 0) return null;
-  const fresh = ids.filter((id) => !exclude.has(id));
-  const pool = fresh.length ? fresh : ids; // recycle only once the category is spent
-  return pool[Math.floor(Math.random() * pool.length)]!;
+  // Never repeat a question already used this game: only draw from ones not in
+  // `exclude`. If the category is fully spent, return null so the caller widens the
+  // pool (to other categories) instead of recycling — no in-game repeats.
+  const fresh = rows.map((r) => r.id).filter((id) => !exclude.has(id));
+  if (fresh.length === 0) return null;
+  return fresh[Math.floor(Math.random() * fresh.length)]!;
+}
+
+/**
+ * Pick a random approved MCQ from the WHOLE bank that isn't in `exclude`. Used as
+ * the widening fallback when a game's own category runs out of unused questions, so
+ * an ELIMINATION duel or a tiebreak keeps going with a FRESH question instead of
+ * repeating one. Returns null only when every approved question is already used
+ * (practically never — the bank holds thousands).
+ */
+export async function pickAnyUnusedQuestion(exclude: Set<string>): Promise<string | null> {
+  const rows = await prisma.question.findMany({
+    where: { deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+    select: { id: true },
+  });
+  const fresh = rows.map((r) => r.id).filter((id) => !exclude.has(id));
+  if (fresh.length === 0) return null;
+  return fresh[Math.floor(Math.random() * fresh.length)]!;
 }
 
 /** Fallback category for players who never picked one (per-player mode). */

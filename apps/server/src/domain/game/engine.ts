@@ -45,7 +45,7 @@ import {
 } from './snapshot.js';
 import * as fsm from './fsm.js';
 import { profileStatUpdates } from './profileStats.js';
-import { buildPerPlayerOrder, pickCategoryQuestion } from '../rooms/roomService.js';
+import { buildPerPlayerOrder, pickCategoryQuestion, pickAnyUnusedQuestion } from '../rooms/roomService.js';
 import {
   scheduleRoundEnd,
   clearRoundTimer,
@@ -820,7 +820,9 @@ async function scheduleTiebreak(gameId: string): Promise<void> {
  *  when the package is fully spent. */
 async function pickTiebreakQuestion(state: RoomState): Promise<string> {
   const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
-  return pickPackageQuestion(state, used);
+  // Prefer a FRESH question from anywhere in the bank; only recycle the package as an
+  // absolute last resort (every approved question already used — practically never).
+  return (await pickAnyUnusedQuestion(used)) ?? pickPackageQuestion(state, used);
 }
 
 /** Pick a package question not in `used`; once the bank is fully spent, fall back
@@ -843,13 +845,14 @@ async function pickPackageQuestion(state: RoomState, used: Set<string>): Promise
  * another question (an unused one; recycle only once the source is spent) so the
  * duel always has a next question — no sudden-death "decisive question".
  *
- * The appended question stays within the game's configured category so the topic
- * doesn't drift once the scripted rounds are used up:
+ * The appended question prefers the game's configured category so the topic stays
+ * on-theme:
  *   - per-player-category → continue the round-robin among the SURVIVORS, drawing
  *     from each one's own category (an eliminated player's category stops coming up);
- *   - single category      → keep drawing from that category;
- *   - curated package      → draw from the package (already mixed by design).
- * No-op for other modes, and once a single survivor remains.
+ *   - single category      → keep drawing from that category.
+ * Once the category has no UNUSED questions left it widens to a fresh question from
+ * anywhere in the bank rather than repeat one — a question never repeats within a
+ * game. No-op for other modes, and once a single survivor remains.
  */
 async function ensureEliminationQuestion(state: RoomState): Promise<void> {
   if (state.mode !== GameMode.ELIMINATION || state.type !== GameType.INDIVIDUAL) return;
@@ -857,7 +860,7 @@ async function ensureEliminationQuestion(state: RoomState): Promise<void> {
   const active = activeParticipants(state);
   if (active.length <= 1) return; // game is about to end on its own
 
-  const used = new Set(state.questionOrder);
+  const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
   const nextIndex = state.questionOrder.length;
   let nextId: string | null = null;
   let ownerId: string | undefined;
@@ -872,7 +875,10 @@ async function ensureEliminationQuestion(state: RoomState): Promise<void> {
     nextId = await pickCategoryQuestion(state.settings.categoryId, used);
   }
 
-  // Fall back to the package (mixed categories) if no category-scoped question.
+  // The chosen category ran out of UNUSED questions → widen to a fresh question from
+  // anywhere in the bank rather than repeat one. Recycle the package only as an
+  // absolute last resort (the whole bank is used this game — never in practice).
+  if (!nextId) nextId = await pickAnyUnusedQuestion(used);
   if (!nextId) nextId = await pickPackageQuestion(state, used);
 
   state.questionOrder.push(nextId);
