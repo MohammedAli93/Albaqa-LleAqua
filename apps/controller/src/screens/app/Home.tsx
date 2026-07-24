@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut, ScanLine, ChevronRight, ChevronLeft,
-  Facebook, Instagram, Twitter, Linkedin, type LucideIcon,
 } from 'lucide-react';
 import { GameType, GameMode, GameTier } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
@@ -463,12 +462,7 @@ function SiteFooter() {
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/55">
             برنامج المسابقات الأول — العبوا مع العائلة والأصدقاء على الشاشة الكبيرة.
           </p>
-          <div className="mt-5 flex items-center gap-3">
-            <SocialIcon icon={Facebook} label="فيسبوك" />
-            <SocialIcon icon={Instagram} label="إنستغرام" />
-            <SocialIcon icon={Twitter} label="إكس" />
-            <SocialIcon icon={Linkedin} label="لينكدإن" />
-          </div>
+          {/* Social links removed until real accounts exist (were dead href="#" placeholders). */}
         </div>
         {/* الأسعار والمساعدة القانونية — روابط الصفحات المطلوبة لاعتماد بوابة الدفع */}
         <FooterCol
@@ -520,14 +514,3 @@ function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   );
 }
 
-function SocialIcon({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <a
-      href="#" aria-label={label}
-      className="grid h-9 w-9 place-items-center rounded-full text-desert-night transition hover:opacity-80"
-      style={{ backgroundColor: GOLD }}
-    >
-      <Icon size={16} />
-    </a>
-  );
-}
