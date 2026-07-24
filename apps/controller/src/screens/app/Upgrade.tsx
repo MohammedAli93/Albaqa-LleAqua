@@ -5,6 +5,7 @@ import { type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
+import { Terms } from './Legal.js';
 
 type Product = { sku: string; nameAr: string; nameEn?: string | null; kind: string; credits: number | null; priceMinor: number; currency: string };
 type Stage = 'offer' | 'confirming' | 'success' | 'cancelled' | 'error';
@@ -27,6 +28,8 @@ export function Upgrade() {
   const [stage, setStage] = useState<Stage>('offer');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Terms & Conditions consent gate — the buyer must accept before checkout.
+  const [showTerms, setShowTerms] = useState(false);
 
   // Load the credit packages. Non-fatal if it fails (offer just shows nothing).
   useEffect(() => {
@@ -209,7 +212,7 @@ export function Upgrade() {
           <div className="mt-auto pt-8">
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={buy}
+              onClick={() => { setErr(null); setShowTerms(true); }}
               disabled={busy || !selected}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-brand py-5 font-display text-2xl font-bold text-white shadow-glow disabled:opacity-40"
             >
@@ -218,6 +221,45 @@ export function Upgrade() {
             </motion.button>
           </div>
         </>
+      )}
+
+      {/* Terms & Conditions consent panel — must accept to proceed to payment. */}
+      {showTerms && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
+          onClick={() => setShowTerms(false)}
+        >
+          <motion.div
+            initial={{ y: 48, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-3xl bg-white text-desert-ink sm:rounded-3xl"
+          >
+            <div className="flex-1 overflow-y-auto px-5 py-6">
+              <Terms />
+            </div>
+            <div className="border-t border-black/5 bg-white px-5 py-4">
+              <p className="mb-3 text-center text-sm text-ink-secondary">
+                بالمتابعة فإنك توافق على الشروط والأحكام وسياسة الخصوصية.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTerms(false)}
+                  className="flex-1 rounded-2xl bg-bg-sunken py-4 font-display text-lg font-bold text-ink-secondary"
+                >
+                  إلغاء
+                </button>
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { setShowTerms(false); void buy(); }}
+                  className="flex-[1.4] rounded-2xl bg-gradient-brand py-4 font-display text-lg font-bold text-white shadow-glow"
+                >
+                  أوافق وأتابع الدفع
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

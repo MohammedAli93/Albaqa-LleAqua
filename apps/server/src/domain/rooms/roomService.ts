@@ -39,6 +39,14 @@ export async function markQuestionsUsed(ids: string[]): Promise<void> {
  *  still get their turn once the harder ones at the same usage level are spent). */
 const DIFFICULTY_RANK: Record<string, number> = { EXPERT: 0, HARD: 1, MEDIUM: 2, EASY: 3 };
 
+/** Random shuffle (used for the fixed free-tier set so replays vary in order). */
+function shuffleIds(ids: string[]): string[] {
+  return ids
+    .map((id) => ({ id, r: Math.random() }))
+    .sort((a, b) => a.r - b.r)
+    .map((x) => x.id);
+}
+
 /**
  * Draw up to `count` approved MCQs, least-recently-used first, then mark them used.
  * Ordering: fewest usageCount first — so a game never repeats what recent games
@@ -280,16 +288,22 @@ export async function createRoom(input: {
     questionOrder = [];
     totalRounds = settings.totalRounds ?? 35;
   } else {
-    // Draw the least-recently-used approved questions and mark them used, so a game
-    // never repeats what recent games showed — the whole bank (or the chosen
-    // category) cycles before any question can reappear, in FREE and paid alike.
     const requested = settings.totalRounds ?? 15;
     let base: string[] = [];
-    if (settings.categoryId) {
+    if (isIndividual && tier === GameTier.FREE) {
+      // FREE tier: play ONLY the fixed free-15 demo set (reshuffled each game) and
+      // never touch the paid bank — no drawFreshQuestions, no markQuestionsUsed. So
+      // the free version replays the same 15 questions every game and gives away no
+      // paid content until the host actually pays for a game.
+      base = shuffleIds(packageOrder).slice(0, requested);
+    } else if (settings.categoryId) {
+      // Draw the least-recently-used approved questions and mark them used, so a game
+      // never repeats what recent games showed — the whole bank (or the chosen
+      // category) cycles before any question can reappear.
       base = await categoryQuestionOrder(settings.categoryId, requested);
       if (base.length < 4) base = await drawFreshQuestions(requested); // thin category → widen to whole bank
     } else {
-      base = await drawFreshQuestions(requested); // FREE + normal: least-used across the whole bank
+      base = await drawFreshQuestions(requested); // paid/normal: least-used across the whole bank
     }
     // Last-resort fallback to the curated package only if the bank query returns
     // nothing (empty/unseeded DB) so a game is always playable.

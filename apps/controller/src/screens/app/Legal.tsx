@@ -221,7 +221,7 @@ function Pricing() {
 
 /* ─────────────────────────── 2 · Terms ─────────────────────────── */
 
-function Terms() {
+export function Terms() {
   return (
     <>
       <DocTitle ar="الشروط والأحكام" en="Terms & Conditions" />
