@@ -71,7 +71,12 @@ export async function listPlayers(cursor: string | undefined, limit: number): Pr
       // current play wallet (a purchase leaves credits behind even after use).
       orders: {
         where: { status: 'PAID' },
-        select: { amountMinor: true, currency: true, createdAt: true },
+        select: {
+          amountMinor: true,
+          currency: true,
+          createdAt: true,
+          product: { select: { nameEn: true, nameAr: true, sku: true } },
+        },
         orderBy: { createdAt: 'desc' },
       },
       wallet: { select: { credits: true, freeGameUsed: true } },
@@ -83,12 +88,21 @@ export async function listPlayers(cursor: string | undefined, limit: number): Pr
   // the most recent purchase date. Multiple currencies are summed per currency.
   const shaped = page.map(({ orders, wallet, ...p }) => {
     const spentByCurrency: Record<string, number> = {};
-    for (const o of orders) spentByCurrency[o.currency] = (spentByCurrency[o.currency] ?? 0) + o.amountMinor;
+    // Which package(s) the player bought, most-recent first, with a count per
+    // package. Orders are already sorted desc, so a Map preserves that order.
+    const pkgCounts = new Map<string, number>();
+    for (const o of orders) {
+      spentByCurrency[o.currency] = (spentByCurrency[o.currency] ?? 0) + o.amountMinor;
+      const name = o.product?.nameEn ?? o.product?.nameAr ?? o.product?.sku ?? 'Package';
+      pkgCounts.set(name, (pkgCounts.get(name) ?? 0) + 1);
+    }
+    const packages = [...pkgCounts.entries()].map(([name, count]) => ({ name, count }));
     return {
       ...p,
       isPaid: orders.length > 0,
       paidOrderCount: orders.length,
       spentByCurrency,
+      packages,
       lastPurchaseAt: orders[0]?.createdAt ?? null,
       walletCredits: wallet?.credits ?? 0,
     };

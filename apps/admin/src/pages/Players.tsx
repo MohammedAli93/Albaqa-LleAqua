@@ -15,6 +15,7 @@ interface Player {
   isPaid: boolean;
   paidOrderCount: number;
   spentByCurrency: Record<string, number>;
+  packages: { name: string; count: number }[];
   lastPurchaseAt: string | null;
   walletCredits: number;
 }
@@ -45,6 +46,8 @@ export function Players() {
               <th className="p-3">Mobile</th>
               <th className="p-3">Country</th>
               <th className="p-3">Paid</th>
+              <th className="p-3">Package</th>
+              <th className="p-3">Credits</th>
               <th className="p-3">Points wins</th>
               <th className="p-3">Elimination wins</th>
               <th className="p-3">Team wins</th>
@@ -76,6 +79,20 @@ export function Players() {
                     </span>
                   )}
                 </td>
+                <td className="p-3">
+                  {p.packages.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {p.packages.map((pkg) => (
+                        <span key={pkg.name} className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                          {pkg.name}{pkg.count > 1 ? ` ×${pkg.count}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-slate-300">—</span>
+                  )}
+                </td>
+                <td className="p-3 tnum">{p.walletCredits}</td>
                 <td className="p-3 tnum">{p.pointsWins}</td>
                 <td className="p-3 tnum">{p.eliminationWins}</td>
                 <td className="p-3 tnum">{p.teamWins}</td>

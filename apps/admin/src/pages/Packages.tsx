@@ -1,72 +1,57 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Globe, Lock } from 'lucide-react';
-import { get, post } from '../api/client.js';
+import { useQuery } from '@tanstack/react-query';
+import { Ticket } from 'lucide-react';
+import { get } from '../api/client.js';
 
-interface Pkg {
-  id: string;
-  slug: string;
-  titleAr: string;
-  titleEn?: string;
-  isPublished: boolean;
-  isPremium: boolean;
-  _count?: { questions: number };
+/** Sellable credit package (what a host buys — 1/2/5/10 games). */
+interface Product {
+  sku: string;
+  nameAr: string;
+  nameEn?: string | null;
+  kind: string;
+  credits?: number | null;
+  priceMinor: number;
+  currency: string;
+}
+
+function money(minor: number, currency: string): string {
+  return `${(minor / 100).toFixed(2)} ${currency}`;
 }
 
 export function Packages() {
-  const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ['packages'], queryFn: () => get<{ packages: Pkg[] }>('/api/v1/admin/packages') });
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ slug: '', titleAr: '', titleEn: '' });
-
-  const create = useMutation({
-    mutationFn: () => post('/api/v1/admin/packages', form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['packages'] }); setOpen(false); setForm({ slug: '', titleAr: '', titleEn: '' }); },
+  const { data } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => get<{ products: Product[] }>('/api/v1/payments/products'),
   });
-  const publish = useMutation({
-    mutationFn: (p: Pkg) => post(`/api/v1/admin/packages/${p.id}/publish`, { isPublished: !p.isPublished }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['packages'] }),
-  });
+  const products = data?.products ?? [];
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold">Packages</h1>
-        <button className="btn-primary" onClick={() => setOpen((v) => !v)}><Plus size={18} /> New</button>
+        <p className="text-sm text-slate-500">The game-credit packages hosts can buy. Each credit unlocks one paid (35-question) game.</p>
       </div>
 
-      {open && (
-        <div className="card mb-6 grid grid-cols-3 gap-4 p-5">
-          <div><label className="label">Slug</label><input className="input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
-          <div><label className="label">Title (AR)</label><input className="input" dir="rtl" value={form.titleAr} onChange={(e) => setForm({ ...form, titleAr: e.target.value })} /></div>
-          <div><label className="label">Title (EN)</label><input className="input" value={form.titleEn} onChange={(e) => setForm({ ...form, titleEn: e.target.value })} /></div>
-          <div className="col-span-3 flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-            <button className="btn-primary" disabled={create.isPending} onClick={() => create.mutate()}>Save</button>
-          </div>
-          {create.isError && <p className="col-span-3 text-danger">{(create.error as Error).message}</p>}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        {data?.packages.map((p) => (
-          <div key={p.id} className="card p-5">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-mono text-xs text-slate-400">{p.slug}</span>
-              {p.isPremium ? <Lock size={16} className="text-warning" /> : null}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((p) => (
+          <div key={p.sku} className="card flex flex-col p-5">
+            <div className="mb-3 flex items-center gap-2 text-primary">
+              <Ticket size={18} />
+              <span className="font-mono text-xs text-slate-400">{p.sku}</span>
             </div>
-            <h3 className="text-lg font-bold" dir="rtl">{p.titleAr}</h3>
-            <p className="text-sm text-slate-500">{p._count?.questions ?? 0} questions</p>
-            <button
-              onClick={() => publish.mutate(p)}
-              className={`btn mt-4 w-full justify-center text-sm ${p.isPublished ? 'bg-success/10 text-success' : 'btn-ghost'}`}
-            >
-              <Globe size={16} /> {p.isPublished ? 'Published' : 'Publish'}
-            </button>
+            <h3 className="text-lg font-bold" dir="rtl">{p.nameAr}</h3>
+            {p.nameEn && <p className="text-sm text-slate-500">{p.nameEn}</p>}
+            <div className="mt-4 flex items-end justify-between">
+              <span className="text-2xl font-extrabold">{money(p.priceMinor, p.currency)}</span>
+              {p.kind === 'CREDITS' && p.credits != null && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-sm font-semibold text-emerald-700">
+                  {p.credits} {p.credits === 1 ? 'game' : 'games'}
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>
-      {!data?.packages.length && <p className="text-slate-400">No packages yet.</p>}
+      {!products.length && <p className="text-slate-400">No packages found.</p>}
     </div>
   );
 }
