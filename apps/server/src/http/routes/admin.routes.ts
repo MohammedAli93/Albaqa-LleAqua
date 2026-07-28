@@ -103,6 +103,9 @@ adminRouter.post(
     const q = await content.createQuestion({
       ...input,
       options: input.options,
+      // Tagged so the seed's prune (which retires questions dropped from the static
+      // bank) never deletes a question an editor added by hand.
+      tags: input.tags?.length ? input.tags : ['admin'],
     } as Parameters<typeof content.createQuestion>[0]);
     await audit({ actorId: req.auth!.userId, action: 'question.create', entityType: 'Question', entityId: q.id, ip: req.ip });
     ok(res, q, 201);
