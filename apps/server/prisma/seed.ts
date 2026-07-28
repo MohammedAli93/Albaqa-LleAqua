@@ -178,6 +178,16 @@ async function main() {
   if (purgedLeaks > 0) console.log(`  ⊘ soft-deleted ${purgedLeaks} pre-existing answer-leak questions`);
   if (purgedDupes > 0) console.log(`  ⊘ soft-deleted ${purgedDupes} pre-existing duplicate questions`);
 
+  // Retire the "very hard" tier for good (client 2026-07-28: «الأسئلة الصعبة جداً
+  // احذفها»). EXPERT rows are dropped from the bank above; this clears any that a
+  // previous seed (or the AI generator) already wrote to the DB. The draw also
+  // filters EXPERT out, so this is belt-and-braces.
+  const purgedExpert = await prisma.question.updateMany({
+    where: { difficulty: 'EXPERT', deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (purgedExpert.count > 0) console.log(`  ⊘ soft-deleted ${purgedExpert.count} EXPERT (very hard) questions`);
+
   // ── Demo package ──────────────────────────────────────────────────────────────
   const pkg = await prisma.package.upsert({
     where: { slug: 'demo-mixed' },

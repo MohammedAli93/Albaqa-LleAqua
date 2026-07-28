@@ -33,11 +33,40 @@ export async function markQuestionsUsed(ids: string[]): Promise<void> {
   });
 }
 
-/** Harder-first tiebreak within a usage tier: EXPERT/HARD are drawn before
- *  MEDIUM/EASY, so games skew a bit more difficult (client 2026-07-23) WITHOUT
- *  breaking the least-used rotation or starving thin categories (easy questions
- *  still get their turn once the harder ones at the same usage level are spent). */
-const DIFFICULTY_RANK: Record<string, number> = { EXPERT: 0, HARD: 1, MEDIUM: 2, EASY: 3 };
+/** Difficulties a live game may serve. «الأسئلة الصعبة جداً احذفها» — EXPERT rows
+ *  are excluded from every draw (and soft-deleted by the seed). */
+const PLAYABLE_DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'] as const;
+
+/** Share of a game's questions that may be HARD. The rest is MEDIUM/EASY, so a
+ *  game reads as "medium" overall instead of a wall of hard questions. */
+const HARD_SHARE = 0.15;
+
+/**
+ * Compose a medium-weighted round order out of difficulty-bucketed candidates.
+ * Each bucket is already ordered (least-used first). We take at most `HARD_SHARE`
+ * of the count from HARD, fill the rest from MEDIUM then EASY, and top up from
+ * whatever is left if a bucket runs dry — so a thin category still yields a full
+ * game. The result is shuffled so difficulty isn't clustered at the start.
+ */
+function blendByDifficulty(
+  buckets: { EASY: string[]; MEDIUM: string[]; HARD: string[] },
+  count: number,
+): string[] {
+  const hardQuota = Math.floor(count * HARD_SHARE);
+  const picked: string[] = [];
+  const take = (from: string[], n: number) => {
+    for (let i = 0; i < n && from.length > 0; i++) picked.push(from.shift()!);
+  };
+  take(buckets.HARD, hardQuota);
+  // Alternate MEDIUM/EASY (medium-leaning) for the remainder.
+  while (picked.length < count && (buckets.MEDIUM.length > 0 || buckets.EASY.length > 0)) {
+    take(buckets.MEDIUM, 2);
+    take(buckets.EASY, 1);
+  }
+  // Still short (thin category / few easy+medium) → top up with the leftovers.
+  if (picked.length < count) take(buckets.HARD, count - picked.length);
+  return shuffleIds(picked.slice(0, count));
+}
 
 /** Random shuffle (used for the fixed free-tier set so replays vary in order). */
 function shuffleIds(ids: string[]): string[] {
@@ -50,12 +79,13 @@ function shuffleIds(ids: string[]): string[] {
 /**
  * Draw up to `count` approved MCQs, least-recently-used first, then mark them used.
  * Ordering: fewest usageCount first — so a game never repeats what recent games
- * already showed; the entire pool cycles before any question can reappear — then
- * harder-first within the same usage tier (so games skew a little harder), then a
- * random tiebreak so games at the same level still feel fresh. Pass `categoryId`
- * to draw from one category; omit it to draw from the WHOLE approved bank (free +
- * normal games). Marking used here means the next game automatically excludes
- * these until the pool wraps.
+ * already showed; the entire pool cycles before any question can reappear — then a
+ * random tiebreak so games at the same level still feel fresh. The picked set is
+ * then composed by difficulty (mostly MEDIUM/EASY, at most ~15% HARD, never
+ * EXPERT) so the game reads as medium. Pass `categoryId` to draw from one
+ * category; omit it to draw from the WHOLE approved bank (free + normal games).
+ * Marking used here means the next game automatically excludes these until the
+ * pool wraps.
  */
 export async function drawFreshQuestions(count: number, categoryId?: string): Promise<string[]> {
   const rows = await prisma.question.findMany({
@@ -63,16 +93,18 @@ export async function drawFreshQuestions(count: number, categoryId?: string): Pr
       deletedAt: null,
       isApproved: true,
       type: 'MULTIPLE_CHOICE',
+      difficulty: { in: [...PLAYABLE_DIFFICULTIES] },
       ...(categoryId ? { categoryId } : {}),
     },
     select: { id: true, usageCount: true, difficulty: true },
   });
   if (rows.length === 0) return [];
-  const ids = rows
-    .map((r) => ({ id: r.id, used: r.usageCount, rank: DIFFICULTY_RANK[r.difficulty] ?? 2, rand: Math.random() }))
-    .sort((a, b) => a.used - b.used || a.rank - b.rank || a.rand - b.rand)
-    .slice(0, count)
-    .map((r) => r.id);
+  const ordered = rows
+    .map((r) => ({ id: r.id, used: r.usageCount, diff: r.difficulty, rand: Math.random() }))
+    .sort((a, b) => a.used - b.used || a.rand - b.rand);
+  const buckets = { EASY: [] as string[], MEDIUM: [] as string[], HARD: [] as string[] };
+  for (const r of ordered) (buckets[r.diff as keyof typeof buckets] ?? buckets.MEDIUM).push(r.id);
+  const ids = blendByDifficulty(buckets, count);
   await markQuestionsUsed(ids);
   return ids;
 }
@@ -99,7 +131,13 @@ async function categoryQuestionOrder(categoryId: string, desiredRounds: number):
  */
 export async function pickCategoryQuestion(categoryId: string, exclude: Set<string>): Promise<string | null> {
   const rows = await prisma.question.findMany({
-    where: { categoryId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+    where: {
+      categoryId,
+      deletedAt: null,
+      isApproved: true,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: { in: [...PLAYABLE_DIFFICULTIES] },
+    },
     select: { id: true },
   });
   // Never repeat a question already used this game: only draw from ones not in
@@ -119,7 +157,12 @@ export async function pickCategoryQuestion(categoryId: string, exclude: Set<stri
  */
 export async function pickAnyUnusedQuestion(exclude: Set<string>): Promise<string | null> {
   const rows = await prisma.question.findMany({
-    where: { deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+    where: {
+      deletedAt: null,
+      isApproved: true,
+      type: 'MULTIPLE_CHOICE',
+      difficulty: { in: [...PLAYABLE_DIFFICULTIES] },
+    },
     select: { id: true },
   });
   const fresh = rows.map((r) => r.id).filter((id) => !exclude.has(id));
@@ -162,17 +205,30 @@ export async function buildPerPlayerOrder(
     if (!catPool.has(catId)) {
       await ensureCategoryQuestions(catId, Math.min(perPlayer + 4, 15));
       const rows = await prisma.question.findMany({
-        where: { categoryId: catId, deletedAt: null, isApproved: true, type: 'MULTIPLE_CHOICE' },
+        where: {
+          categoryId: catId,
+          deletedAt: null,
+          isApproved: true,
+          type: 'MULTIPLE_CHOICE',
+          difficulty: { in: [...PLAYABLE_DIFFICULTIES] },
+        },
         select: { id: true, usageCount: true, difficulty: true },
       });
-      // Least-recently-used first, then harder-first within a usage tier, then a
-      // random tiebreak — so a paid game never repeats what recent games in this
-      // category showed (the category cycles before any question reappears) while
-      // skewing a little harder.
-      const ordered = rows
-        .map((r) => ({ id: r.id, used: r.usageCount, rank: DIFFICULTY_RANK[r.difficulty] ?? 2, rand: Math.random() }))
-        .sort((a, b) => a.used - b.used || a.rank - b.rank || a.rand - b.rand)
-        .map((r) => r.id);
+      // Least-recently-used first, then a random tiebreak — so a paid game never
+      // repeats what recent games in this category showed (the category cycles
+      // before any question reappears) — then composed medium-first so the pool
+      // this player draws from is mostly MEDIUM/EASY (client 2026-07-28).
+      const byUse = rows
+        .map((r) => ({ id: r.id, used: r.usageCount, diff: r.difficulty, rand: Math.random() }))
+        .sort((a, b) => a.used - b.used || a.rand - b.rand);
+      const catBuckets = { EASY: [] as string[], MEDIUM: [] as string[], HARD: [] as string[] };
+      for (const r of byUse) (catBuckets[r.diff as keyof typeof catBuckets] ?? catBuckets.MEDIUM).push(r.id);
+      // Blend only the head the game will actually consume (so the least-used
+      // rotation is preserved), then keep the rest as a least-used-first tail for
+      // categories that end up carrying more rounds than their share.
+      const head = blendByDifficulty(catBuckets, Math.min(byUse.length, targetRounds));
+      const inHead = new Set(head);
+      const ordered = [...head, ...byUse.map((r) => r.id).filter((id) => !inHead.has(id))];
       catPool.set(catId, ordered);
       catCursor.set(catId, 0);
     }

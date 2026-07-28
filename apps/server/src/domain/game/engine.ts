@@ -11,6 +11,7 @@ import {
   GameStatus,
   GameType,
   GameMode,
+  GameTier,
   RoundPhase,
   ParticipantStatus,
   ServerEvent,
@@ -818,12 +819,22 @@ async function scheduleTiebreak(gameId: string): Promise<void> {
   );
 }
 
+/** A FREE individual game is walled off from the paid bank: it may only ever
+ *  serve questions from the fixed free-15 pack, replaying them once the 15 are
+ *  spent (client 2026-07-28: «خلها تنعاد الأسئلة المجانية عليه عشان يضطر يشتري
+ *  ألعاب»). Paid/teams games draw from the whole bank as before. */
+function isFreeTier(state: RoomState): boolean {
+  return state.type === GameType.INDIVIDUAL && state.settings.tier === GameTier.FREE;
+}
+
 /** A package question not yet used (scripted or prior tiebreak); reuse one only
  *  when the package is fully spent. */
 async function pickTiebreakQuestion(state: RoomState): Promise<string> {
   const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
-  // Prefer a FRESH question from anywhere in the bank; only recycle the package as an
+  // FREE stays inside its own pack (recycling it); paid games prefer a FRESH
+  // question from anywhere in the bank and only recycle the package as an
   // absolute last resort (every approved question already used — practically never).
+  if (isFreeTier(state)) return pickPackageQuestion(state, used);
   return (await pickAnyUnusedQuestion(used)) ?? pickPackageQuestion(state, used);
 }
 
@@ -866,6 +877,13 @@ async function ensureEliminationQuestion(state: RoomState): Promise<void> {
   const nextIndex = state.questionOrder.length;
   let nextId: string | null = null;
   let ownerId: string | undefined;
+
+  // FREE tier: never widen into the paid bank — replay the free-15 pack instead,
+  // so a free elimination duel past question 15 keeps recycling the same set.
+  if (isFreeTier(state)) {
+    state.questionOrder.push(await pickPackageQuestion(state, used));
+    return;
+  }
 
   if (state.settings.perPlayerCategory) {
     // Rotate through the survivors (join order) and draw from the owner's category.

@@ -74,11 +74,18 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'seerah', nameAr: 'السيرة النبوية', nameEn: "The Prophet's Biography", group: 'religion' },
   { slug: 'prophets-companions', nameAr: 'الأنبياء والصحابة', nameEn: 'Prophets & Companions', group: 'religion' },
 
-  // الرياضة
+  // الرياضة — عربية أولاً (طلب العميل 2026-07-28): دوريات وبطولات عربية بفئات مستقلة
   { slug: 'sports', nameAr: 'الرياضة', nameEn: 'Sports', group: 'sports' },
-  { slug: 'football-world', nameAr: 'كرة القدم العالمية', nameEn: 'World Football', group: 'sports' },
   { slug: 'football-arab', nameAr: 'كرة القدم العربية', nameEn: 'Arab Football', group: 'sports' },
   { slug: 'saudi-league', nameAr: 'الدوري السعودي', nameEn: 'Saudi League', group: 'sports' },
+  { slug: 'egypt-league', nameAr: 'الدوري المصري', nameEn: 'Egyptian League', group: 'sports' },
+  { slug: 'football-gulf', nameAr: 'كرة القدم الخليجية', nameEn: 'Gulf Football', group: 'sports' },
+  { slug: 'football-morocco', nameAr: 'كرة القدم المغربية', nameEn: 'Moroccan Football', group: 'sports' },
+  { slug: 'gulf-cup', nameAr: 'كأس الخليج', nameEn: 'Gulf Cup', group: 'sports' },
+  { slug: 'arab-cup', nameAr: 'كأس العرب', nameEn: 'Arab Cup', group: 'sports' },
+  { slug: 'asian-cup', nameAr: 'كأس آسيا', nameEn: 'AFC Asian Cup', group: 'sports' },
+  { slug: 'africa-cup', nameAr: 'كأس أفريقيا', nameEn: 'Africa Cup of Nations', group: 'sports' },
+  { slug: 'football-world', nameAr: 'كرة القدم العالمية', nameEn: 'World Football', group: 'sports' },
   { slug: 'world-cup', nameAr: 'كأس العالم', nameEn: 'World Cup', group: 'sports' },
 
   // العلوم والتقنية
@@ -95,10 +102,18 @@ export const CATEGORIES: CategoryDef[] = [
 
   // الترفيه
   { slug: 'video-games', nameAr: 'الألعاب الإلكترونية', nameEn: 'Video Games', group: 'entertainment' },
-  { slug: 'movies-series', nameAr: 'الأفلام والمسلسلات', nameEn: 'Movies & Series', group: 'entertainment' },
+  // السينما والفن: عربية بالدرجة الأولى ومقسّمة إقليمياً (طلب العميل 2026-07-28).
+  // الأسئلة الأجنبية مسموحة لكن بنسبة ≤ ١٠٪ داخل كل فئة.
+  { slug: 'movies-series', nameAr: 'السينما والدراما العربية', nameEn: 'Arab Cinema & Drama', group: 'entertainment' },
+  { slug: 'cinema-gulf', nameAr: 'السينما والدراما الخليجية', nameEn: 'Gulf Cinema & Drama', group: 'entertainment' },
+  { slug: 'cinema-iraq', nameAr: 'السينما والدراما العراقية', nameEn: 'Iraqi Cinema & Drama', group: 'entertainment' },
+  { slug: 'cinema-levant', nameAr: 'السينما والدراما الشامية', nameEn: 'Levantine Cinema & Drama', group: 'entertainment' },
   { slug: 'anime-cartoon', nameAr: 'الأنمي والكرتون', nameEn: 'Anime & Cartoons', group: 'entertainment' },
-  { slug: 'celebrities', nameAr: 'المشاهير', nameEn: 'Celebrities', group: 'entertainment' },
-  { slug: 'art-music', nameAr: 'الفن والموسيقى', nameEn: 'Art & Music', group: 'entertainment' },
+  { slug: 'celebrities', nameAr: 'مشاهير العرب', nameEn: 'Arab Celebrities', group: 'entertainment' },
+  { slug: 'art-music', nameAr: 'الفن والطرب العربي', nameEn: 'Arab Art & Music', group: 'entertainment' },
+  { slug: 'art-gulf', nameAr: 'الفن الخليجي', nameEn: 'Gulf Art & Music', group: 'entertainment' },
+  { slug: 'art-iraq', nameAr: 'الفن العراقي', nameEn: 'Iraqi Art & Music', group: 'entertainment' },
+  { slug: 'art-levant', nameAr: 'الفن الشامي', nameEn: 'Levantine Art & Music', group: 'entertainment' },
   { slug: 'guess', nameAr: 'خمّن (شعارات وصور)', nameEn: 'Guess (logos & pictures)', group: 'entertainment' },
 
   // اللغة والثقافة

@@ -227,7 +227,15 @@ export function AnswerPill({
       }`}
       style={{ background: c.fill }}
     >
-      <span className="flex-1 truncate text-center font-display text-xl font-extrabold drop-shadow-sm" dir="auto">
+      {/* Long answers must stay READABLE on the phone — the client had to look at
+          the TV to see the rest. So: wrap onto up to 3 lines and step the font
+          down as the text grows, instead of cutting it off with an ellipsis. */}
+      <span
+        className={`min-w-0 flex-1 text-balance break-words px-1 text-center font-display font-extrabold leading-tight drop-shadow-sm ${
+          text.length > 34 ? 'text-sm' : text.length > 22 ? 'text-base' : text.length > 14 ? 'text-lg' : 'text-xl'
+        }`}
+        dir="auto"
+      >
         {text}
       </span>
       <span

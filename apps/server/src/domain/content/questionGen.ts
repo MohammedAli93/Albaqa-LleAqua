@@ -32,8 +32,9 @@ const SYSTEM_PROMPT = `أنت مولّد أسئلة لمسابقة ثقافية 
 القواعد:
 - مناسبة لكل الأعمار، عائلية، بدون أي محتوى حسّاس أو سياسي مثير للجدل أو مسيء.
 - دقيقة وصحيحة المعلومة، والإجابة الصحيحة لا لبس فيها.
-- متنوعة الصعوبة (سهل/متوسط/صعب/خبير) ومتنوعة الزوايا داخل نفس الموضوع.
-- صياغة عربية فصيحة مبسّطة وواضحة، والخيارات قصيرة ومتقاربة المعقولية.
+- المستوى متوسط في العموم: أغلب الأسئلة MEDIUM أو EASY، وبحد أقصى 15% منها HARD، ولا تستخدم مستوى EXPERT إطلاقاً.
+- الجمهور عربي: المحتوى عربي/خليجي في الأغلب، ولا تتجاوز الأسئلة الأجنبية 10%.
+- صياغة عربية فصيحة مبسّطة وواضحة، والخيارات قصيرة (٢٠ حرفاً كحد أقصى لكل خيار) ومتقاربة المعقولية.
 - لا تكرّر سؤالاً ورد في قائمة "أسئلة موجودة".
 أعطِ ترجمة إنجليزية مختصرة لكل سؤال وخياراته، وشرحاً عربياً موجزاً للإجابة.`;
 
@@ -59,7 +60,7 @@ const OUTPUT_SCHEMA = {
             },
           },
           correctIndex: { type: 'integer', enum: [0, 1, 2, 3] },
-          difficulty: { type: 'string', enum: ['EASY', 'MEDIUM', 'HARD', 'EXPERT'] },
+          difficulty: { type: 'string', enum: ['EASY', 'MEDIUM', 'HARD'] },
           explanationAr: { type: 'string' },
         },
         required: ['promptAr', 'promptEn', 'options', 'correctIndex', 'difficulty', 'explanationAr'],
@@ -74,7 +75,7 @@ interface GenQuestion {
   promptEn: string;
   options: Array<{ ar: string; en: string }>;
   correctIndex: number;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   explanationAr: string;
 }
 
@@ -204,6 +205,9 @@ function isValid(q: GenQuestion): boolean {
     Number.isInteger(q.correctIndex) &&
     q.correctIndex >= 0 &&
     q.correctIndex <= 3 &&
-    ['EASY', 'MEDIUM', 'HARD', 'EXPERT'].includes(q.difficulty)
+    // EXPERT is rejected outright — the game never serves it (client 2026-07-28).
+    ['EASY', 'MEDIUM', 'HARD'].includes(q.difficulty) &&
+    // Long options get cut off on the phone → keep them short.
+    q.options.every((o) => o.ar.trim().length <= 28)
   );
 }
