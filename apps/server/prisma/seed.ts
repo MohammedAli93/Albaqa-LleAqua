@@ -202,15 +202,25 @@ async function main() {
   // touched, and neither is anything from a seed that predates tagging… except the
   // untagged legacy rows, which ARE stale bank content by definition (nothing else
   // wrote to this table) and so are retired too.
-  const retired = await prisma.question.updateMany({
-    where: {
-      deletedAt: null,
-      id: { notIn: [...bankIds] },
-      NOT: { tags: { hasSome: ['admin', 'ai'] } },
-    },
-    data: { deletedAt: new Date() },
+  // Filtered in JS, not SQL: the oldest rows have `tags = NULL` (they predate the
+  // column's default), and a `NOT { tags: { hasSome } }` filter evaluates to NULL
+  // for those — so they silently survived the prune.
+  const liveNow = await prisma.question.findMany({
+    where: { deletedAt: null },
+    select: { id: true, tags: true },
   });
-  if (retired.count > 0) console.log(`  ⊘ retired ${retired.count} questions no longer in the bank`);
+  const retireIds = liveNow
+    .filter((q) => !bankIds.has(q.id) && !(q.tags ?? []).some((t) => t === 'admin' || t === 'ai'))
+    .map((q) => q.id);
+  if (retireIds.length > 0) {
+    for (let i = 0; i < retireIds.length; i += 500) {
+      await prisma.question.updateMany({
+        where: { id: { in: retireIds.slice(i, i + 500) } },
+        data: { deletedAt: new Date() },
+      });
+    }
+    console.log(`  ⊘ retired ${retireIds.length} questions no longer in the bank`);
+  }
 
   // ── Demo package ──────────────────────────────────────────────────────────────
   const pkg = await prisma.package.upsert({
