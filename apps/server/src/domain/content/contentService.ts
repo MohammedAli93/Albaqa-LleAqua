@@ -10,6 +10,9 @@ export function listCategories() {
   return prisma.category.findMany({
     where: { deletedAt: null },
     orderBy: { sortOrder: 'asc' },
+    // questionCount drives the admin's category-first question browser (pick a
+    // category → see its questions), so it must exclude soft-deleted rows.
+    include: { _count: { select: { questions: { where: { deletedAt: null } } } } },
   });
 }
 

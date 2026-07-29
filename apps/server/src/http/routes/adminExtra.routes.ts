@@ -19,6 +19,7 @@ import { audit } from '../../domain/audit.js';
 import * as media from '../../domain/media/mediaService.js';
 import * as importer from '../../domain/content/importService.js';
 import * as analytics from '../../domain/analytics/analyticsService.js';
+import * as payments from '../../domain/payments/paymentService.js';
 import { prisma } from '../../lib/prisma.js';
 import { hashPassword } from '../../domain/auth/password.js';
 
@@ -131,13 +132,45 @@ adminExtraRouter.get(
   }),
 );
 
+const PlayerFilterSchema = PaginationSchema.extend({ q: z.string().trim().max(80).optional() });
+
 adminExtraRouter.get(
   '/players',
   requireRole(UserRole.VIEWER),
-  validate(PaginationSchema, 'query'),
+  validate(PlayerFilterSchema, 'query'),
   asyncHandler(async (req, res) => {
-    const { cursor, limit } = valid<typeof PaginationSchema>(req, 'query');
-    ok(res, await analytics.listPlayers(cursor, limit));
+    const { cursor, limit, q } = valid<typeof PlayerFilterSchema>(req, 'query');
+    ok(res, await analytics.listPlayers(cursor, limit, q));
+  }),
+);
+
+/**
+ * Gift (or take back) game-credits for a host — support compensation, e.g. a host
+ * who bought two games but could only play one. Audited, ADMIN only.
+ */
+const CreditAdjustSchema = z.object({
+  delta: z.coerce.number().int().min(-50).max(50).refine((v) => v !== 0, 'delta must not be 0'),
+  reason: z.string().trim().max(200).optional(),
+});
+
+adminExtraRouter.post(
+  '/players/:id/credits',
+  requireRole(UserRole.ADMIN),
+  validate(idParam, 'params'),
+  validate(CreditAdjustSchema),
+  asyncHandler(async (req, res) => {
+    const { id } = valid<typeof idParam>(req, 'params');
+    const { delta, reason } = valid<typeof CreditAdjustSchema>(req);
+    const credits = await payments.adjustCredits(id, delta);
+    await audit({
+      actorId: req.auth!.userId,
+      action: delta > 0 ? 'player.credits.gift' : 'player.credits.deduct',
+      entityType: 'Player',
+      entityId: id,
+      metadata: { delta, reason: reason ?? null, balance: credits },
+      ip: req.ip,
+    });
+    ok(res, { credits });
   }),
 );
 

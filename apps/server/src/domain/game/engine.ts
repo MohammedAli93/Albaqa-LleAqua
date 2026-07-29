@@ -47,6 +47,7 @@ import {
 import * as fsm from './fsm.js';
 import { profileStatUpdates } from './profileStats.js';
 import { buildPerPlayerOrder, pickCategoryQuestion, pickAnyUnusedQuestion } from '../rooms/roomService.js';
+import { consumeCredit } from '../payments/paymentService.js';
 import {
   scheduleRoundEnd,
   clearRoundTimer,
@@ -305,10 +306,48 @@ export async function leave(gameId: string, participantId: string): Promise<void
 
 // ──────────────────────────────── Start game ────────────────────────────────
 
+/**
+ * Spend one game-credit for a PAID individual game, at the moment the host starts
+ * it. Idempotent: the credit is only taken if Game.creditChargedAt is still null,
+ * and that stamp is written in the same conditional update that decrements, so a
+ * double-start (or a retry after a network blip) can't charge twice.
+ */
+async function chargeCreditIfNeeded(state: RoomState): Promise<void> {
+  const isPaidIndividual =
+    state.type === GameType.INDIVIDUAL && state.settings.tier === GameTier.PAID;
+  if (!isPaidIndividual || !state.hostPlayerId) return;
+
+  // Already paid for (this room was started before, or created under the old
+  // charge-on-create rule) → nothing to do.
+  const row = await prisma.game.findUnique({
+    where: { id: state.gameId },
+    select: { creditChargedAt: true },
+  });
+  if (row?.creditChargedAt) return;
+
+  const claimed = await prisma.game.updateMany({
+    where: { id: state.gameId, creditChargedAt: null },
+    data: { creditChargedAt: new Date() },
+  });
+  if (claimed.count === 0) return; // another start won the race and paid already
+
+  if (!(await consumeCredit(state.hostPlayerId))) {
+    // Out of credits: release the claim so a later start (after a top-up) can pay.
+    await prisma.game.update({ where: { id: state.gameId }, data: { creditChargedAt: null } });
+    throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
+  }
+}
+
 export async function startGame(gameId: string): Promise<void> {
   const state = await mustGetRoom(gameId);
   fsm.assertStartable(state);
   fsm.assertTransition(state.status, GameStatus.ACTIVE);
+
+  // Charge the paid game-credit HERE — the game is only "played" once it starts.
+  // Creating a room, sharing the link and then abandoning it costs nothing, and a
+  // host who has to re-create a room isn't billed twice. creditChargedAt makes it
+  // idempotent, so a retried start can never double-charge.
+  await chargeCreditIfNeeded(state);
 
   // Seen-Jeem is a different format (turn-based board, not simultaneous rounds);
   // hand off to its orchestrator, which owns its own loop.

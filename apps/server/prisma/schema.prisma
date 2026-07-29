@@ -279,6 +279,12 @@ model Game {
   settings  Json
   hostToken String
 
+  /// When a paid game-credit was actually spent on this game. A credit is charged
+  /// only when the host really STARTS the game (never at room creation), so a room
+  /// that was shared and then abandoned in the lobby costs the host nothing. Also
+  /// the idempotency guard: a game is charged at most once.
+  creditChargedAt DateTime? @db.Timestamptz
+
   startedAt DateTime? @db.Timestamptz
   endedAt   DateTime? @db.Timestamptz
   createdAt DateTime  @default(now()) @db.Timestamptz

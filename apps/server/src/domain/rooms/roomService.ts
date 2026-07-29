@@ -16,10 +16,10 @@ import {
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { generateCapabilityToken, hashCapabilityToken } from '../auth/tokens.js';
-import { getPlayerCredits, consumeCredit, refundCredit } from '../payments/paymentService.js';
+import { getPlayerCredits } from '../payments/paymentService.js';
 import { ensureCategoryQuestions } from '../content/questionGen.js';
 import { newRoomCode } from './roomCode.js';
-import { codeInUse, saveRoom, getRoomByCode } from './roomStore.js';
+import { codeInUse, saveRoom, getRoomByCode, deleteRoom } from './roomStore.js';
 import type { RoomState } from './types.js';
 
 /** Mark questions as shown (increments usageCount) so the NEXT game skips them
@@ -283,6 +283,24 @@ async function findPackageWithQuestions(opts: { slug?: string; excludeSlug?: str
   });
 }
 
+/**
+ * Retire a host's rooms that were created but never started. Nothing was charged
+ * for them (a credit is only spent at start), and leaving them in LOBBY would let
+ * players keep joining a room the host has walked away from.
+ */
+async function abandonUnstartedLobbies(hostPlayerId: string): Promise<void> {
+  const stale = await prisma.game.findMany({
+    where: { hostPlayerId, status: GameStatus.LOBBY, startedAt: null },
+    select: { id: true, roomCode: true },
+  });
+  if (stale.length === 0) return;
+  await prisma.game.updateMany({
+    where: { id: { in: stale.map((g) => g.id) } },
+    data: { status: GameStatus.ABANDONED, endedAt: new Date() },
+  });
+  for (const g of stale) await deleteRoom({ gameId: g.id, roomCode: g.roomCode });
+}
+
 /** Generate a room code not currently held by a live room. */
 async function allocateCode(): Promise<string> {
   for (let i = 0; i < 8; i++) {
@@ -315,7 +333,9 @@ export async function createRoom(input: {
   } else {
     // PAID (individual) or TEAMS / SEEN_JEEM: the full category game.
     if (isIndividual && tier === GameTier.PAID) {
-      // Fail fast (no decrement) if the host isn't logged in or has no credits.
+      // Check only — the credit is NOT spent here. It's charged when the host
+      // actually starts the game (engine.startGame), so opening a room, sharing the
+      // link and then abandoning it (or re-creating it) never costs a credit.
       if (!input.hostPlayerId || (await getPlayerCredits(input.hostPlayerId)) < 1) {
         throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
       }
@@ -367,33 +387,23 @@ export async function createRoom(input: {
     totalRounds = questionOrder.length;
   }
 
-  // Spend one game-credit for a PAID individual game — atomically, right before
-  // we commit the game, so a lost race is denied and a failed create is refunded.
-  const paidIndividual = isIndividual && tier === GameTier.PAID;
-  if (paidIndividual) {
-    if (!input.hostPlayerId || !(await consumeCredit(input.hostPlayerId))) {
-      throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
-    }
-  }
+  // A logged-in host only ever needs one open room. Retire any earlier room of
+  // theirs that never started, so a re-created room doesn't leave a zombie lobby
+  // that players can still join (and nothing was charged for it either way).
+  if (input.hostPlayerId) await abandonUnstartedLobbies(input.hostPlayerId);
 
-  let game;
-  try {
-    game = await prisma.game.create({
-      data: {
-        roomCode,
-        type: settings.type,
-        mode: settings.mode,
-        status: GameStatus.LOBBY,
-        packageId,
-        hostPlayerId: input.hostPlayerId ?? null,
-        settings: settings as never,
-        hostToken: hostTokenHash,
-      },
-    });
-  } catch (e) {
-    if (paidIndividual && input.hostPlayerId) await refundCredit(input.hostPlayerId);
-    throw e;
-  }
+  const game = await prisma.game.create({
+    data: {
+      roomCode,
+      type: settings.type,
+      mode: settings.mode,
+      status: GameStatus.LOBBY,
+      packageId,
+      hostPlayerId: input.hostPlayerId ?? null,
+      settings: settings as never,
+      hostToken: hostTokenHash,
+    },
+  });
 
   const state: RoomState = {
     gameId: game.id,
@@ -404,6 +414,7 @@ export async function createRoom(input: {
     settings,
     hostTokenHash,
     packageId,
+    hostPlayerId: input.hostPlayerId,
     questionOrder: questionOrder.slice(0, totalRounds),
     roundIndex: -1,
     totalRounds,

@@ -145,6 +145,9 @@ export interface RoomState {
   settings: GameSettings;
   hostTokenHash: string;
   packageId: string;
+  /** Host's Player account id when they created the room logged in. Used to charge
+   *  the paid game-credit at START (see engine.startGame), not at room creation. */
+  hostPlayerId?: string;
   /** Ordered question ids drawn from the package. */
   questionOrder: string[];
   /** Per-player-category mode: participantId whose category owns each round

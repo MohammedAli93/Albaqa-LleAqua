@@ -145,6 +145,30 @@ export async function refundCredit(playerId: string): Promise<void> {
   });
 }
 
+/**
+ * Admin adjustment of a host's game-credits — gifting compensation (e.g. a game
+ * that couldn't be played) or correcting a mistake. `delta` may be negative; the
+ * balance is clamped at 0. Returns the new balance.
+ */
+export async function adjustCredits(playerId: string, delta: number): Promise<number> {
+  const player = await prisma.player.findUnique({ where: { id: playerId }, select: { id: true } });
+  if (!player) throw new AppError(ErrorCode.NOT_FOUND, 'Player not found');
+
+  const wallet = await prisma.wallet.upsert({
+    where: { ownerId: playerId },
+    update: {},
+    create: { ownerId: playerId, credits: 0 },
+    select: { credits: true },
+  });
+  const next = Math.max(0, wallet.credits + delta);
+  const updated = await prisma.wallet.update({
+    where: { ownerId: playerId },
+    data: { credits: next },
+    select: { credits: true },
+  });
+  return updated.credits;
+}
+
 /** Has this user (or anyone, for shared ownership) paid for the package? */
 export async function hasEntitlement(packageId: string, userId?: string): Promise<boolean> {
   const count = await prisma.order.count({

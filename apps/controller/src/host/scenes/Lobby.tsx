@@ -134,7 +134,7 @@ export function Lobby() {
       </div>
 
       {/* Sticky so the Start button is always reachable, even with a full lobby. */}
-      <footer className="sticky bottom-0 z-20 mt-4 flex justify-center pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-5">
+      <footer className="sticky bottom-0 z-20 mt-4 flex flex-col items-center gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-5">
         <motion.button
           whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.03 }}
           onClick={() => host.start().catch(() => {})}
@@ -144,6 +144,11 @@ export function Lobby() {
         >
           <Play fill="currentColor" /> {t(locale, 'startGame')}
         </motion.button>
+        {/* The credit is charged on start, not on room creation — say so, so a host
+            who shares the link and then has to re-open the room isn't worried. */}
+        <p className="rounded-full bg-white/70 px-4 py-1 text-center font-display text-[clamp(0.7rem,1vw,0.95rem)] font-bold text-desert-ink/70 backdrop-blur">
+          لا يُخصم رصيد اللعبة إلا عند الضغط على «ابدأ»
+        </p>
       </footer>
     </div>
   );

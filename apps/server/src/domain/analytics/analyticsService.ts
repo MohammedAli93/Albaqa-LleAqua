@@ -50,8 +50,26 @@ export async function listSessions(cursor: string | undefined, limit: number): P
 }
 
 /** Registered players (most recent first) for the admin Players view. */
-export async function listPlayers(cursor: string | undefined, limit: number): Promise<Page<unknown>> {
+export async function listPlayers(
+  cursor: string | undefined,
+  limit: number,
+  q?: string,
+): Promise<Page<unknown>> {
+  // Search by username / mobile / email so support can find one specific host fast
+  // (e.g. to gift them a game) instead of scrolling the whole roster.
+  const search = q?.trim();
   const items = await prisma.player.findMany({
+    ...(search
+      ? {
+          where: {
+            OR: [
+              { username: { contains: search, mode: 'insensitive' as const } },
+              { mobile: { contains: search } },
+              { email: { contains: search, mode: 'insensitive' as const } },
+            ],
+          },
+        }
+      : {}),
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
