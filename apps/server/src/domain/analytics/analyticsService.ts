@@ -90,10 +90,11 @@ export async function listPlayers(
       orders: {
         where: { status: 'PAID' },
         select: {
+          id: true,
           amountMinor: true,
           currency: true,
           createdAt: true,
-          product: { select: { nameEn: true, nameAr: true, sku: true } },
+          product: { select: { nameEn: true, nameAr: true, sku: true, credits: true } },
         },
         orderBy: { createdAt: 'desc' },
       },
@@ -109,20 +110,35 @@ export async function listPlayers(
     // Which package(s) the player bought, most-recent first, with a count per
     // package. Orders are already sorted desc, so a Map preserves that order.
     const pkgCounts = new Map<string, number>();
+    // Games bought ≠ times bought: one "10 games" purchase is 1 order, 10 games.
+    let gamesBought = 0;
     for (const o of orders) {
       spentByCurrency[o.currency] = (spentByCurrency[o.currency] ?? 0) + o.amountMinor;
       const name = o.product?.nameEn ?? o.product?.nameAr ?? o.product?.sku ?? 'Package';
       pkgCounts.set(name, (pkgCounts.get(name) ?? 0) + 1);
+      gamesBought += o.product?.credits ?? 0;
     }
     const packages = [...pkgCounts.entries()].map(([name, count]) => ({ name, count }));
     return {
       ...p,
       isPaid: orders.length > 0,
       paidOrderCount: orders.length,
+      gamesBought,
       spentByCurrency,
       packages,
       lastPurchaseAt: orders[0]?.createdAt ?? null,
+      firstPurchaseAt: orders[orders.length - 1]?.createdAt ?? null,
       walletCredits: wallet?.credits ?? 0,
+      // Full receipt list, newest first — the panel shows it when a row is expanded
+      // so support can see exactly what a repeat buyer has paid for.
+      purchases: orders.map((o) => ({
+        id: o.id,
+        at: o.createdAt,
+        amountMinor: o.amountMinor,
+        currency: o.currency,
+        package: o.product?.nameAr ?? o.product?.nameEn ?? o.product?.sku ?? 'Package',
+        credits: o.product?.credits ?? null,
+      })),
     };
   });
   return { items: shaped, nextCursor: hasMore ? shaped[shaped.length - 1]!.id : null };

@@ -5,8 +5,17 @@
  */
 import { Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, X, Gift, Minus, Plus } from 'lucide-react';
+import { Search, X, Gift, Minus, Plus, Repeat, Receipt } from 'lucide-react';
 import { get, post } from '../api/client.js';
+
+interface Purchase {
+  id: string;
+  at: string;
+  amountMinor: number;
+  currency: string;
+  package: string;
+  credits: number | null;
+}
 
 interface Player {
   id: string;
@@ -20,10 +29,15 @@ interface Player {
   gamesPlayed: number;
   createdAt: string;
   isPaid: boolean;
+  /** How many separate times this host has paid. */
   paidOrderCount: number;
+  /** Games those purchases added up to — one "10 games" order is 1 buy, 10 games. */
+  gamesBought: number;
   spentByCurrency: Record<string, number>;
   packages: { name: string; count: number }[];
   lastPurchaseAt: string | null;
+  firstPurchaseAt: string | null;
+  purchases: Purchase[];
   walletCredits: number;
 }
 
@@ -36,6 +50,8 @@ function formatSpent(spentByCurrency: Record<string, number>): string {
 }
 
 const QUICK_GIFTS = [1, 2, 5];
+
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export function Players() {
   const qc = useQueryClient();
@@ -125,6 +141,7 @@ export function Players() {
               <th className="p-3">Email</th>
               <th className="p-3">Mobile</th>
               <th className="p-3">Country</th>
+              <th className="p-3" title="How many separate times this host has paid">Times bought</th>
               <th className="p-3">Paid</th>
               <th className="p-3">Package</th>
               <th className="p-3">Credits</th>
@@ -143,6 +160,27 @@ export function Players() {
                   <td className="p-3 text-sm" dir="ltr">{p.email}</td>
                   <td className="p-3 font-mono text-sm" dir="ltr">{p.mobile}</td>
                   <td className="p-3">{p.country ?? '—'}</td>
+                  <td className="p-3">
+                    {p.paidOrderCount > 0 ? (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-bold ${
+                          // A repeat buyer is the person worth gifting — make them stand out.
+                          p.paidOrderCount > 1 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                        }`}
+                        title={
+                          p.firstPurchaseAt
+                            ? `First bought ${day(p.firstPurchaseAt)}${p.lastPurchaseAt && p.lastPurchaseAt !== p.firstPurchaseAt ? ` · last ${day(p.lastPurchaseAt)}` : ''}`
+                            : undefined
+                        }
+                      >
+                        {p.paidOrderCount > 1 && <Repeat size={12} />}
+                        <span className="tnum">×{p.paidOrderCount}</span>
+                        <span className="font-normal opacity-70">· {p.gamesBought} games</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
                   <td className="p-3">
                     {p.isPaid ? (
                       <span
@@ -194,7 +232,7 @@ export function Players() {
                 </tr>
                 {giftFor === p.id && (
                   <tr className="border-t border-slate-100 bg-violet-50/40">
-                    <td colSpan={12} className="p-4">
+                    <td colSpan={13} className="p-4">
                       <div className="flex flex-wrap items-end gap-4">
                         <div>
                           <label className="label">Games to add</label>
@@ -248,6 +286,31 @@ export function Players() {
                         Current balance: <b className="tnum">{p.walletCredits}</b> · a credit is only spent when a game
                         actually starts, so an unplayed room costs nothing.
                       </p>
+
+                      {/* Buying history — who this host is as a customer, so a gift is an
+                          informed decision rather than a guess. */}
+                      {p.purchases.length > 0 && (
+                        <div className="mt-4 border-t border-violet-200/60 pt-3">
+                          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <Receipt size={13} />
+                            Bought {p.paidOrderCount} time{p.paidOrderCount > 1 ? 's' : ''} · {p.gamesBought} games · {formatSpent(p.spentByCurrency)}
+                          </p>
+                          <ul className="space-y-1">
+                            {p.purchases.map((o) => (
+                              <li key={o.id} className="flex flex-wrap items-center gap-x-3 text-sm text-slate-600">
+                                <span className="tnum w-28 text-slate-400">{day(o.at)}</span>
+                                <span className="font-medium" dir="auto">{o.package}</span>
+                                {o.credits != null && (
+                                  <span className="text-slate-400">{o.credits} game{o.credits > 1 ? 's' : ''}</span>
+                                )}
+                                <span className="tnum ms-auto font-semibold">
+                                  {(o.amountMinor / 100).toFixed(2)} {o.currency}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )}
