@@ -262,7 +262,12 @@ export function Questions() {
         </div>
       </div>
       {save.isError && <p className="text-sm font-semibold text-danger">{(save.error as Error).message}</p>}
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
+        <p className="me-auto text-xs text-slate-500">
+          {editingId
+            ? 'Saved changes reach the next game that draws this question.'
+            : 'Added questions go into rotation immediately — no deploy needed.'}
+        </p>
         <button className="btn-ghost" onClick={closeEditor}>Cancel</button>
         <button
           className="btn-primary"

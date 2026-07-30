@@ -121,6 +121,52 @@ export async function listActiveProducts() {
   });
 }
 
+/**
+ * Every product for the admin panel — including retired ones, so the owner can see
+ * what was withdrawn from sale and put it back.
+ */
+export async function listAllProducts() {
+  return prisma.product.findMany({
+    orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
+    select: {
+      id: true, sku: true, nameAr: true, nameEn: true, kind: true, credits: true,
+      priceMinor: true, currency: true, isActive: true, sortOrder: true, adminEdited: true,
+      _count: { select: { orders: true } },
+    },
+  });
+}
+
+/**
+ * Re-price / rename a package from the admin panel. Flags the row `adminEdited` so a
+ * later `db:seed` (which upserts the catalogue) keeps the owner's price instead of
+ * resetting it to the one hard-coded in the seed.
+ *
+ * Only ever touches the catalogue: orders already placed keep the amount they were
+ * charged, because an Order stores its own `amountMinor` snapshot.
+ */
+export async function updateProduct(
+  id: string,
+  data: {
+    nameAr?: string;
+    nameEn?: string | null;
+    priceMinor?: number;
+    credits?: number;
+    isActive?: boolean;
+    sortOrder?: number;
+  },
+) {
+  const exists = await prisma.product.findUnique({ where: { id }, select: { id: true } });
+  if (!exists) throw new AppError(ErrorCode.NOT_FOUND, 'Product not found');
+  return prisma.product.update({
+    where: { id },
+    data: { ...data, adminEdited: true },
+    select: {
+      id: true, sku: true, nameAr: true, nameEn: true, kind: true, credits: true,
+      priceMinor: true, currency: true, isActive: true, sortOrder: true, adminEdited: true,
+    },
+  });
+}
+
 /** Remaining game-credits in a host's wallet (0 if they have no wallet yet). */
 export async function getPlayerCredits(playerId: string): Promise<number> {
   const wallet = await prisma.wallet.findUnique({ where: { ownerId: playerId }, select: { credits: true } });

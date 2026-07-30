@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   UserRole,
   SignUploadSchema,
+  ProductEditSchema,
   PaginationSchema,
   AppError,
   ErrorCode,
@@ -171,6 +172,35 @@ adminExtraRouter.post(
       ip: req.ip,
     });
     ok(res, { credits });
+  }),
+);
+
+// ── Storefront products (the credit packages hosts buy) ───────────────────────
+// Pricing is the owner's call, so it lives in the panel rather than the seed.
+adminExtraRouter.get(
+  '/products',
+  requireRole(UserRole.ADMIN),
+  asyncHandler(async (_req, res) => ok(res, { products: await payments.listAllProducts() })),
+);
+
+adminExtraRouter.patch(
+  '/products/:id',
+  requireRole(UserRole.ADMIN),
+  validate(idParam, 'params'),
+  validate(ProductEditSchema),
+  asyncHandler(async (req, res) => {
+    const { id } = valid<typeof idParam>(req, 'params');
+    const input = valid<typeof ProductEditSchema>(req);
+    const product = await payments.updateProduct(id, input);
+    await audit({
+      actorId: req.auth!.userId,
+      action: 'product.update',
+      entityType: 'Product',
+      entityId: id,
+      metadata: input,
+      ip: req.ip,
+    });
+    ok(res, product);
   }),
 );
 

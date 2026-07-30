@@ -65,26 +65,33 @@ async function main() {
   // Categories inherit their group's colour for a cohesive picker. Existing slugs
   // (general, geography, history, science, sports, arab-world) keep their question
   // links — only their group/name/colour are updated.
+  // A category the owner renamed in the admin panel keeps its name here (adminEdited):
+  // the panel is the source of truth for wording, the taxonomy only for structure.
   const groupColor = Object.fromEntries(GROUPS.map((g) => [g.slug, g.color]));
   const categories: Record<string, string> = {};
+  let keptNames = 0;
   for (let i = 0; i < CATEGORIES.length; i++) {
     const c = CATEGORIES[i]!;
-    const fields = {
-      nameAr: c.nameAr,
-      nameEn: c.nameEn,
+    const structure = {
       color: groupColor[c.group] ?? '#7C3AED',
       icon: GROUPS.find((g) => g.slug === c.group)?.icon ?? null,
       sortOrder: i,
       groupId: groupIds[c.group]!,
     };
+    const names = { nameAr: c.nameAr, nameEn: c.nameEn };
+    const existing = await prisma.category.findUnique({
+      where: { slug: c.slug },
+      select: { id: true, adminEdited: true },
+    });
+    if (existing?.adminEdited) keptNames++;
     const cat = await prisma.category.upsert({
       where: { slug: c.slug },
-      update: fields,
-      create: { slug: c.slug, ...fields },
+      update: existing?.adminEdited ? structure : { ...structure, ...names },
+      create: { slug: c.slug, ...structure, ...names },
     });
     categories[c.slug] = cat.id;
   }
-  console.log(`  ✓ categories: ${CATEGORIES.length}`);
+  console.log(`  ✓ categories: ${CATEGORIES.length}${keptNames ? ` (${keptNames} kept their admin-set name)` : ''}`);
 
   // ── Questions (from the static bank) ──────────────────────────────────────────
   // Seed every category present in the bank. Idempotent by (categoryId, promptAr),
@@ -93,6 +100,7 @@ async function main() {
   let totalQuestions = 0;
   let skippedLeaks = 0;
   let skippedDupes = 0;
+  let keptQuestions = 0; // edited/deleted in the admin panel — left untouched
   // Global de-dup by NORMALIZED prompt (ignores diacritics / alef-hamza / ta-marbuta
   // variants) so the same question can't be seeded twice — not within a category, and
   // not across categories. Prevents a game from ever showing the same question again
@@ -136,8 +144,17 @@ async function main() {
       };
       const existing = await prisma.question.findFirst({
         where: { categoryId, promptAr: q.ar },
-        select: { id: true },
+        select: { id: true, tags: true, deletedAt: true },
       });
+      // Hands off anything the owner touched in the panel: an edited question keeps
+      // their wording, and one they deleted stays deleted (the `data` above resets
+      // deletedAt, which used to resurrect it on every content deploy).
+      if (existing && (existing.tags ?? []).includes('admin')) {
+        keptQuestions++;
+        bankIds.add(existing.id);
+        if (!existing.deletedAt && sampleForPackage.length < 60) sampleForPackage.push(existing.id);
+        continue;
+      }
       const saved = existing
         ? await prisma.question.update({ where: { id: existing.id }, data })
         : await prisma.question.create({ data });
@@ -150,6 +167,7 @@ async function main() {
   console.log(`  ✓ questions: ${totalQuestions} (${Object.keys(QUESTION_BANK).length} categories)`);
   console.log(`  ⊘ filtered ${skippedLeaks} answer-leak questions (answer visible in prompt)`);
   console.log(`  ⊘ filtered ${skippedDupes} duplicate questions (already seeded)`);
+  if (keptQuestions > 0) console.log(`  ✋ kept ${keptQuestions} questions edited/deleted in the admin panel`);
 
   // Clean up leftovers from earlier seeds so live games (which filter
   // `deletedAt: null`) never serve them again:
@@ -279,8 +297,19 @@ async function main() {
   // ── Paid catalog: game-credit packages ─────────────────────────────────────────
   // Each package adds `credits` game-starts to the host's wallet; a PAID (35-Q)
   // game consumes one credit. Prices in minor units (halalas; 2000 = 20 SAR).
+  // Pricing set in the admin panel wins (adminEdited): the owner re-prices from there,
+  // so a content deploy must not quietly reset the storefront to the numbers below.
+  let keptPrices = 0;
   for (let i = 0; i < CREDIT_PACKAGES.length; i++) {
     const p = CREDIT_PACKAGES[i]!;
+    const owned = await prisma.product.findUnique({
+      where: { sku: p.sku },
+      select: { adminEdited: true },
+    });
+    if (owned?.adminEdited) {
+      keptPrices++;
+      continue;
+    }
     await prisma.product.upsert({
       where: { sku: p.sku },
       update: { nameAr: p.nameAr, nameEn: p.nameEn, kind: 'CREDITS', credits: p.credits, priceMinor: p.priceMinor, isActive: true, sortOrder: i },
@@ -297,7 +326,7 @@ async function main() {
       },
     });
   }
-  console.log(`  ✓ ${CREDIT_PACKAGES.length} credit packages (1/2/5/10 games)`);
+  console.log(`  ✓ ${CREDIT_PACKAGES.length} credit packages (1/2/5/10 games)${keptPrices ? ` — ${keptPrices} kept their admin-set price` : ''}`);
 
   // Retire the legacy one-time unlock so the storefront lists only the packages.
   await prisma.product.updateMany({ where: { sku: 'paid_unlock' }, data: { isActive: false } });

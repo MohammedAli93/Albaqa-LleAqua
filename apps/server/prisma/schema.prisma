@@ -106,6 +106,10 @@ model Category {
   groupId   String?
   group     CategoryGroup? @relation(fields: [groupId], references: [id])
 
+  /// Set when an admin renames the category in the panel. The seed then keeps
+  /// their name instead of resetting it to the taxonomy's.
+  adminEdited Boolean  @default(false)
+
   questions Question[]
   deletedAt DateTime?  @db.Timestamptz
   createdAt DateTime   @default(now()) @db.Timestamptz
@@ -490,6 +494,9 @@ model Product {
   currency        String      @default("SAR")
   isActive        Boolean     @default(true)
   sortOrder       Int         @default(0)
+  /// Set when an admin edits the price/name in the panel. The seed then leaves
+  /// this product's name & price alone, so a re-seed never undoes their pricing.
+  adminEdited     Boolean     @default(false)
   orders          Order[]
   passes          GamePass[]
   createdAt       DateTime    @default(now()) @db.Timestamptz

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Check, Sparkles } from 'lucide-react';
 import { useStore } from '../../store.js';
+import { api } from '../../lib/config.js';
 import type { LegalDoc } from '../../store.js';
 
 /*
@@ -26,13 +27,69 @@ const TABS: { id: LegalDoc; ar: string; en: string }[] = [
   { id: 'refund', ar: 'الاسترداد والإلغاء', en: 'Refund' },
 ];
 
-/** The four price packages (SAR). `save` is the crossed-out saving line. */
-const PACKAGES = [
-  { games: 'لعبة واحدة', gamesEn: '1 Game', price: 20, save: null, best: false },
-  { games: 'لعبتان', gamesEn: '2 Games', price: 35, save: 'وفّر ٥ ريال', saveEn: 'Save 5 SAR', best: false },
-  { games: '٥ ألعاب', gamesEn: '5 Games', price: 75, save: 'وفّر ٢٥ ريال', saveEn: 'Save 25 SAR', best: false },
-  { games: '١٠ ألعاب', gamesEn: '10 Games', price: 100, save: 'وفّر ١٠٠ ريال', saveEn: 'Save 100 SAR', best: true },
+/**
+ * This page is the price list the payment gateway reviews, so it must never disagree
+ * with what a buyer is actually charged. It therefore reads the same live catalogue
+ * the storefront does — the owner re-prices in the admin panel and this page follows.
+ * The hard-coded list below is only the fallback for when that request fails.
+ */
+type CatalogEntry = {
+  games: string;
+  gamesEn: string;
+  price: number;
+  currency: string;
+  save: string | null;
+  saveEn?: string;
+  best: boolean;
+};
+
+const AR_NUM = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+const toAr = (n: number) => String(n).replace(/\d/g, (d) => AR_NUM[Number(d)]!);
+const CURRENCY_AR: Record<string, string> = { SAR: 'ر.س', AED: 'د.إ', EGP: 'ج.م', KWD: 'د.ك', USD: '$' };
+
+const FALLBACK_PACKAGES: CatalogEntry[] = [
+  { games: 'باقة لعبة واحدة', gamesEn: '1 Game', price: 20, currency: 'SAR', save: null, best: false },
+  { games: 'باقة لعبتين', gamesEn: '2 Games', price: 35, currency: 'SAR', save: 'وفّر ٥ ر.س', saveEn: 'Save 5 SAR', best: false },
+  { games: 'باقة ٥ ألعاب', gamesEn: '5 Games', price: 75, currency: 'SAR', save: 'وفّر ٢٥ ر.س', saveEn: 'Save 25 SAR', best: false },
+  { games: 'باقة ١٠ ألعاب', gamesEn: '10 Games', price: 100, currency: 'SAR', save: 'وفّر ١٠٠ ر.س', saveEn: 'Save 100 SAR', best: true },
 ];
+
+type Product = { sku: string; nameAr: string; nameEn?: string | null; kind: string; credits: number | null; priceMinor: number; currency: string };
+
+/** Live catalogue → the shape this page renders, with savings computed per package. */
+function toCatalog(products: Product[]): CatalogEntry[] {
+  const credits = products.filter((p) => p.kind === 'CREDITS' && p.credits);
+  if (!credits.length) return FALLBACK_PACKAGES;
+  const unit = credits.find((p) => p.credits === 1)?.priceMinor ?? credits[0]!.priceMinor;
+  const bestSku = credits.reduce((a, b) =>
+    b.priceMinor / (b.credits || 1) < a.priceMinor / (a.credits || 1) ? b : a,
+  ).sku;
+  return credits.map((p) => {
+    const n = p.credits!;
+    const savedMinor = n * unit - p.priceMinor;
+    const cur = CURRENCY_AR[p.currency] ?? p.currency;
+    return {
+      games: p.nameAr,
+      gamesEn: p.nameEn ?? `${n} ${n === 1 ? 'Game' : 'Games'}`,
+      price: p.priceMinor / 100,
+      currency: p.currency,
+      save: savedMinor > 0 ? `وفّر ${toAr(savedMinor / 100)} ${cur}` : null,
+      saveEn: savedMinor > 0 ? `Save ${savedMinor / 100} ${p.currency}` : undefined,
+      best: p.sku === bestSku && credits.length > 1,
+    };
+  });
+}
+
+/** The live price list, falling back to the published one if the API is unreachable. */
+function usePackages(): CatalogEntry[] {
+  const [packages, setPackages] = useState<CatalogEntry[]>(FALLBACK_PACKAGES);
+  useEffect(() => {
+    api<{ products: Product[] }>('/api/v1/payments/products')
+      .then(({ products }) => setPackages(toCatalog(products)))
+      .catch(() => {});
+  }, []);
+  return packages;
+}
 
 export function Legal() {
   const { legalDoc, set } = useStore();
@@ -155,12 +212,13 @@ function Intro({ ar, en }: { ar: string; en: string }) {
 
 function Pricing() {
   const { set } = useStore();
+  const packages = usePackages();
   return (
     <>
       <DocTitle ar="قائمة الأسعار والباقات" en="Pricing List & Packages" />
 
       <div className="grid gap-5 sm:grid-cols-2">
-        {PACKAGES.map((p, i) => (
+        {packages.map((p, i) => (
           <motion.div
             key={p.gamesEn}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -183,18 +241,20 @@ function Pricing() {
                 <Sparkles size={12} /> أفضل قيمة
               </span>
             )}
-            <p className="font-display text-lg font-extrabold text-desert-ink">باقة {p.games}</p>
+            <p className="font-display text-lg font-extrabold text-desert-ink">{p.games}</p>
             <p className="text-sm text-desert-ink/45">{p.gamesEn} Package</p>
             <div className="mt-4 flex items-end justify-center gap-1.5">
               <span className="font-display text-5xl font-black text-desert-ink">{p.price}</span>
-              <span className="mb-1.5 font-display text-lg font-bold text-desert-ink/70">ر.س</span>
+              <span className="mb-1.5 font-display text-lg font-bold text-desert-ink/70">
+                {CURRENCY_AR[p.currency] ?? p.currency}
+              </span>
             </div>
             {p.save ? (
               <p className="mt-2 font-display text-sm font-bold" style={{ color: '#1F9D55' }}>
                 {p.save} · {p.saveEn}
               </p>
             ) : (
-              <p className="mt-2 text-sm text-desert-ink/40">SAR {p.price}</p>
+              <p className="mt-2 text-sm text-desert-ink/40">{p.currency} {p.price}</p>
             )}
           </motion.div>
         ))}
@@ -313,8 +373,11 @@ function Refund() {
         <Clause
           n={1}
           title="الحزم الرقمية"
-          ar="جميع عمليات شراء باقات الألعاب (باقة ٢٠ ر.س، باقة ٣٥ ر.س، باقة ٧٥ ر.س، وباقة ١٠٠ ر.س) نهائية وغير قابلة للاسترداد أو الإلغاء بمجرد إتمام الدفع وإضافة الرصيد للحساب."
-          en="Digital Goods: All purchases of game packages (20 SAR, 35 SAR, 75 SAR, and 100 SAR packages) are final and non-refundable or non-cancelable once the payment is processed and credit is added to the account."
+          // Deliberately no price list here: the prices live on the Pricing tab (fed by
+          // the live catalogue), so repeating them in the policy would go stale the
+          // first time a package is re-priced.
+          ar="جميع عمليات شراء باقات الألعاب المعروضة في صفحة الأسعار نهائية وغير قابلة للاسترداد أو الإلغاء بمجرد إتمام الدفع وإضافة الرصيد للحساب."
+          en="Digital Goods: All purchases of the game packages listed on the Pricing page are final and non-refundable or non-cancelable once the payment is processed and credit is added to the account."
         />
         <Clause
           n={2}

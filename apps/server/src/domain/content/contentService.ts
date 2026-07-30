@@ -95,14 +95,32 @@ export function createQuestion(data: Prisma.QuestionUncheckedCreateInput) {
   return prisma.question.create({ data });
 }
 
+/**
+ * An edit made in the panel wins over the static bank. Tagging the row 'admin' is what
+ * tells the seed to leave it alone — otherwise the next content deploy would upsert
+ * the bank's original wording straight back over the owner's correction.
+ */
 export async function updateQuestion(id: string, data: Prisma.QuestionUncheckedUpdateInput) {
   await ensureExists('question', id);
-  return prisma.question.update({ where: { id }, data });
+  return prisma.question.update({ where: { id }, data: { ...data, tags: await withAdminTag(id, data.tags) } });
 }
 
+/** Same reasoning as an edit: a question the owner deleted must not come back on re-seed. */
 export async function softDeleteQuestion(id: string) {
   await ensureExists('question', id);
-  return prisma.question.update({ where: { id }, data: { deletedAt: new Date() } });
+  return prisma.question.update({
+    where: { id },
+    data: { deletedAt: new Date(), tags: await withAdminTag(id) },
+  });
+}
+
+/** The question's tags plus 'admin', preserving whatever the caller is already setting. */
+async function withAdminTag(id: string, incoming?: Prisma.QuestionUncheckedUpdateInput['tags']): Promise<string[]> {
+  let tags: string[];
+  if (Array.isArray(incoming)) tags = incoming as string[];
+  else if (incoming && typeof incoming === 'object' && 'set' in incoming) tags = (incoming.set as string[]) ?? [];
+  else tags = (await prisma.question.findUnique({ where: { id }, select: { tags: true } }))?.tags ?? [];
+  return tags.includes('admin') ? tags : [...tags, 'admin'];
 }
 
 export async function setApproved(id: string, isApproved: boolean) {

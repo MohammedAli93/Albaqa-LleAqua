@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   UserRole,
   CategoryInputSchema,
+  CategoryEditSchema,
   QuestionInputSchema,
   QuestionBaseSchema,
   PackageInputSchema,
@@ -44,11 +45,15 @@ adminRouter.patch(
   '/categories/:id',
   requireRole(UserRole.EDITOR),
   validate(idParam, 'params'),
-  validate(CategoryInputSchema.partial()),
+  validate(CategoryEditSchema),
   asyncHandler(async (req, res) => {
     const { id } = valid<typeof idParam>(req, 'params');
-    const cat = await content.updateCategory(id, valid<typeof CategoryInputSchema>(req));
-    await audit({ actorId: req.auth!.userId, action: 'category.update', entityType: 'Category', entityId: id, ip: req.ip });
+    const input = valid<typeof CategoryEditSchema>(req);
+    // A rename is the owner taking the name over from the taxonomy: flag the row so
+    // the next `db:seed` keeps their wording instead of resetting it.
+    const renamed = input.nameAr !== undefined || input.nameEn !== undefined;
+    const cat = await content.updateCategory(id, { ...input, ...(renamed && { adminEdited: true }) });
+    await audit({ actorId: req.auth!.userId, action: 'category.update', entityType: 'Category', entityId: id, metadata: input, ip: req.ip });
     ok(res, cat);
   }),
 );
@@ -105,7 +110,12 @@ adminRouter.post(
       options: input.options,
       // Tagged so the seed's prune (which retires questions dropped from the static
       // bank) never deletes a question an editor added by hand.
-      tags: input.tags?.length ? input.tags : ['admin'],
+      tags: input.tags?.includes('admin') ? input.tags : [...(input.tags ?? []), 'admin'],
+      // Live the moment it's saved. The draw filters on isApproved, and the DB default
+      // is false — so without this a question added in the panel would sit invisible
+      // until someone thought to flip the Approved toggle. The toggle stays available
+      // for pulling a question back out of rotation.
+      isApproved: true,
     } as Parameters<typeof content.createQuestion>[0]);
     await audit({ actorId: req.auth!.userId, action: 'question.create', entityType: 'Question', entityId: q.id, ip: req.ip });
     ok(res, q, 201);

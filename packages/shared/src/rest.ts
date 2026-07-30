@@ -238,6 +238,20 @@ export const CategoryInputSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
+/**
+ * Editing an existing category from the panel. `slug` is intentionally not editable:
+ * it is the key the question bank and the seed join on, so changing it would orphan
+ * the category's questions and make the next seed create a duplicate alongside it.
+ */
+export const CategoryEditSchema = z.object({
+  nameAr: z.string().min(1).max(80).optional(),
+  nameEn: z.string().min(1).max(80).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  icon: z.string().max(40).nullish(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+export type CategoryEditInput = z.infer<typeof CategoryEditSchema>;
+
 export const PackageInputSchema = z.object({
   slug: z.string().min(2).max(60).regex(/^[a-z0-9-]+$/),
   titleAr: z.string().min(1).max(120),
@@ -249,6 +263,22 @@ export const PackageInputSchema = z.object({
   priceMinor: z.number().int().min(0).default(0),
   currency: z.string().length(3).default('SAR'),
 });
+
+/**
+ * Editing a sellable credit package (what a host buys in the storefront). Prices are
+ * in minor units — halalas — so 20.00 SAR is 2000. Every field is optional: the panel
+ * PATCHes only what changed. `sku` is deliberately absent — it is the payment
+ * provider's handle for the product and must stay stable across price changes.
+ */
+export const ProductEditSchema = z.object({
+  nameAr: z.string().min(1).max(120).optional(),
+  nameEn: z.string().max(120).nullish(),
+  priceMinor: z.number().int().min(0).max(10_000_000).optional(),
+  credits: z.number().int().min(1).max(1000).optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(999).optional(),
+});
+export type ProductEditInput = z.infer<typeof ProductEditSchema>;
 
 export const PackageQuestionsSchema = z.object({
   questions: z
