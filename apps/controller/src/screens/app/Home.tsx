@@ -8,6 +8,7 @@ import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
 import { COUNTRIES } from '../../lib/catalog.js';
+import { SUPPORT_EMAIL, SOCIALS } from '../../lib/contact.js';
 
 /*
  * ════════════════════════════════════════════════════════════════════════════
@@ -462,14 +463,16 @@ function SiteFooter() {
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/55">
             برنامج المسابقات الأول — العبوا مع العائلة والأصدقاء على الشاشة الكبيرة.
           </p>
-          {/* Social links removed until real accounts exist (were dead href="#" placeholders). */}
+          <SocialLinks />
         </div>
         {/* الأسعار والمساعدة القانونية — روابط الصفحات المطلوبة لاعتماد بوابة الدفع */}
         <FooterCol
           title="الأسعار والدعم"
           links={[
             { label: 'الأسعار والباقات', onClick: () => openLegal('pricing') },
-            { label: 'الدعم — support@albaqaa.app' },
+            { label: `الدعم — ${SUPPORT_EMAIL}`, href: `mailto:${SUPPORT_EMAIL}` },
+            { label: 'إنستقرام — bqaqgame_', href: SOCIALS.instagram },
+            { label: 'إكس — bqaqgame', href: SOCIALS.x },
           ]}
         />
         <FooterCol
@@ -491,7 +494,7 @@ function SiteFooter() {
   );
 }
 
-type FooterLink = { label: string; onClick?: () => void };
+type FooterLink = { label: string; onClick?: () => void; href?: string };
 
 function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   return (
@@ -500,7 +503,18 @@ function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
       <ul className="mt-4 space-y-3 text-sm text-white/55">
         {links.map((l) => (
           <li key={l.label}>
-            {l.onClick ? (
+            {l.href ? (
+              <a
+                href={l.href}
+                // mailto must open the mail client in place; profiles open in a new tab
+                // so a player mid-signup doesn't lose the page.
+                {...(l.href.startsWith('mailto:') ? {} : { target: '_blank', rel: 'noreferrer noopener' })}
+                className="leading-relaxed transition hover:text-white"
+                dir={l.href.startsWith('mailto:') ? undefined : 'auto'}
+              >
+                {l.label}
+              </a>
+            ) : l.onClick ? (
               <button onClick={l.onClick} className="text-start leading-relaxed transition hover:text-white">
                 {l.label}
               </button>
@@ -511,6 +525,65 @@ function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Gold social buttons under the brand blurb. The marks are inlined rather than pulled
+ * from an icon set so they stay the *current* logos — lucide still ships the retired
+ * Twitter bird, and these are the two accounts printed on the client's QR material.
+ */
+function SocialLinks() {
+  const items = [
+    { href: SOCIALS.x, label: 'إكس', mark: <XMark /> },
+    { href: SOCIALS.instagram, label: 'إنستقرام', mark: <InstagramMark /> },
+    { href: `mailto:${SUPPORT_EMAIL}`, label: 'البريد', mark: <MailMark /> },
+  ];
+  return (
+    <div className="mt-6 flex items-center gap-3">
+      {items.map((s) => (
+        <a
+          key={s.label}
+          href={s.href}
+          aria-label={s.label}
+          title={s.label}
+          {...(s.href.startsWith('mailto:') ? {} : { target: '_blank', rel: 'noreferrer noopener' })}
+          className="grid h-10 w-10 place-items-center rounded-full text-desert-night transition hover:scale-110 hover:brightness-110"
+          style={{ backgroundColor: GOLD }}
+        >
+          {s.mark}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** The X mark (the wordless glyph that replaced the Twitter bird). */
+function XMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z" />
+    </svg>
+  );
+}
+
+/** Instagram's current mark: rounded square, lens, and the corner dot. */
+function InstagramMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.6" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.6" cy="6.4" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function MailMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
   );
 }
 

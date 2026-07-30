@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ChevronRight, Check, Sparkles } from 'lucide-react';
 import { useStore } from '../../store.js';
 import { api } from '../../lib/config.js';
+import { SUPPORT_EMAIL } from '../../lib/contact.js';
 import type { LegalDoc } from '../../store.js';
 
 /*
@@ -394,9 +395,13 @@ function Refund() {
       </ol>
 
       <div className="mt-6 rounded-2xl p-5 text-center" style={{ backgroundColor: '#FFF7DA' }}>
-        <span className="inline-flex items-center gap-2 font-display text-sm font-bold text-desert-ink">
-          <Check size={16} style={{ color: '#1F9D55' }} /> support@albaqaa.app
-        </span>
+        <a
+          href={`mailto:${SUPPORT_EMAIL}`}
+          className="inline-flex items-center gap-2 font-display text-sm font-bold text-desert-ink underline-offset-4 transition hover:underline"
+          dir="ltr"
+        >
+          <Check size={16} style={{ color: '#1F9D55' }} /> {SUPPORT_EMAIL}
+        </a>
       </div>
     </>
   );
