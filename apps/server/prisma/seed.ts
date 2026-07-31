@@ -65,8 +65,10 @@ async function main() {
   // Categories inherit their group's colour for a cohesive picker. Existing slugs
   // (general, geography, history, science, sports, arab-world) keep their question
   // links — only their group/name/colour are updated.
-  // A category the owner renamed in the admin panel keeps its name here (adminEdited):
-  // the panel is the source of truth for wording, the taxonomy only for structure.
+  // A category the owner edited in the admin panel (name, colour, or parent group)
+  // is left alone here apart from its ordering: once they've touched it, the panel is
+  // the source of truth, not the taxonomy. Otherwise a re-seed would silently drag a
+  // recoloured or re-filed category back to its taxonomy defaults.
   const groupColor = Object.fromEntries(GROUPS.map((g) => [g.slug, g.color]));
   const categories: Record<string, string> = {};
   let keptNames = 0;
@@ -86,12 +88,12 @@ async function main() {
     if (existing?.adminEdited) keptNames++;
     const cat = await prisma.category.upsert({
       where: { slug: c.slug },
-      update: existing?.adminEdited ? structure : { ...structure, ...names },
+      update: existing?.adminEdited ? { sortOrder: structure.sortOrder } : { ...structure, ...names },
       create: { slug: c.slug, ...structure, ...names },
     });
     categories[c.slug] = cat.id;
   }
-  console.log(`  ✓ categories: ${CATEGORIES.length}${keptNames ? ` (${keptNames} kept their admin-set name)` : ''}`);
+  console.log(`  ✓ categories: ${CATEGORIES.length}${keptNames ? ` (${keptNames} kept their admin-set name/colour/group)` : ''}`);
 
   // ── Questions (from the static bank) ──────────────────────────────────────────
   // Seed every category present in the bank. Idempotent by (categoryId, promptAr),

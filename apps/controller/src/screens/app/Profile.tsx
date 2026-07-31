@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Sparkles, ChevronRight, Trophy, Swords, Users, Gamepad2, Check } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Sparkles, ChevronRight, Trophy, Swords, Users, Gamepad2, Check, ChevronDown } from 'lucide-react';
 import { AVATARS, type PlayerProfile } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
-import { COUNTRIES } from '../../lib/catalog.js';
+import { COUNTRIES, REGIONS, type Region } from '../../lib/catalog.js';
 import { AuthShell, AuthCard, CtaButton } from './AuthShell.js';
 
 /** Warm tile gradients for the country picker — rotated by index so each flag
@@ -27,6 +27,22 @@ export function Profile() {
 
   const ok = !!country;
   const returning = !!account?.country;
+
+  // Both pickers used to dump every tile on the page at once, which made the screen a
+  // long scroll (client feedback 2026-07-31: «تكون على شكل فلاتر… تكون أرتب»). Now each
+  // section collapses to what you already picked, and the countries filter by region.
+  const [avatarOpen, setAvatarOpen] = useState(!returning);
+  const [countryOpen, setCountryOpen] = useState(!returning);
+  const [region, setRegion] = useState<Region | 'all'>(
+    () => COUNTRIES.find((c) => c.code === account?.country)?.region ?? 'all',
+  );
+
+  const selectedAvatar = AVATARS.find((a) => a.id === avatarId) ?? AVATARS[0]!;
+  const selectedCountry = COUNTRIES.find((c) => c.code === country);
+  const visibleCountries = useMemo(
+    () => (region === 'all' ? COUNTRIES : COUNTRIES.filter((c) => c.region === region)),
+    [region],
+  );
 
   // Pull the latest profile (wins / games played) from the server whenever the
   // screen opens, so stats reflect games finished since this device last synced.
@@ -121,9 +137,18 @@ export function Profile() {
           </div>
         </div>
 
-        {/* Avatar picker — square tiles, responsive grid */}
-        <div className="mt-6">
-          <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">صورتك</p>
+        {/* Avatar picker — collapsed to the current pick, expands to the full grid */}
+        <PickerSection
+          title="صورتك"
+          open={avatarOpen}
+          onToggle={() => setAvatarOpen((v) => !v)}
+          summary={
+            <>
+              <Avatar avatarId={selectedAvatar.id} size={34} shape="square" />
+              <span className="font-display font-black text-desert-ink">{selectedAvatar.labelAr}</span>
+            </>
+          }
+        >
           <div className="grid grid-cols-5 gap-2.5 sm:grid-cols-8">
             {AVATARS.map((a) => (
               <button
@@ -136,15 +161,36 @@ export function Profile() {
               </button>
             ))}
           </div>
-        </div>
+        </PickerSection>
 
-        {/* Country picker */}
-        <div className="mt-6">
-          <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">دولتك</p>
+        {/* Country picker — region filters keep the grid short */}
+        <PickerSection
+          title="دولتك"
+          open={countryOpen}
+          onToggle={() => setCountryOpen((v) => !v)}
+          summary={
+            selectedCountry ? (
+              <>
+                <span className="text-2xl leading-none">{selectedCountry.flag}</span>
+                <span className="font-display font-black text-desert-ink">{selectedCountry.nameAr}</span>
+              </>
+            ) : (
+              <span className="font-display font-black text-desert-ink/50">اختر دولتك</span>
+            )
+          }
+        >
+          <div className="mb-2.5 flex flex-wrap justify-end gap-2">
+            <RegionChip label="الكل" active={region === 'all'} onClick={() => setRegion('all')} />
+            {REGIONS.map((r) => (
+              <RegionChip key={r.id} label={r.nameAr} active={region === r.id} onClick={() => setRegion(r.id)} />
+            ))}
+          </div>
           <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-            {COUNTRIES.map((c, i) => {
+            {visibleCountries.map((c) => {
               const selected = country === c.code;
-              const [from, to] = COUNTRY_TILES[i % COUNTRY_TILES.length]!;
+              // Tile colour keyed to the country's place in the full list, so filtering
+              // never repaints a flag the player already learned to look for.
+              const [from, to] = COUNTRY_TILES[COUNTRIES.indexOf(c) % COUNTRY_TILES.length]!;
               return (
                 <button
                   key={c.code}
@@ -172,7 +218,7 @@ export function Profile() {
               );
             })}
           </div>
-        </div>
+        </PickerSection>
 
         {err && <p className="mt-4 text-center font-bold text-[#B3160B]">{err}</p>}
 
@@ -183,6 +229,55 @@ export function Profile() {
         </div>
       </AuthCard>
     </AuthShell>
+  );
+}
+
+/**
+ * A titled section that shows only what the player picked until they tap it open.
+ * Keeps the profile to one screen instead of three grids stacked end to end.
+ */
+function PickerSection({
+  title,
+  open,
+  onToggle,
+  summary,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  summary: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mt-6">
+      <p className="mb-2.5 text-right font-display font-bold text-white drop-shadow-sm">{title}</p>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 rounded-2xl bg-white/85 px-3 py-2.5 text-right shadow-sm transition active:scale-[0.99]"
+      >
+        <ChevronDown size={18} className={`shrink-0 text-desert-ink/45 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="me-auto text-sm font-bold text-desert-ink/50">{open ? 'إخفاء' : 'تغيير'}</span>
+        <span className="flex items-center gap-2">{summary}</span>
+      </button>
+      {open && <div className="mt-2.5">{children}</div>}
+    </div>
+  );
+}
+
+/** Region filter pill above the country grid. */
+function RegionChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-full px-3.5 py-1.5 font-display text-sm font-black shadow-sm transition active:scale-95 ${
+        active ? 'bg-[#E8473A] text-white' : 'bg-white/85 text-desert-ink/70'
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

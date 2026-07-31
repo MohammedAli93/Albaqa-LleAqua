@@ -5,6 +5,8 @@ import {
   UserRole,
   CategoryInputSchema,
   CategoryEditSchema,
+  CategoryGroupInputSchema,
+  CategoryGroupEditSchema,
   QuestionInputSchema,
   QuestionBaseSchema,
   PackageInputSchema,
@@ -22,6 +24,40 @@ export const adminRouter: ExpressRouter = Router();
 adminRouter.use(requireAuth);
 
 const idParam = z.object({ id: z.string().uuid() });
+
+// ── Category groups ──────────────────────────────────────────────────────────
+// The panel files every category under a group, so the owner picks a parent from a
+// dropdown and browses by filter instead of scrolling one flat list.
+adminRouter.get(
+  '/category-groups',
+  requireRole(UserRole.VIEWER),
+  asyncHandler(async (_req, res) => ok(res, { groups: await content.listAdminCategoryGroups() })),
+);
+
+adminRouter.post(
+  '/category-groups',
+  requireRole(UserRole.EDITOR),
+  validate(CategoryGroupInputSchema),
+  asyncHandler(async (req, res) => {
+    const group = await content.createCategoryGroup(valid<typeof CategoryGroupInputSchema>(req));
+    await audit({ actorId: req.auth!.userId, action: 'categoryGroup.create', entityType: 'CategoryGroup', entityId: group.id, ip: req.ip });
+    ok(res, group, 201);
+  }),
+);
+
+adminRouter.patch(
+  '/category-groups/:id',
+  requireRole(UserRole.EDITOR),
+  validate(idParam, 'params'),
+  validate(CategoryGroupEditSchema),
+  asyncHandler(async (req, res) => {
+    const { id } = valid<typeof idParam>(req, 'params');
+    const input = valid<typeof CategoryGroupEditSchema>(req);
+    const group = await content.updateCategoryGroup(id, input);
+    await audit({ actorId: req.auth!.userId, action: 'categoryGroup.update', entityType: 'CategoryGroup', entityId: id, metadata: input, ip: req.ip });
+    ok(res, group);
+  }),
+);
 
 // ── Categories ───────────────────────────────────────────────────────────────
 adminRouter.get(
@@ -49,10 +85,12 @@ adminRouter.patch(
   asyncHandler(async (req, res) => {
     const { id } = valid<typeof idParam>(req, 'params');
     const input = valid<typeof CategoryEditSchema>(req);
-    // A rename is the owner taking the name over from the taxonomy: flag the row so
-    // the next `db:seed` keeps their wording instead of resetting it.
-    const renamed = input.nameAr !== undefined || input.nameEn !== undefined;
-    const cat = await content.updateCategory(id, { ...input, ...(renamed && { adminEdited: true }) });
+    // Editing name, colour or parent group is the owner taking the category over from
+    // the taxonomy: flag the row so the next `db:seed` keeps their version of it.
+    const owned =
+      input.nameAr !== undefined || input.nameEn !== undefined ||
+      input.color !== undefined || input.groupId !== undefined;
+    const cat = await content.updateCategory(id, { ...input, ...(owned && { adminEdited: true }) });
     await audit({ actorId: req.auth!.userId, action: 'category.update', entityType: 'Category', entityId: id, metadata: input, ip: req.ip });
     ok(res, cat);
   }),

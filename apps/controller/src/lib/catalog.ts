@@ -1,27 +1,37 @@
 /** Static catalog for the app shell (countries + categories). Categories will be
  *  served from the DB later; this drives the browse UI for now. */
 
+/** Regions the country picker filters by, so the list is browsed rather than scrolled. */
+export type Region = 'gulf' | 'levant' | 'africa';
+
+export const REGIONS: { id: Region; nameAr: string }[] = [
+  { id: 'gulf', nameAr: 'الخليج' },
+  { id: 'levant', nameAr: 'بلاد الشام' },
+  { id: 'africa', nameAr: 'شمال أفريقيا' },
+];
+
 export interface Country {
   code: string;
   nameAr: string;
   flag: string;
+  region: Region;
 }
 
 export const COUNTRIES: Country[] = [
-  { code: 'SA', nameAr: 'السعودية', flag: '🇸🇦' },
-  { code: 'KW', nameAr: 'الكويت', flag: '🇰🇼' },
-  { code: 'BH', nameAr: 'البحرين', flag: '🇧🇭' },
-  { code: 'QA', nameAr: 'قطر', flag: '🇶🇦' },
-  { code: 'AE', nameAr: 'الإمارات', flag: '🇦🇪' },
-  { code: 'OM', nameAr: 'عُمان', flag: '🇴🇲' },
-  { code: 'YE', nameAr: 'اليمن', flag: '🇾🇪' },
-  { code: 'SY', nameAr: 'سوريا', flag: '🇸🇾' },
-  { code: 'JO', nameAr: 'الأردن', flag: '🇯🇴' },
-  { code: 'LB', nameAr: 'لبنان', flag: '🇱🇧' },
-  { code: 'EG', nameAr: 'مصر', flag: '🇪🇬' },
-  { code: 'TN', nameAr: 'تونس', flag: '🇹🇳' },
-  { code: 'DZ', nameAr: 'الجزائر', flag: '🇩🇿' },
-  { code: 'MA', nameAr: 'المغرب', flag: '🇲🇦' },
+  { code: 'SA', nameAr: 'السعودية', flag: '🇸🇦', region: 'gulf' },
+  { code: 'KW', nameAr: 'الكويت', flag: '🇰🇼', region: 'gulf' },
+  { code: 'BH', nameAr: 'البحرين', flag: '🇧🇭', region: 'gulf' },
+  { code: 'QA', nameAr: 'قطر', flag: '🇶🇦', region: 'gulf' },
+  { code: 'AE', nameAr: 'الإمارات', flag: '🇦🇪', region: 'gulf' },
+  { code: 'OM', nameAr: 'عُمان', flag: '🇴🇲', region: 'gulf' },
+  { code: 'YE', nameAr: 'اليمن', flag: '🇾🇪', region: 'gulf' },
+  { code: 'SY', nameAr: 'سوريا', flag: '🇸🇾', region: 'levant' },
+  { code: 'JO', nameAr: 'الأردن', flag: '🇯🇴', region: 'levant' },
+  { code: 'LB', nameAr: 'لبنان', flag: '🇱🇧', region: 'levant' },
+  { code: 'EG', nameAr: 'مصر', flag: '🇪🇬', region: 'africa' },
+  { code: 'TN', nameAr: 'تونس', flag: '🇹🇳', region: 'africa' },
+  { code: 'DZ', nameAr: 'الجزائر', flag: '🇩🇿', region: 'africa' },
+  { code: 'MA', nameAr: 'المغرب', flag: '🇲🇦', region: 'africa' },
 ];
 
 export interface Category {

@@ -12,7 +12,11 @@ export function listCategories() {
     orderBy: { sortOrder: 'asc' },
     // questionCount drives the admin's category-first question browser (pick a
     // category → see its questions), so it must exclude soft-deleted rows.
-    include: { _count: { select: { questions: { where: { deletedAt: null } } } } },
+    // `group` is the parent bucket the admin panel filters and groups by.
+    include: {
+      _count: { select: { questions: { where: { deletedAt: null } } } },
+      group: { select: { id: true, slug: true, nameAr: true, nameEn: true, color: true, icon: true } },
+    },
   });
 }
 
@@ -36,11 +40,32 @@ export function listCategoryGroups() {
   });
 }
 
-export function createCategory(data: Prisma.CategoryCreateInput) {
+/** Groups as the admin panel needs them: with how many categories sit under each. */
+export function listAdminCategoryGroups() {
+  return prisma.categoryGroup.findMany({
+    orderBy: { sortOrder: 'asc' },
+    include: { _count: { select: { categories: { where: { deletedAt: null } } } } },
+  });
+}
+
+export function createCategoryGroup(data: Prisma.CategoryGroupUncheckedCreateInput) {
+  return prisma.categoryGroup.create({ data });
+}
+
+export async function updateCategoryGroup(id: string, data: Prisma.CategoryGroupUncheckedUpdateInput) {
+  // Groups aren't soft-deletable, so this can't go through ensureExists().
+  const found = await prisma.categoryGroup.findUnique({ where: { id }, select: { id: true } });
+  if (!found) throw new AppError(ErrorCode.NOT_FOUND, 'categoryGroup not found');
+  return prisma.categoryGroup.update({ where: { id }, data });
+}
+
+// Unchecked inputs so the routes can pass a plain `groupId` (the parent bucket a
+// category is filed under) instead of a nested connect.
+export function createCategory(data: Prisma.CategoryUncheckedCreateInput) {
   return prisma.category.create({ data });
 }
 
-export async function updateCategory(id: string, data: Prisma.CategoryUpdateInput) {
+export async function updateCategory(id: string, data: Prisma.CategoryUncheckedUpdateInput) {
   await ensureExists('category', id);
   return prisma.category.update({ where: { id }, data });
 }

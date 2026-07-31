@@ -1,15 +1,30 @@
 /**
  * Categories — the picker the host sees when creating a game.
  *
+ * Two levels: a **group** (الثقافة والمعرفة، الدول العربية…) holds the **categories**
+ * filed under it. The owner browses by group filter, not by scrolling one flat list
+ * (client feedback 2026-07-31), and adding a category means picking its group from a
+ * dropdown and a colour from named swatches instead of hunting in a colour wheel.
+ *
  * Names are editable in place: the Arabic name is what shows on the phone and the TV,
  * so the owner can reword a category without a deploy. The change is live on the next
  * screen the players open. `slug` stays fixed — it is the key the question bank joins
  * on, so renaming it would orphan that category's questions.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Check, X } from 'lucide-react';
+import { Plus, Pencil, Check, X, Search, FolderPlus, Layers } from 'lucide-react';
 import { get, post, patch } from '../api/client.js';
+
+interface Group {
+  id: string;
+  slug: string;
+  nameAr: string;
+  nameEn: string;
+  color: string;
+  icon?: string | null;
+  _count?: { categories: number };
+}
 
 interface Category {
   id: string;
@@ -17,33 +32,94 @@ interface Category {
   nameAr: string;
   nameEn: string;
   color: string;
+  groupId?: string | null;
+  group?: { id: string; slug: string; nameAr: string; nameEn: string; color: string } | null;
   adminEdited?: boolean;
   _count?: { questions: number };
 }
 
-type Draft = { nameAr: string; nameEn: string; color: string };
+type Draft = { nameAr: string; nameEn: string; color: string; groupId: string };
+
+/**
+ * Named swatches instead of a raw colour wheel — the owner picks "أخضر" from a list,
+ * the same way the taxonomy assigns group colours. Values match the group palette in
+ * prisma/taxonomy.ts so a hand-added category looks native next to a seeded one.
+ */
+const PALETTE: { value: string; label: string }[] = [
+  { value: '#7C3AED', label: 'Violet — بنفسجي' },
+  { value: '#0EA371', label: 'Green — أخضر' },
+  { value: '#16A34A', label: 'Islamic green — أخضر داكن' },
+  { value: '#EF4444', label: 'Red — أحمر' },
+  { value: '#06B6D4', label: 'Cyan — سماوي' },
+  { value: '#0EA5E9', label: 'Blue — أزرق' },
+  { value: '#EC4899', label: 'Pink — وردي' },
+  { value: '#8B5CF6', label: 'Purple — أرجواني' },
+  { value: '#22C55E', label: 'Lime — أخضر فاتح' },
+  { value: '#F59E0B', label: 'Amber — برتقالي' },
+  { value: '#64748B', label: 'Slate — رمادي' },
+];
+
+const UNGROUPED = '__none__';
+
+/** A colour field: swatch list + the exact hex, so presets are one click and custom is still possible. */
+function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const known = PALETTE.some((p) => p.value.toLowerCase() === value.toLowerCase());
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-9 w-9 shrink-0 rounded-lg border border-slate-200" style={{ background: value }} />
+      <select className="input flex-1" value={known ? value : 'custom'} onChange={(e) => e.target.value !== 'custom' && onChange(e.target.value)}>
+        {PALETTE.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+        {!known && <option value="custom">Custom — {value}</option>}
+      </select>
+      <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-200"
+        title="Pick any colour" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
 
 export function Categories() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['categories'], queryFn: () => get<{ categories: Category[] }>('/api/v1/admin/categories') });
-  const [form, setForm] = useState({ slug: '', nameAr: '', nameEn: '', color: '#7C3AED' });
+  const { data: groupData } = useQuery({ queryKey: ['categoryGroups'], queryFn: () => get<{ groups: Group[] }>('/api/v1/admin/category-groups') });
+
+  const groups = groupData?.groups ?? [];
+
+  const [search, setSearch] = useState('');
+  const [groupFilter, setGroupFilter] = useState<string>(''); // '' = every group
+
+  const [form, setForm] = useState({ slug: '', nameAr: '', nameEn: '', color: PALETTE[0]!.value, groupId: '' });
   const [open, setOpen] = useState(false);
+  const [groupForm, setGroupForm] = useState({ slug: '', nameAr: '', nameEn: '', color: PALETTE[0]!.value });
+  const [groupOpen, setGroupOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft>({ nameAr: '', nameEn: '', color: '#7C3AED' });
+  const [draft, setDraft] = useState<Draft>({ nameAr: '', nameEn: '', color: PALETTE[0]!.value, groupId: '' });
 
   const create = useMutation({
-    mutationFn: () => post('/api/v1/admin/categories', form),
+    mutationFn: () => post('/api/v1/admin/categories', { ...form, groupId: form.groupId || undefined }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] });
+      qc.invalidateQueries({ queryKey: ['categoryGroups'] });
       setOpen(false);
-      setForm({ slug: '', nameAr: '', nameEn: '', color: '#7C3AED' });
+      setForm({ slug: '', nameAr: '', nameEn: '', color: PALETTE[0]!.value, groupId: '' });
+    },
+  });
+
+  const createGroup = useMutation({
+    mutationFn: () => post<Group>('/api/v1/admin/category-groups', groupForm),
+    onSuccess: (g) => {
+      qc.invalidateQueries({ queryKey: ['categoryGroups'] });
+      setGroupOpen(false);
+      // Land the owner where they just created: the new group becomes the add-form's parent.
+      setForm((f) => ({ ...f, groupId: g.id, color: groupForm.color }));
+      setGroupForm({ slug: '', nameAr: '', nameEn: '', color: PALETTE[0]!.value });
     },
   });
 
   const save = useMutation({
-    mutationFn: (id: string) => patch(`/api/v1/admin/categories/${id}`, draft),
+    mutationFn: (id: string) => patch(`/api/v1/admin/categories/${id}`, { ...draft, groupId: draft.groupId || null }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['categories'] });
+      qc.invalidateQueries({ queryKey: ['categoryGroups'] });
       qc.invalidateQueries({ queryKey: ['adminCategories'] });
       setEditId(null);
     },
@@ -51,33 +127,110 @@ export function Categories() {
 
   function startEdit(c: Category) {
     setEditId(c.id);
-    setDraft({ nameAr: c.nameAr, nameEn: c.nameEn, color: c.color });
+    setDraft({ nameAr: c.nameAr, nameEn: c.nameEn, color: c.color, groupId: c.groupId ?? '' });
     save.reset();
   }
 
+  const all = data?.categories ?? [];
+
+  /** Search + group filter, then bucketed under their group for display. */
+  const sections = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const matched = all.filter((c) => {
+      if (groupFilter && (c.groupId ?? UNGROUPED) !== groupFilter) return false;
+      if (!needle) return true;
+      return (
+        c.nameAr.toLowerCase().includes(needle) ||
+        c.nameEn.toLowerCase().includes(needle) ||
+        c.slug.toLowerCase().includes(needle)
+      );
+    });
+    const buckets: { key: string; group: Group | null; items: Category[] }[] = [];
+    for (const g of groups) {
+      const items = matched.filter((c) => c.groupId === g.id);
+      if (items.length) buckets.push({ key: g.id, group: g, items });
+    }
+    const loose = matched.filter((c) => !c.groupId);
+    if (loose.length) buckets.push({ key: UNGROUPED, group: null, items: loose });
+    return buckets;
+  }, [all, groups, search, groupFilter]);
+
+  const shown = sections.reduce((n, s) => n + s.items.length, 0);
+  const ungroupedCount = all.filter((c) => !c.groupId).length;
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Categories</h1>
           <p className="text-sm text-slate-500">
-            Rename any category in place — the new name reaches players immediately, no deploy needed.
+            Two levels: a <b>group</b> (فئة رئيسية) holds the <b>categories</b> (فئات فرعية) under it.
+            Filter by group, search by name, and rename in place — changes reach players immediately,
+            no deploy needed.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setOpen((v) => !v)}>
-          <Plus size={18} /> New
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button className="btn-ghost" onClick={() => { setGroupOpen((v) => !v); setOpen(false); }}>
+            <FolderPlus size={18} /> New group — فئة رئيسية
+          </button>
+          <button className="btn-primary" onClick={() => { setOpen((v) => !v); setGroupOpen(false); }}>
+            <Plus size={18} /> New category — فئة فرعية
+          </button>
+        </div>
       </div>
 
+      {/* ── Add a group (the parent bucket categories hang off) ── */}
+      {groupOpen && (
+        <div className="card mb-6 grid grid-cols-2 gap-4 p-5">
+          <p className="col-span-2 text-sm text-slate-500">
+            A group is the top-level bucket in the host's picker — e.g. «الرياضة» holding كرة القدم، الأولمبياد…
+          </p>
+          <div><label className="label">Slug (permanent id)</label><input className="input" value={groupForm.slug}
+            onChange={(e) => setGroupForm({ ...groupForm, slug: e.target.value })} placeholder="sports" /></div>
+          <div><label className="label">Colour</label><ColorField value={groupForm.color} onChange={(v) => setGroupForm({ ...groupForm, color: v })} /></div>
+          <div><label className="label">Name (AR) — shown to players</label><input className="input" dir="rtl" value={groupForm.nameAr}
+            onChange={(e) => setGroupForm({ ...groupForm, nameAr: e.target.value })} /></div>
+          <div><label className="label">Name (EN)</label><input className="input" value={groupForm.nameEn}
+            onChange={(e) => setGroupForm({ ...groupForm, nameEn: e.target.value })} /></div>
+          <div className="col-span-2 flex justify-end gap-2">
+            <button className="btn-ghost" onClick={() => setGroupOpen(false)}>Cancel</button>
+            <button className="btn-primary"
+              disabled={createGroup.isPending || !groupForm.slug.trim() || !groupForm.nameAr.trim() || !groupForm.nameEn.trim()}
+              onClick={() => createGroup.mutate()}>Create group</button>
+          </div>
+          {createGroup.isError && <p className="col-span-2 text-danger">{(createGroup.error as Error).message}</p>}
+        </div>
+      )}
+
+      {/* ── Add a category under a group ── */}
       {open && (
         <div className="card mb-6 grid grid-cols-2 gap-4 p-5">
-          <div><label className="label">Slug</label><input className="input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="general" /></div>
-          <div><label className="label">Color</label><input type="color" className="input h-10" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
-          <div><label className="label">Name (AR)</label><input className="input" dir="rtl" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} /></div>
-          <div><label className="label">Name (EN)</label><input className="input" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></div>
+          <div className="col-span-2">
+            <label className="label">Group (الفئة الرئيسية) — where this category is filed</label>
+            <select className="input" value={form.groupId}
+              onChange={(e) => {
+                const g = groups.find((x) => x.id === e.target.value);
+                // A new category inherits its group's colour by default, like the seeded ones.
+                setForm({ ...form, groupId: e.target.value, ...(g ? { color: g.color } : {}) });
+              }}>
+              <option value="">— No group (loose) —</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.nameAr} — {g.nameEn} ({g._count?.categories ?? 0})</option>
+              ))}
+            </select>
+          </div>
+          <div><label className="label">Slug (permanent id)</label><input className="input" value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="football" /></div>
+          <div><label className="label">Colour</label><ColorField value={form.color} onChange={(v) => setForm({ ...form, color: v })} /></div>
+          <div><label className="label">Name (AR) — shown to players</label><input className="input" dir="rtl" value={form.nameAr}
+            onChange={(e) => setForm({ ...form, nameAr: e.target.value })} /></div>
+          <div><label className="label">Name (EN)</label><input className="input" value={form.nameEn}
+            onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></div>
           <div className="col-span-2 flex justify-end gap-2">
             <button className="btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-            <button className="btn-primary" disabled={create.isPending} onClick={() => create.mutate()}>Save</button>
+            <button className="btn-primary"
+              disabled={create.isPending || !form.slug.trim() || !form.nameAr.trim() || !form.nameEn.trim()}
+              onClick={() => create.mutate()}>Save</button>
           </div>
           {create.isError && <p className="col-span-2 text-danger">{(create.error as Error).message}</p>}
         </div>
@@ -89,68 +242,136 @@ export function Categories() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 text-sm text-slate-500">
-            <tr>
-              <th className="p-3">Color</th>
-              <th className="p-3">Slug</th>
-              <th className="p-3">Arabic (shown to players)</th>
-              <th className="p-3">English</th>
-              <th className="p-3">Questions</th>
-              <th className="p-3 text-right">Edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.categories.map((c) =>
-              editId === c.id ? (
-                <tr key={c.id} className="border-t border-slate-100 bg-violet-50/40">
-                  <td className="p-3">
-                    <input type="color" className="h-8 w-10 cursor-pointer rounded border border-slate-200"
-                      value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })} />
-                  </td>
-                  <td className="p-3 font-mono text-sm text-slate-400" title="Slug can't change — questions are linked by it">{c.slug}</td>
-                  <td className="p-3">
-                    <input className="input" dir="rtl" autoFocus value={draft.nameAr}
-                      onChange={(e) => setDraft({ ...draft, nameAr: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === 'Enter') save.mutate(c.id); if (e.key === 'Escape') setEditId(null); }} />
-                  </td>
-                  <td className="p-3">
-                    <input className="input" value={draft.nameEn}
-                      onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === 'Enter') save.mutate(c.id); if (e.key === 'Escape') setEditId(null); }} />
-                  </td>
-                  <td className="p-3 tnum text-slate-400">{c._count?.questions ?? 0}</td>
-                  <td className="p-3">
-                    <div className="flex justify-end gap-1">
-                      <button className="btn-primary !px-3 !py-1.5 text-sm" disabled={save.isPending || !draft.nameAr.trim() || !draft.nameEn.trim()}
-                        onClick={() => save.mutate(c.id)}>
-                        <Check size={14} /> {save.isPending ? 'Saving…' : 'Save'}
-                      </button>
-                      <button className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => setEditId(null)}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <td className="p-3"><span className="inline-block h-5 w-5 rounded" style={{ background: c.color }} /></td>
-                  <td className="p-3 font-mono text-sm">{c.slug}</td>
-                  <td className="p-3 font-semibold" dir="rtl">{c.nameAr}</td>
-                  <td className="p-3">{c.nameEn}</td>
-                  <td className="p-3 tnum text-slate-500">{c._count?.questions ?? 0}</td>
-                  <td className="p-3 text-right">
-                    <button className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => startEdit(c)}>
-                      <Pencil size={14} /> Rename
-                    </button>
-                  </td>
-                </tr>
-              ),
-            )}
-          </tbody>
-        </table>
+      {/* ── Filters: search + one chip per group ── */}
+      <div className="card mb-5 space-y-3 p-4">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input className="input pl-9" dir="auto" placeholder="Search a category by Arabic name, English name or slug…"
+            value={search} onChange={(e) => setSearch(e.target.value)} />
+          {search && (
+            <button type="button" title="Clear" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              onClick={() => setSearch('')}>
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <FilterChip active={!groupFilter} color="#64748B" label="All groups" count={all.length} onClick={() => setGroupFilter('')} />
+          {groups.map((g) => (
+            <FilterChip key={g.id} active={groupFilter === g.id} color={g.color}
+              label={g.nameAr} count={g._count?.categories ?? 0} onClick={() => setGroupFilter(g.id)} />
+          ))}
+          {ungroupedCount > 0 && (
+            <FilterChip active={groupFilter === UNGROUPED} color="#94A3B8" label="No group"
+              count={ungroupedCount} onClick={() => setGroupFilter(UNGROUPED)} />
+          )}
+        </div>
       </div>
+
+      {!shown ? (
+        <p className="card p-8 text-center text-slate-400">Nothing matches that filter.</p>
+      ) : (
+        <div className="space-y-5">
+          {sections.map((section) => (
+            <div key={section.key} className="card overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"
+                style={{ background: `${section.group?.color ?? '#94A3B8'}12` }}>
+                <Layers size={16} style={{ color: section.group?.color ?? '#94A3B8' }} />
+                <span className="font-semibold" dir="auto">{section.group?.nameAr ?? 'No group'}</span>
+                <span className="text-sm text-slate-400">{section.group?.nameEn ?? 'unfiled'}</span>
+                <span className="tnum ms-auto text-sm text-slate-400">{section.items.length} categories</span>
+              </div>
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-sm text-slate-500">
+                  <tr>
+                    <th className="p-3">Colour</th>
+                    <th className="p-3">Slug</th>
+                    <th className="p-3">Arabic (shown to players)</th>
+                    <th className="p-3">English</th>
+                    <th className="p-3">Group</th>
+                    <th className="p-3">Questions</th>
+                    <th className="p-3 text-right">Edit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.items.map((c) =>
+                    editId === c.id ? (
+                      <tr key={c.id} className="border-t border-slate-100 bg-violet-50/40">
+                        <td className="p-3">
+                          <ColorField value={draft.color} onChange={(v) => setDraft({ ...draft, color: v })} />
+                        </td>
+                        <td className="p-3 font-mono text-sm text-slate-400" title="Slug can't change — questions are linked by it">{c.slug}</td>
+                        <td className="p-3">
+                          <input className="input" dir="rtl" autoFocus value={draft.nameAr}
+                            onChange={(e) => setDraft({ ...draft, nameAr: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') save.mutate(c.id); if (e.key === 'Escape') setEditId(null); }} />
+                        </td>
+                        <td className="p-3">
+                          <input className="input" value={draft.nameEn}
+                            onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') save.mutate(c.id); if (e.key === 'Escape') setEditId(null); }} />
+                        </td>
+                        <td className="p-3">
+                          <select className="input" value={draft.groupId} title="Move this category to another group"
+                            onChange={(e) => setDraft({ ...draft, groupId: e.target.value })}>
+                            <option value="">— No group —</option>
+                            {groups.map((g) => <option key={g.id} value={g.id}>{g.nameAr}</option>)}
+                          </select>
+                        </td>
+                        <td className="p-3 tnum text-slate-400">{c._count?.questions ?? 0}</td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-1">
+                            <button className="btn-primary !px-3 !py-1.5 text-sm" disabled={save.isPending || !draft.nameAr.trim() || !draft.nameEn.trim()}
+                              onClick={() => save.mutate(c.id)}>
+                              <Check size={14} /> {save.isPending ? 'Saving…' : 'Save'}
+                            </button>
+                            <button className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => setEditId(null)}>
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={c.id} className="border-t border-slate-100">
+                        <td className="p-3"><span className="inline-block h-5 w-5 rounded" style={{ background: c.color }} /></td>
+                        <td className="p-3 font-mono text-sm">{c.slug}</td>
+                        <td className="p-3 font-semibold" dir="rtl">{c.nameAr}</td>
+                        <td className="p-3">{c.nameEn}</td>
+                        <td className="p-3 text-sm text-slate-500" dir="auto">{c.group?.nameAr ?? '—'}</td>
+                        <td className="p-3 tnum text-slate-500">{c._count?.questions ?? 0}</td>
+                        <td className="p-3 text-right">
+                          <button className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => startEdit(c)}>
+                            <Pencil size={14} /> Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+function FilterChip({ active, color, label, count, onClick }: {
+  active: boolean; color: string; label: string; count: number; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      dir="auto"
+      className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${
+        active ? 'border-transparent font-semibold text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+      }`}
+      style={active ? { background: color } : undefined}
+    >
+      {!active && <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />}
+      <span>{label}</span>
+      <span className={`tnum text-xs ${active ? 'text-white/75' : 'text-slate-400'}`}>{count}</span>
+    </button>
   );
 }

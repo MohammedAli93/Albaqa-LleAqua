@@ -41,7 +41,16 @@ interface Category {
   nameAr: string;
   nameEn: string;
   color: string;
+  groupId?: string | null;
+  group?: { id: string; nameAr: string; nameEn: string; color: string } | null;
   _count?: { questions: number };
+}
+interface Group {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  color: string;
+  _count?: { categories: number };
 }
 
 type FormState = {
@@ -120,6 +129,7 @@ export function Questions() {
 
   const [categoryId, setCategoryId] = useState<string>('');   // '' = all categories
   const [catFilter, setCatFilter] = useState('');             // filters the category rail
+  const [groupId, setGroupId] = useState('');                 // '' = every group
   const [search, setSearch] = useState('');                   // committed question search
   const [searchInput, setSearchInput] = useState('');
   const [difficulty, setDifficulty] = useState('');
@@ -133,14 +143,33 @@ export function Questions() {
     queryFn: () => get<{ categories: Category[] }>('/api/v1/admin/categories'),
   });
 
+  const { data: groupData } = useQuery({
+    queryKey: ['categoryGroups'],
+    queryFn: () => get<{ groups: Group[] }>('/api/v1/admin/category-groups'),
+  });
+  const groups = useMemo(() => groupData?.groups ?? [], [groupData]);
+
   const categories = useMemo(() => {
     const list = cats?.categories ?? [];
     const needle = catFilter.trim().toLowerCase();
-    if (!needle) return list;
-    return list.filter(
-      (c) => c.nameAr.toLowerCase().includes(needle) || c.nameEn.toLowerCase().includes(needle),
-    );
-  }, [cats, catFilter]);
+    return list.filter((c) => {
+      if (groupId && c.groupId !== groupId) return false;
+      if (!needle) return true;
+      return c.nameAr.toLowerCase().includes(needle) || c.nameEn.toLowerCase().includes(needle);
+    });
+  }, [cats, catFilter, groupId]);
+
+  /** The rail lists categories under their group heading rather than in one flat run. */
+  const railSections = useMemo(() => {
+    const out: { key: string; label: string; color: string; items: Category[] }[] = [];
+    for (const g of groups) {
+      const items = categories.filter((c) => c.groupId === g.id);
+      if (items.length) out.push({ key: g.id, label: g.nameAr, color: g.color, items });
+    }
+    const loose = categories.filter((c) => !c.groupId);
+    if (loose.length) out.push({ key: '__none__', label: 'No group', color: '#94A3B8', items: loose });
+    return out;
+  }, [categories, groups]);
 
   const totalQuestions = useMemo(
     () => (cats?.categories ?? []).reduce((sum, c) => sum + (c._count?.questions ?? 0), 0),
@@ -221,11 +250,27 @@ export function Questions() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">Category</label>
+          {/* Grouped so the owner finds a category by its bucket, not by scanning 60 names. */}
           <select className="input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
             <option value="">Select…</option>
-            {cats?.categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.nameAr} — {c.nameEn}</option>
-            ))}
+            {groups.map((g) => {
+              const items = (cats?.categories ?? []).filter((c) => c.groupId === g.id);
+              if (!items.length) return null;
+              return (
+                <optgroup key={g.id} label={g.nameAr}>
+                  {items.map((c) => <option key={c.id} value={c.id}>{c.nameAr} — {c.nameEn}</option>)}
+                </optgroup>
+              );
+            })}
+            {(() => {
+              const loose = (cats?.categories ?? []).filter((c) => !c.groupId);
+              if (!loose.length) return null;
+              return (
+                <optgroup label="No group">
+                  {loose.map((c) => <option key={c.id} value={c.id}>{c.nameAr} — {c.nameEn}</option>)}
+                </optgroup>
+              );
+            })()}
           </select>
         </div>
         <div>
@@ -299,7 +344,14 @@ export function Questions() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[17rem_1fr]">
         {/* ── Category rail: pick a category, see its questions ── */}
         <aside className="card h-fit overflow-hidden lg:sticky lg:top-4">
-          <div className="border-b border-slate-100 p-3">
+          <div className="space-y-2 border-b border-slate-100 p-3">
+            {/* Narrow to a group first, then search inside it — beats scrolling one long list. */}
+            <select className="input text-sm" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+              <option value="">All groups</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.nameAr} ({g._count?.categories ?? 0})</option>
+              ))}
+            </select>
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input className="input pl-9 text-sm" placeholder="Find a category…" value={catFilter}
@@ -314,18 +366,27 @@ export function Questions() {
               <span>All categories</span>
               <span className="tnum text-xs text-slate-400">{totalQuestions}</span>
             </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => { setCategoryId(c.id); closeEditor(); }}
-                className={`flex w-full items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${categoryId === c.id ? 'bg-violet-50 font-semibold text-brand-violet' : ''}`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
-                  <span className="truncate" dir="auto">{c.nameAr}</span>
-                </span>
-                <span className="tnum shrink-0 text-xs text-slate-400">{c._count?.questions ?? 0}</span>
-              </button>
+            {railSections.map((section) => (
+              <div key={section.key}>
+                <p className="flex items-center gap-2 border-t border-slate-100 bg-slate-50/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  dir="auto">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: section.color }} />
+                  {section.label}
+                </p>
+                {section.items.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setCategoryId(c.id); closeEditor(); }}
+                    className={`flex w-full items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${categoryId === c.id ? 'bg-violet-50 font-semibold text-brand-violet' : ''}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
+                      <span className="truncate" dir="auto">{c.nameAr}</span>
+                    </span>
+                    <span className="tnum shrink-0 text-xs text-slate-400">{c._count?.questions ?? 0}</span>
+                  </button>
+                ))}
+              </div>
             ))}
             {!categories.length && <p className="p-4 text-center text-sm text-slate-400">No match.</p>}
           </div>

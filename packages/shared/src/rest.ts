@@ -236,7 +236,29 @@ export const CategoryInputSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#7C3AED'),
   icon: z.string().max(40).optional(),
   sortOrder: z.number().int().default(0),
+  /** Parent group the category is filed under (the picker's top-level bucket). */
+  groupId: z.string().uuid().optional(),
 });
+
+/** A top-level bucket that categories hang off — "الثقافة والمعرفة" → التاريخ، الجغرافيا… */
+export const CategoryGroupInputSchema = z.object({
+  slug: z.string().min(2).max(60).regex(/^[a-z0-9-]+$/),
+  nameAr: z.string().min(1).max(80),
+  nameEn: z.string().min(1).max(80),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#7C3AED'),
+  icon: z.string().max(40).optional(),
+  sortOrder: z.number().int().default(0),
+});
+export type CategoryGroupInput = z.infer<typeof CategoryGroupInputSchema>;
+
+export const CategoryGroupEditSchema = z.object({
+  nameAr: z.string().min(1).max(80).optional(),
+  nameEn: z.string().min(1).max(80).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  icon: z.string().max(40).nullish(),
+  sortOrder: z.number().int().min(0).max(9999).optional(),
+});
+export type CategoryGroupEditInput = z.infer<typeof CategoryGroupEditSchema>;
 
 /**
  * Editing an existing category from the panel. `slug` is intentionally not editable:
@@ -249,6 +271,8 @@ export const CategoryEditSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   icon: z.string().max(40).nullish(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
+  /** Moving a category to another group (or to none) is a plain edit. */
+  groupId: z.string().uuid().nullish(),
 });
 export type CategoryEditInput = z.infer<typeof CategoryEditSchema>;
 
