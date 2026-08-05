@@ -10,7 +10,6 @@ export const science: BankQuestion[] = [
   { ar: "ما العضو المسؤول عن ضخ الدم في الجسم؟", en: "Organ that pumps blood?", o: ["الرئة", "القلب", "الكبد", "الكلية"], c: 1, d: 'EASY' },
   { ar: "ما العضو المسؤول عن التنفس؟", en: "Organ responsible for breathing?", o: ["القلب", "الرئتان", "الكبد", "المعدة"], c: 1, d: 'EASY' },
   { ar: "ما أصلب مادة طبيعية معروفة؟", en: "Hardest known natural material?", o: ["الذهب", "الماس", "الحديد", "الكوارتز"], c: 1 },
-  { ar: "ما العنصر الأكثر وفرة في الكون؟", en: "Most abundant element in the universe?", o: ["الأكسجين", "الهيدروجين", "الكربون", "الحديد"], c: 1, d: 'HARD' },
   { ar: "ما الوحدة التي تُقاس بها القوة؟", en: "Unit of force?", o: ["جول", "نيوتن", "واط", "باسكال"], c: 1, d: 'MEDIUM' },
   { ar: "ما الوحدة التي تُقاس بها الطاقة؟", en: "Unit of energy?", o: ["نيوتن", "جول", "أمبير", "فولت"], c: 1, d: 'HARD' },
   { ar: "ما الوحدة التي تُقاس بها شدة التيار الكهربائي؟", en: "Unit of electric current?", o: ["فولت", "أمبير", "أوم", "واط"], c: 1, d: 'HARD' },
