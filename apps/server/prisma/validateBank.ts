@@ -44,6 +44,54 @@ const quoted = (s: string): string | null => {
   return m ? normalizeAr(m[1]!) : null;
 };
 const seenQuoted = new Map<string, string>(); // category → first prompt quoting this term
+
+/**
+ * Topic coherence. A category is a promise about what the player will be asked:
+ * pick «الرياضة» and every question should be about sport. Bulk intake can break
+ * that promise silently — a religion question landing in a football bank reads as
+ * a bug to the player even though the question itself is perfectly good.
+ *
+ * Each entry is a group of categories plus the words that mean "this text belongs
+ * to that group". A question is flagged when it carries another group's marker and
+ * none of its own. Deliberately loose: it only fires on strong, unambiguous markers,
+ * because the cost of a false positive (deleting a good question) is real.
+ */
+const TOPIC_MARKERS: { slugs: string[]; words: string[] }[] = [
+  {
+    slugs: ['quran', 'islamic-culture', 'seerah', 'prophets-companions', 'islamic-history'],
+    words: ['سورة', 'الآية', 'القرآن', 'الرسول', 'النبي', 'الصحابي', 'الصحابة', 'الخليفة',
+            'الصلاة', 'الزكاة', 'الحج', 'الصيام', 'رمضان', 'الحديث النبوي', 'غزوة', 'الأنبياء'],
+  },
+  {
+    slugs: ['world-cup', 'football-europe', 'football-asia', 'football-africa',
+            'football-southamerica', 'football-arab', 'football-gulf', 'saudi-league',
+            'premier-league', 'laliga'],
+    words: ['كرة القدم', 'المنتخب', 'الدوري', 'الهدف', 'المرمى', 'اللاعب', 'الملعب',
+            'كأس العالم', 'البطولة', 'المباراة', 'النادي'],
+  },
+  {
+    slugs: ['medicine-health'],
+    words: ['المرض', 'الدواء', 'الطبيب', 'العلاج', 'فيتامين', 'الجراحة', 'اللقاح'],
+  },
+];
+const groupOf = new Map<string, number>();
+TOPIC_MARKERS.forEach((g, i) => g.slugs.forEach((s) => groupOf.set(s, i)));
+
+/**
+ * Categories that are cross-topic by design — comparing a prophet to a footballer is
+ * the entire point of «ما المتشابه؟», and الثقافة العامة is general knowledge. The
+ * coherence check does not apply to them.
+ */
+const CROSS_TOPIC = new Set([
+  'what-similar', 'what-different', 'general', 'guess', 'weird-facts', 'puzzles-logic',
+]);
+
+/** How many of a group's markers a text carries (whole-word, so «السردين» doesn't
+ *  trip a marker it merely contains). */
+const markerHits = (text: string, i: number) => {
+  const padded = ` ${text.replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
+  return TOPIC_MARKERS[i]!.words.filter((w) => padded.includes(` ${w} `)).length;
+};
 const fill: { slug: string; nameAr: string; n: number; hard: number }[] = [];
 
 const isNumeric = (s: string) => /^[\d٠-٩.,\s%+-]+$/.test(s.trim());
@@ -73,6 +121,24 @@ for (const cat of CATEGORIES) {
     const previous = seen.get(norm);
     if (previous) at(`duplicate prompt (already in "${previous}")`);
     else seen.set(norm, cat.slug);
+
+    // Off-topic: only policed *between* the marked groups — a religion question sitting
+    // in a football bank, or the reverse. A category outside these groups is skipped
+    // entirely, because a marker word in an unrelated bank is usually a legitimate
+    // mention (a dialect question about «السحور» rightly says رمضان). Two markers are
+    // required so a single passing word can't condemn a good question.
+    const own = groupOf.get(cat.slug);
+    if (own !== undefined && !CROSS_TOPIC.has(cat.slug)) {
+      const text = `${q.ar} ${q.o.join(' ')}`;
+      const mine = markerHits(text, own);
+      for (let g = 0; g < TOPIC_MARKERS.length; g++) {
+        if (g === own) continue;
+        if (markerHits(text, g) >= 2 && mine === 0) {
+          at(`reads as a ${TOPIC_MARKERS[g]!.slugs[0]} question, not ${cat.slug}`);
+          break;
+        }
+      }
+    }
 
     // Same quoted term AND same answer inside one category = one question written
     // twice. Scoped per category — «التراث» may be asked about in two banks.
