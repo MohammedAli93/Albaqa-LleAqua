@@ -84,6 +84,13 @@ export interface ControllerState {
   totalRounds: number;
   /** Current question is a sudden-death tie-breaker (shown after an equal-score end). */
   isTiebreak: boolean;
+  /** TEAMS games: the team whose turn it is — only they may answer this question.
+   *  Null in individual games (everybody answers every question). */
+  turnTeam: { teamId: string; name: string; color: string } | null;
+  /** TEAMS games: this question is the steal re-run of one the other team missed. */
+  isSteal: boolean;
+  /** TEAMS games: the team about to get a steal attempt (shown during the recap). */
+  pendingStealTeam: { teamId: string; name: string; color: string } | null;
   leaderboard: RankedEntry[];
   /** The upcoming question's 1-based number + category (from ROUND_COMPLETED). */
   nextRound: number | null;
@@ -143,6 +150,9 @@ export const useStore = create<ControllerState>((set, get) => ({
   round: 0,
   totalRounds: 0,
   isTiebreak: false,
+  turnTeam: null,
+  isSteal: false,
+  pendingStealTeam: null,
   leaderboard: [],
   nextRound: null,
   nextCategory: null,
@@ -184,6 +194,10 @@ export const useStore = create<ControllerState>((set, get) => ({
             question: snap.currentRound?.question ?? null,
             roundId: snap.currentRound?.roundId ?? null,
             endsAt: snap.currentRound?.endsAt ?? null,
+            // Whose turn it is has to survive a resync, or a reconnecting phone
+            // would offer the answer buttons to the spectating team.
+            turnTeam: snap.currentRound?.turnTeam ?? null,
+            isSteal: snap.currentRound?.steal ?? false,
             hasAnswered: self?.hasAnswered ?? false,
             myScore: self?.score ?? s.myScore,
             myLives: self?.lives ?? s.myLives,
@@ -207,6 +221,9 @@ export const useStore = create<ControllerState>((set, get) => ({
             roundId: p.roundId,
             round: p.round,
             isTiebreak: p.tiebreak ?? false,
+            turnTeam: p.turnTeam ?? null,
+            isSteal: p.steal ?? false,
+            pendingStealTeam: null,
             startsAt,
             endsAt: p.endsAt,
             roundTotalMs: Math.max(1000, p.endsAt - startsAt),
@@ -251,7 +268,11 @@ export const useStore = create<ControllerState>((set, get) => ({
         }
         case ServerEvent.ROUND_COMPLETED: {
           const p = payload as RoundCompletedPayload;
-          return { nextRound: p.nextRound ?? null, nextCategory: p.nextCategory ?? null };
+          return {
+            nextRound: p.nextRound ?? null,
+            nextCategory: p.nextCategory ?? null,
+            pendingStealTeam: p.steal ? (p.stealTeam ?? null) : null,
+          };
         }
         case ServerEvent.YOU_ELIMINATED: {
           const p = payload as YouEliminatedPayload;

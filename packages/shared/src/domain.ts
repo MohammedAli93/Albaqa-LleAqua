@@ -24,13 +24,30 @@ export const GameMode = {
   /** لعبة النقاط — accumulate points across a fixed number of rounds, placement
    *  scoring, no elimination. Highest score wins. (was: LEAGUE) */
   POINTS: 'POINTS',
-  /** لعبة التصفيات — lives-based: a wrong answer costs a life, last one (or last
-   *  team) standing wins. (was: CUP / SUDDEN_DEATH) */
+  /** لعبة التصفيات — lives-based: a wrong answer costs a life, last one standing
+   *  wins. **INDIVIDUAL only** — team games are always POINTS (the turn-based
+   *  team format made elimination a duplicate of it). (was: CUP / SUDDEN_DEATH) */
   ELIMINATION: 'ELIMINATION',
   /** سين جيم — turn-based board format: category draft + lifelines. Always teams. */
   SEEN_JEEM: 'SEEN_JEEM',
 } as const;
 export type GameMode = (typeof GameMode)[keyof typeof GameMode];
+
+/**
+ * The modes a given game **type** may run. TEAMS deliberately excludes
+ * ELIMINATION: team elimination was scored identically to team points, so it was
+ * dropped — a team game is either the turn-based points format or Seen Jeem.
+ * The picker UIs, the host launchers and `GameSettingsSchema` all read this.
+ */
+export const MODES_FOR_TYPE: Record<GameType, readonly GameMode[]> = {
+  INDIVIDUAL: [GameMode.POINTS, GameMode.ELIMINATION],
+  TEAMS: [GameMode.POINTS, GameMode.SEEN_JEEM],
+};
+
+/** True when `mode` is a legal choice for `type`. */
+export function isModeAllowed(type: GameType, mode: GameMode): boolean {
+  return MODES_FOR_TYPE[type].includes(mode);
+}
 
 /** How a round's points are awarded. */
 export const ScoringMode = {

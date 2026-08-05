@@ -74,12 +74,22 @@ function effectiveScoringMode(state: RoomState): ScoringMode {
   return state.settings.scoringMode ?? defaultScoringMode(state.mode);
 }
 
-/** Build raw outcomes (correctness + server response time) for active players. */
+/**
+ * Build raw outcomes (correctness + server response time) for the players who
+ * were eligible to answer this round.
+ *
+ * TEAMS points games are turn-based: only `round.answeringTeamId` was allowed to
+ * answer, so only that team's players get an outcome. The other team must NOT
+ * appear here — otherwise they'd be recorded as "no answer / wrong" on a question
+ * that was never theirs, and their Answer rows would collide with the steal re-run
+ * (Answer is unique per round+participant, and a steal reuses the round row).
+ */
 function baseOutcomes(state: RoomState, round: LiveRound): AnswerOutcome[] {
   const windowMs = round.timeLimitSec * 1000;
   const outcomes: AnswerOutcome[] = [];
   for (const p of Object.values(state.participants)) {
     if (p.status !== ParticipantStatus.ACTIVE) continue;
+    if (round.answeringTeamId && p.teamId !== round.answeringTeamId) continue;
     const submitted = round.answers[p.id];
     const isCorrect = !!submitted && submitted.optionId === round.correctOptionId;
     const responseMs = submitted ? Math.max(0, submitted.serverTs - round.startedAt) : windowMs;
@@ -112,10 +122,13 @@ function scoreIndividual(state: RoomState, round: LiveRound, outcomes: AnswerOut
 }
 
 /**
- * TEAMS scoring (client rule): the score belongs to the TEAM, and it's a RACE —
- * only ONE team wins each round. The single globally-first correct answer (fastest
- * by server time across everyone) takes a FLAT +1 for its team; the other team gets
- * nothing. No per-round ties — first correct click wins.
+ * TEAMS scoring: the score belongs to the TEAM, and a question is worth a FLAT +1.
+ *
+ * Team games are turn-based (client rule 2026-08-06): each question belongs to one
+ * team, and `baseOutcomes` has already narrowed `outcomes` to that team. The first
+ * correct answer from the team on the clock takes the point — whether this is the
+ * team's own question or a steal of the other team's missed one. At most one team
+ * scores per question.
  */
 function scoreTeams(state: RoomState, outcomes: AnswerOutcome[]): TeamHero[] {
   let best: AnswerOutcome | undefined;

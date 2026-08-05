@@ -20,9 +20,16 @@ export function listCategories() {
   });
 }
 
-/** Public grouped category catalog for the create-game picker. */
-export function listCategoryGroups() {
-  return prisma.categoryGroup.findMany({
+/**
+ * Public grouped category catalog for the create-game picker.
+ *
+ * A category with no live questions is left out: picking it would hand the player a
+ * category the draw can't fill, and the widening fallback would quietly serve them
+ * questions from elsewhere. An empty bank is a content gap for the owner to fill in
+ * the panel (where it IS listed, with its count), not a tile for players to trip on.
+ */
+export async function listCategoryGroups() {
+  const groups = await prisma.categoryGroup.findMany({
     orderBy: { sortOrder: 'asc' },
     select: {
       id: true,
@@ -34,10 +41,19 @@ export function listCategoryGroups() {
       categories: {
         where: { deletedAt: null },
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, slug: true, nameAr: true, nameEn: true, color: true, icon: true },
+        select: {
+          id: true, slug: true, nameAr: true, nameEn: true, color: true, icon: true,
+          _count: { select: { questions: { where: { deletedAt: null, isApproved: true } } } },
+        },
       },
     },
   });
+  return groups.map((g) => ({
+    ...g,
+    categories: g.categories
+      .filter((c) => c._count.questions > 0)
+      .map(({ _count, ...c }) => c),
+  }));
 }
 
 /** Groups as the admin panel needs them: with how many categories sit under each. */

@@ -59,7 +59,7 @@ function GetReady({ msLeft, round, totalRounds, isTiebreak, isElimination, local
 export function Question() {
   const {
     question, phase, startsAt, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds, isTiebreak,
-    correctOptionId, distribution, heroes, teams, leaderboard, mode, locale,
+    correctOptionId, distribution, heroes, teams, leaderboard, mode, locale, turnTeam, isSteal,
   } = useStore();
 
   const collecting = phase === 'collecting';
@@ -113,6 +113,20 @@ export function Question() {
               transition={{ type: 'spring', stiffness: 180, damping: 18 }}
               className="flex w-full max-w-3xl flex-col items-center gap-4 lg:gap-5"
             >
+              {/* TEAMS: whose question this is (and whether it's a steal). */}
+              {turnTeam && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-full px-5 py-1.5 font-display text-screen-meta font-black text-white shadow-glow lg:px-7 lg:py-2"
+                  style={{ background: turnTeam.color }}
+                >
+                  {isSteal
+                    ? t(locale, 'teamStealOther', { team: turnTeam.name })
+                    : t(locale, 'teamTurnOther', { team: turnTeam.name })}
+                </motion.div>
+              )}
+
               {question.category && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.6, rotate: -4 }}

@@ -89,6 +89,11 @@ model CategoryGroup {
   color      String     @default("#7C3AED")
   icon       String?
   sortOrder  Int        @default(0)
+
+  /// Set when an admin reorders the group in the panel. The seed then leaves its
+  /// position alone instead of snapping it back to the taxonomy's order.
+  sortEdited Boolean    @default(false)
+
   categories Category[]
   createdAt  DateTime   @default(now()) @db.Timestamptz
   updatedAt  DateTime   @updatedAt @db.Timestamptz
@@ -109,6 +114,10 @@ model Category {
   /// Set when an admin renames the category in the panel. The seed then keeps
   /// their name instead of resetting it to the taxonomy's.
   adminEdited Boolean  @default(false)
+
+  /// Set when an admin reorders the category in the panel. The seed then leaves its
+  /// position alone — ordering is the owner's to control from the panel.
+  sortEdited  Boolean  @default(false)
 
   questions Question[]
   deletedAt DateTime?  @db.Timestamptz

@@ -253,6 +253,13 @@ export const RoomSnapshotSchema = z.object({
       endsAt: z.number().int(), // epoch ms
       phase: zEnum(RoundPhase),
       answeredCount: z.number().int(),
+      /** TEAMS turn-based games: the team allowed to answer this question. A
+       *  reconnecting phone needs this to know whether it may answer. */
+      turnTeam: z
+        .object({ teamId: z.string(), name: z.string(), color: z.string() })
+        .optional(),
+      /** TEAMS: this round is the steal re-run of a missed question. */
+      steal: z.boolean().optional(),
     })
     .optional(),
   leaderboard: z.array(RankedEntrySchema),
@@ -357,6 +364,17 @@ export interface QuestionShowPayload {
   startsAt?: number;
   /** Per-player-category mode: whose category this round belongs to. */
   turnPlayer?: { nickname: string; avatarId: string };
+  /**
+   * TEAMS games: the ONE team whose turn it is — only its members may answer.
+   * Everyone else watches. Absent in INDIVIDUAL games (all players answer).
+   */
+  turnTeam?: { teamId: string; name: string; color: string };
+  /**
+   * TEAMS games: this is the SAME question re-opened for the other team after the
+   * team that owned it answered wrong (or ran out of time). Clients label it
+   * "فرصة الفريق الثاني" instead of a fresh round number.
+   */
+  steal?: boolean;
   /** Sudden-death overtime question (shown after a tie). Clients label it
    *  "tie-breaker" instead of "round X of Y". */
   tiebreak?: boolean;
@@ -430,6 +448,13 @@ export interface RoundCompletedPayload {
   nextCategory?: { nameAr: string; nameEn?: string; color: string; icon?: string };
   /** The next question is a sudden-death tie-breaker (after an equal-score end). */
   tiebreak?: boolean;
+  /**
+   * TEAMS games: the team on the clock missed, so the SAME question is about to be
+   * re-opened for {@link stealTeam} instead of advancing to a new one.
+   */
+  steal?: boolean;
+  /** TEAMS games: who gets the steal attempt (only set with `steal`). */
+  stealTeam?: { teamId: string; name: string; color: string };
 }
 
 export interface GameCompletedPayload {

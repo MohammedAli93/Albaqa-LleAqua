@@ -8,6 +8,7 @@ import {
   DEFAULT_TEAM_COUNT,
   GameType,
   GameMode,
+  isModeAllowed,
   type GameSettings,
   type CreateRoomResponse,
 } from '@tahaddi/shared';
@@ -40,7 +41,9 @@ function buildSettings(opts: {
 }): GameSettings {
   const { type, mode, teamNames, demo, name, categoryId } = opts;
   // Team mode is always points (never elimination). Seen Jeem is its own mode.
-  const effectiveMode = type === GameType.TEAMS && mode === GameMode.ELIMINATION ? GameMode.POINTS : mode;
+  // Elimination is INDIVIDUAL-only — a team game is the turn-based points format
+  // (or Seen Jeem). A stale ?mode=elimination&type=TEAMS link is coerced here.
+  const effectiveMode = isModeAllowed(type, mode) ? mode : GameMode.POINTS;
   let base: GameSettings =
     effectiveMode === GameMode.ELIMINATION
       ? ELIMINATION_SETTINGS

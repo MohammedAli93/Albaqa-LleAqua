@@ -149,6 +149,16 @@ export function buildSnapshot(state: RoomState, selfId?: string): RoomSnapshot {
           endsAt: cr.endsAt,
           phase: cr.phase,
           answeredCount: Object.keys(cr.answers).length,
+          ...(cr.answeringTeamId && state.teams[cr.answeringTeamId]
+            ? {
+                turnTeam: {
+                  teamId: cr.answeringTeamId,
+                  name: state.teams[cr.answeringTeamId]!.name,
+                  color: state.teams[cr.answeringTeamId]!.color,
+                },
+              }
+            : {}),
+          ...(cr.isSteal ? { steal: true } : {}),
         }
       : undefined,
     leaderboard: buildLeaderboard(state),
