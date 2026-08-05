@@ -91,7 +91,6 @@ export const footballArab: BankQuestion[] = [
   { ar: "من المدرب الجنوب أفريقي الذي قاد الأهلي لألقاب أفريقية في 2020 و2021؟", en: "South African coach of Al Ahly’s 2020–21 African titles?", o: ["جوزيه مورينيو", "بيتسو موسيماني", "مانويل جوزيه", "رينيه فايلر"], c: 2, d: 'HARD' },
   { ar: "ما اسم البطولة التي تجمع بطل الدوري وبطل الكأس في مصر؟", en: "Match between league and cup winners in Egypt?", o: ["كأس مصر", "كأس السوبر المصري", "درع الدوري", "كأس الرابطة"], c: 1, d: 'EASY' },
   { ar: "ما لقب المنتخب المغربي لكرة القدم؟", en: "Nickname of the Morocco national team?", o: ["نسور قرطاج", "أسود الأطلس", "محاربو الصحراء", "الفراعنة"], c: 1, d: 'EASY' },
-  { ar: "ما أول منتخب عربي وأفريقي يبلغ نصف نهائي كأس العالم؟", en: "First Arab/African team in a World Cup semi-final?", o: ["السعودية", "المغرب", "تونس", "الجزائر"], c: 1, d: 'EASY' },
   { ar: "في أي مونديال بلغ المغرب المربع الذهبي؟", en: "In which World Cup did Morocco reach the last four?", o: ["2010", "2014", "2018", "2022"], c: 3, d: 'EASY' },
   { ar: "من درّب المنتخب المغربي في مونديال 2022؟", en: "Morocco’s coach at the 2022 World Cup?", o: ["وحيد خليلوزيتش", "وليد الركراكي", "بادو الزاكي", "هيرفي رينارد"], c: 1, d: 'MEDIUM' },
   { ar: "في أي نادٍ إسباني تألق الحارس ياسين بونو قبل انتقاله إلى الدوري السعودي؟", en: "Spanish club where Bono starred?", o: ["برشلونة", "إشبيلية", "فالنسيا", "بيتيس"], c: 1, d: 'MEDIUM' },

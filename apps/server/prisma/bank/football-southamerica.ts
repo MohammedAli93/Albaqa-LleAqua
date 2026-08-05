@@ -2,7 +2,6 @@
 import type { BankQuestion } from './types.js';
 
 export const footballSouthamerica: BankQuestion[] = [
-  { ar: "ما المنتخب الأكثر تتويجاً بكأس العالم؟", en: "Most World Cup titles?", o: ["ألمانيا", "البرازيل", "إيطاليا", "الأرجنتين"], c: 1, d: 'EASY' },
   { ar: "من قاد الأرجنتين للتتويج بكأس العالم 2022؟", en: "Argentina's 2022 World Cup captain?", o: ["أنخيل دي ماريا", "ليونيل ميسي", "باولو ديبالا", "لاوتارو مارتينيز"], c: 1, d: 'EASY' },
   { ar: "ما الدولة التي استضافت أول نسخة من كأس العالم وفازت بها؟", en: "Hosted and won the first World Cup?", o: ["البرازيل", "أوروغواي", "الأرجنتين", "تشيلي"], c: 1, d: 'HARD' },
   { ar: "ما اسم البطولة القارية لأندية أمريكا الجنوبية؟", en: "South America's club competition?", o: ["كوبا ليبرتادوريس", "دوري أبطال أوروبا", "كأس الاتحاد الآسيوي", "الكونفدرالية"], c: 0 },
