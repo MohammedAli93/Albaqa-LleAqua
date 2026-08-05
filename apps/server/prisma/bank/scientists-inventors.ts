@@ -20,7 +20,6 @@ export const scientistsInventors: BankQuestion[] = [
   { ar: "ما الآلة الفلكية التي طوّرها المسلمون لتحديد المواقع والوقت؟", en: "Astronomical tool Muslims advanced for position & time?", o: ["البوصلة", "الأسطرلاب", "الساعة الرملية", "الميزان"], c: 1, d: 'HARD' },
   { ar: "من أول فيلسوف في الإسلام ولُقّب بـ«فيلسوف العرب»؟", en: "First philosopher of Islam, \"Philosopher of the Arabs\"?", o: ["الفارابي", "الكندي", "ابن رشد", "ابن سينا"], c: 1, d: 'HARD' },
   { ar: "من أنشأ جامعة القرويين أقدم جامعة قائمة في العالم؟", en: "Founder of al-Qarawiyyin, the oldest existing university?", o: ["زبيدة", "فاطمة الفهري", "الخنساء", "رابعة"], c: 1, d: 'HARD' },
-  { ar: "في أي مدينة مغربية تقع جامعة القرويين؟", en: "Moroccan city of al-Qarawiyyin University?", o: ["الرباط", "فاس", "مراكش", "طنجة"], c: 1, d: 'HARD' },
   { ar: "من العالم الذي ألّف «معجم البلدان» في الجغرافيا؟", en: "Author of the geographic dictionary \"Mu'jam al-Buldan\"?", o: ["الإدريسي", "ياقوت الحموي", "المسعودي", "ابن بطوطة"], c: 1, d: 'HARD' },
   { ar: "في أي مجال أبدع جابر بن حيان؟", en: "Field of Jabir ibn Hayyan's genius?", o: ["الفلك", "الكيمياء", "الطب", "الجغرافيا"], c: 1 },
   { ar: "من المؤرخ والرحالة المسلم الذي ألّف «مروج الذهب»؟", en: "Muslim historian who wrote \"Meadows of Gold\"?", o: ["ابن خلدون", "المسعودي", "الطبري", "ابن بطوطة"], c: 1, d: 'HARD' },
