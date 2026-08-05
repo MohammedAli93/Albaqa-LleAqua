@@ -128,7 +128,7 @@ function RoundDelta({ value }: { value: number }) {
 
 /** Team-vs-team standings on the warm sand plate (reference screen 20). */
 function TeamBoard() {
-  const { teams, leaderboard, locale, round, totalRounds } = useStore();
+  const { teams, leaderboard, locale, round, totalRounds, pendingStealTeam } = useStore();
   const ranked = [...teams].sort((a, b) => b.score - a.score);
 
   return (
@@ -144,6 +144,16 @@ function TeamBoard() {
         >
           {t(locale, 'leaderboard')}
         </h2>
+        {/* A missed question is re-asked to the other team — say so, or the repeat
+            looks like a glitch. */}
+        {pendingStealTeam && (
+          <span
+            className="rounded-full px-6 py-2 font-display text-screen-status font-black text-white shadow-glow"
+            style={{ background: pendingStealTeam.color }}
+          >
+            {t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+          </span>
+        )}
       </div>
       <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
         {ranked.map((team, idx) => {

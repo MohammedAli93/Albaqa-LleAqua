@@ -74,6 +74,18 @@ export interface LiveRound {
   speedBonus: boolean;
   /** participantId -> { optionId, serverTs } collected during COLLECTING. */
   answers: Record<string, { optionId: string; serverTs: number }>;
+  /**
+   * TEAMS points games: the ONE team allowed to answer this round. Members of any
+   * other team are rejected by `submitAnswer` and excluded from scoring. Undefined
+   * in INDIVIDUAL games (everyone answers every question).
+   */
+  answeringTeamId?: string;
+  /**
+   * TEAMS points games: this round is the STEAL re-run of the previous question —
+   * the owning team got it wrong (or timed out) so the same question was re-opened
+   * for the other team. A steal is never itself stolen (one attempt each).
+   */
+  isSteal?: boolean;
   /** Sudden-death overtime round: decided by fastest correct among the tied
    *  contenders, not by normal scoring. */
   isTiebreak?: boolean;
@@ -153,6 +165,20 @@ export interface RoomState {
   /** Per-player-category mode: participantId whose category owns each round
    *  (aligned with questionOrder). Empty/undefined otherwise. */
   roundOwners?: string[];
+  /**
+   * TEAMS points games: the fixed turn order (team ids), frozen at start so the
+   * alternation survives restarts and reconnects. Question N belongs to
+   * `teamOrder[N % teamOrder.length]`; the steal goes to the next team in the ring.
+   */
+  teamOrder?: string[];
+  /**
+   * TEAMS points games: a steal is queued — the team on the clock missed the
+   * current question and this team gets to answer the SAME question next. Held on
+   * the room state (not just in the auto-advance timer) so a pause/resume or a
+   * server restart during the recap window still plays the steal instead of
+   * skipping to a fresh question. Cleared when the steal round opens.
+   */
+  pendingSteal?: string;
   roundIndex: number; // -1 before first round
   totalRounds: number;
   participants: Record<string, LiveParticipant>;

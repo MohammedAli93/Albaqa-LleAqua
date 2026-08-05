@@ -13,7 +13,7 @@ import {
 export function Result() {
   const {
     phase, lastResult, myLives, locale, gameType, gameMode, lastHeroes, myTeamId, teams,
-    leaderboard, participantId, totalRounds, nextRound, nextCategory,
+    leaderboard, participantId, totalRounds, nextRound, nextCategory, pendingStealTeam,
   } = useStore();
   const isTeams = gameType === GameType.TEAMS;
   const isElimination = gameMode === GameMode.ELIMINATION;
@@ -50,6 +50,16 @@ export function Result() {
             <p className="font-display text-3xl font-black text-desert-ink">
               {correct ? t(locale, 'correct') : t(locale, 'wrong')}
             </p>
+
+            {/* TEAMS: a miss doesn't just end the question — the other team gets a
+                shot at it. Say so, otherwise the repeat looks like a bug. */}
+            {pendingStealTeam && (
+              <Pill color={pendingStealTeam.teamId === myTeamId ? 'green' : 'orange'} className="text-base">
+                {pendingStealTeam.teamId === myTeamId
+                  ? t(locale, 'teamStealYours')
+                  : t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+              </Pill>
+            )}
 
             {/* Individual POINTS: personal points gained this round. */}
             {!isTeams && !isElimination && lastResult && lastResult.pointsAwarded > 0 && (

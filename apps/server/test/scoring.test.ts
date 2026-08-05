@@ -365,3 +365,126 @@ describe('decideTiebreak — fastest correct wins', () => {
     expect(d.winnerId).toBe('p2');
   });
 });
+
+// ────────────────────── TEAMS: turn-based questions + steal ──────────────────
+// Client rule 2026-08-06: a team game is NOT a race. Each question belongs to one
+// team; only that team may answer. Miss it and the same question is re-opened for
+// the other team (a "steal", worth the full point) before play moves on.
+
+describe('scoreRound — teams (turn-based question ownership)', () => {
+  function twoTeams() {
+    const a1 = makeParticipant('a1', { teamId: 'A', joinOrder: 0 });
+    const a2 = makeParticipant('a2', { teamId: 'A', joinOrder: 1 });
+    const b1 = makeParticipant('b1', { teamId: 'B', joinOrder: 2 });
+    const teamA: LiveTeam = { id: 'A', name: 'A', color: '#1', score: 0, winMs: 0, lives: 1, capacity: 4 };
+    const teamB: LiveTeam = { id: 'B', name: 'B', color: '#2', score: 0, winMs: 0, lives: 1, capacity: 4 };
+    return { a1, a2, b1, teams: { A: teamA, B: teamB } };
+  }
+
+  it('only the team on the clock is scored — the other team is not even recorded', () => {
+    const { a1, a2, b1, teams } = twoTeams();
+    const round = makeRound({
+      answeringTeamId: 'A',
+      answers: {
+        a1: { optionId: 'a', serverTs: 1_003_000 }, // correct
+        b1: { optionId: 'a', serverTs: 1_001_000 }, // faster, but NOT their turn
+      },
+    });
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teamOrder: ['A', 'B'],
+      teams,
+      currentRound: round,
+    });
+
+    const scored = scoreRound(state, round);
+    const ids = scored.outcomes.map((o) => o.participantId).sort();
+    // Team B is spectating: no outcome rows at all, so no phantom "wrong answer"
+    // and no Answer-row clash with the steal re-run of this same round.
+    expect(ids).toEqual(['a1', 'a2']);
+    expect(scored.heroes.map((h) => h.teamId)).toEqual(['A']);
+
+    applyResolution(state, round, scored);
+    expect(state.teams.A!.score).toBe(1);
+    expect(state.teams.B!.score).toBe(0);
+  });
+
+  it('a steal awards the stealing team the full point', () => {
+    const { a1, a2, b1, teams } = twoTeams();
+    // Team A owned the question and missed it → re-opened for team B.
+    const steal = makeRound({
+      answeringTeamId: 'B',
+      isSteal: true,
+      answers: { b1: { optionId: 'a', serverTs: 1_002_000 } }, // correct
+    });
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teamOrder: ['A', 'B'],
+      teams,
+      currentRound: steal,
+    });
+
+    const scored = scoreRound(state, steal);
+    expect(scored.outcomes.map((o) => o.participantId)).toEqual(['b1']);
+    expect(scored.heroes.map((h) => h.teamId)).toEqual(['B']);
+
+    applyResolution(state, steal, scored);
+    // Full point — a stolen question is worth exactly what an owned one is.
+    expect(state.teams.B!.score).toBe(1);
+    expect(state.teams.A!.score).toBe(0);
+  });
+
+  it('a missed question scores nobody (it is what triggers the steal)', () => {
+    const { a1, a2, b1, teams } = twoTeams();
+    const round = makeRound({
+      answeringTeamId: 'A',
+      answers: { a1: { optionId: 'b', serverTs: 1_002_000 } }, // wrong
+    });
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teamOrder: ['A', 'B'],
+      teams,
+      currentRound: round,
+    });
+
+    const scored = scoreRound(state, round);
+    expect(scored.heroes).toHaveLength(0); // ← the engine reads this as "steal it"
+    applyResolution(state, round, scored);
+    expect(state.teams.A!.score).toBe(0);
+    expect(state.teams.B!.score).toBe(0);
+  });
+
+  it('a timed-out question scores nobody either (timeout == wrong)', () => {
+    const { a1, a2, b1, teams } = twoTeams();
+    const round = makeRound({ answeringTeamId: 'A', answers: {} }); // nobody answered
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teamOrder: ['A', 'B'],
+      teams,
+      currentRound: round,
+    });
+
+    const scored = scoreRound(state, round);
+    expect(scored.heroes).toHaveLength(0);
+    expect(scored.outcomes.every((o) => !o.isCorrect)).toBe(true);
+  });
+
+  it('teams never eliminate, even on a missed question', () => {
+    const { a1, a2, b1, teams } = twoTeams();
+    const round = makeRound({ answeringTeamId: 'A', answers: {} });
+    const state = makeRoom([a1, a2, b1], {
+      type: GameType.TEAMS,
+      mode: GameMode.POINTS,
+      teamOrder: ['A', 'B'],
+      teams,
+      currentRound: round,
+    });
+    const { eliminatedIds } = applyResolution(state, round, scoreRound(state, round));
+    expect(eliminatedIds).toHaveLength(0);
+    expect(state.participants.a1!.status).toBe(ParticipantStatus.ACTIVE);
+  });
+});

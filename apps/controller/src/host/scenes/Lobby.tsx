@@ -13,7 +13,7 @@ const RED_BTN = 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)';
 /** Host "front door" — Figma desert comp (بقاء الأقوى1 10): QR + room code on one
  *  side, the teams (or players) filling in on the other, on the painted dunes. */
 export function Lobby() {
-  const { roomCode, joinUrl, participants, teams, locale, perPlayerCategory } = useStore();
+  const { roomCode, joinUrl, participants, teams, locale, perPlayerCategory, isFreeTrial } = useStore();
   const isTeams = teams.length > 0;
   // In per-player-category mode a player only appears once they've actually picked
   // their category — so the room never shows "ghosts" who joined but haven't chosen.
@@ -144,10 +144,13 @@ export function Lobby() {
         >
           <Play fill="currentColor" /> {t(locale, 'startGame')}
         </motion.button>
-        {/* The credit is charged on start, not on room creation — say so, so a host
-            who shares the link and then has to re-open the room isn't worried. */}
+        {/* FREE games are a trial — say so plainly here, not just on the picker, so
+            nobody starts one expecting the full 35-question category game. Paid
+            games instead get the "charged on start" reassurance. */}
         <p className="rounded-full bg-white/70 px-4 py-1 text-center font-display text-[clamp(0.7rem,1vw,0.95rem)] font-bold text-desert-ink/70 backdrop-blur">
-          لا يُخصم رصيد اللعبة إلا عند الضغط على «ابدأ»
+          {isFreeTrial
+            ? 'نسخة تجربة مجانية — ١٥ سؤال ثابت، وللفئات والأسئلة الكاملة افتح النسخة الكاملة'
+            : 'لا يُخصم رصيد اللعبة إلا عند الضغط على «ابدأ»'}
         </p>
       </footer>
     </div>

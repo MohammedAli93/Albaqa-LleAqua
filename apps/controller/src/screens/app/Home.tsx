@@ -190,19 +190,22 @@ export function Home() {
                 transition={{ duration: 0.2 }}
                 className="mt-7 grid grid-cols-2 gap-5 sm:gap-7"
               >
-                {/* فردي (right, orange) → mode panel */}
-                <CardArt src="/art/card-fardi.png" alt="فردي — فز عليهم لحالك"
-                  onClick={() => { setPendingType(GameType.INDIVIDUAL); setStep('mode'); }} />
-                {/* فِرَق (left, yellow) → mode panel */}
-                <CardArt src="/art/card-firaq.png" alt="فِرَق — جمّع اخوياك واهزموهم"
-                  onClick={() => { setPendingType(GameType.TEAMS); setStep('mode'); }} />
+                {/* فردي (right, orange) — كل واحد يمثّل نفسه → mode panel */}
+                <CardArt src="/art/card-fardi.png" alt="فردي — كل واحد يمثّل نفسه، أنت ضد الكل"
+                  onClick={() => { setPendingType(GameType.INDIVIDUAL); setPendingMode(GameMode.POINTS); setStep('mode'); }} />
+                {/* فِرَق (left, yellow) — أنت مع اخوياك. Teams have ONE mode (points,
+                    turn-based) so they skip the mode step entirely. */}
+                <CardArt src="/art/card-firaq.png" alt="فِرَق — أنت مع اخوياك، تلعبون بالدور"
+                  onClick={() => { setPendingType(GameType.TEAMS); setPendingMode(GameMode.POINTS); setStep('tier'); }} />
               </motion.div>
             ) : step === 'mode' ? (
+              /* Individual only — team games are always the turn-based points format
+                 (team elimination was identical to it, so it was dropped). */
               <ChooserPanel
-                key="mode" title="اختر نوع اللعبة"
-                subtitle="كل واحد يجمع نقاط، أو يلعبها تصفية والبقاء للأقوى." onBack={() => setStep('type')}
+                key="mode" title="اختر طريقة اللعب"
+                subtitle="كل واحد يمثّل نفسه — تجمع نقاط، أو تلعبها تصفية والبقاء للأقوى." onBack={() => setStep('type')}
               >
-                <PanelRow title="نقاط" desc="اجمع أكثر نقاط وتفوز"
+                <PanelRow title="نقاط" desc="كل الأسئلة تجيك — اجمع أكثر نقاط وتفوز"
                   onClick={() => { setPendingMode(GameMode.POINTS); setStep('tier'); }} />
                 <PanelRow title="تصفيات" desc="كل خطأ يقرّبك للخروج — والبقاء للأقوى"
                   onClick={() => { setPendingMode(GameMode.ELIMINATION); setStep('tier'); }} />
@@ -210,15 +213,16 @@ export function Home() {
             ) : (
               <ChooserPanel
                 key="tier" title="اختر النسخة"
-                subtitle="النسخة المجانية ١٥ سؤالاً، أو الكاملة ٣٥ سؤالاً مع اختيار الفئات." onBack={() => setStep('mode')}
+                subtitle="جرّبها ببلاش أول، وإذا عجبتك افتح النسخة الكاملة."
+                onBack={() => setStep(pendingType === GameType.TEAMS ? 'type' : 'mode')}
               >
-                <PanelRow title="النسخة المجانية" desc="١٥ سؤالاً متنوّعاً — ابدأ فوراً"
+                <PanelRow title="تجربة مجانية" desc="١٥ سؤال ثابت للتجربة — بدون اختيار فئات وبدون تسجيل"
                   onClick={() => launch(pendingType, pendingMode, GameTier.FREE)} />
                 <PanelRow title="النسخة الكاملة"
                   desc={
                     account?.credits
-                      ? `٣٥ سؤالاً + اختيار الفئات — رصيدك ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
-                      : '٣٥ سؤالاً + اختيار الفئات — اشترِ باقة'
+                      ? `٣٥ سؤال + تختار فئاتك — رصيدك ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
+                      : '٣٥ سؤال + تختار فئاتك — اشترِ باقة'
                   }
                   onClick={() => launch(pendingType, pendingMode, GameTier.PAID)} />
               </ChooserPanel>

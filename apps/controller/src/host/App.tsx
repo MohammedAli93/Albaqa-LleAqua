@@ -9,6 +9,7 @@ import {
   GameType,
   GameMode,
   GameTier,
+  isModeAllowed,
   type GameSettings,
   type CreateRoomResponse,
 } from '@tahaddi/shared';
@@ -48,8 +49,10 @@ function buildSettings(opts: {
   tier?: GameTier;
 }): GameSettings {
   const { type, mode, teamNames, demo, name, categoryId, tier } = opts;
-  // Team mode is always points (never elimination). Seen Jeem is its own mode.
-  const effectiveMode = type === GameType.TEAMS && mode === GameMode.ELIMINATION ? GameMode.POINTS : mode;
+  // Elimination is INDIVIDUAL-only — a team game is the turn-based points format
+  // (or Seen Jeem). Anything else that reaches us (a stale link, an old client) is
+  // coerced rather than rejected, since the server would refuse it outright.
+  const effectiveMode = isModeAllowed(type, mode) ? mode : GameMode.POINTS;
   let base: GameSettings =
     effectiveMode === GameMode.ELIMINATION
       ? ELIMINATION_SETTINGS
@@ -106,6 +109,9 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
       });
       setNeedSetup(false);
       setRoom(room.roomCode, `${CONTROLLER_URL}/?c=${room.roomCode}`);
+      // Label the lobby as a trial so the host (and the room) knows why there's no
+      // category step and only 15 questions.
+      useStore.setState({ isFreeTrial: (settings.tier ?? GameTier.FREE) === GameTier.FREE });
       useStore.getState().setConn('connecting');
       connectHost(room.hostToken, room.roomCode);
       if (demo) {

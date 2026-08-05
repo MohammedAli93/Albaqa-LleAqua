@@ -373,6 +373,11 @@ export async function startGame(gameId: string): Promise<void> {
         .filter((p) => p.teamId)
         .map((p) => prisma.participant.update({ where: { id: p.id }, data: { teamId: p.teamId } })),
     );
+    // Freeze the turn order now. Team points games are turn-based: question N is
+    // asked to teamOrder[N % teams], and a missed question is offered to the next
+    // team in the ring. Frozen (not re-derived) so a reconnect can't reshuffle
+    // whose turn it is mid-game.
+    state.teamOrder = teamIds;
   }
 
   // Per-player-category mode: build the round order now that everyone has joined
@@ -419,6 +424,56 @@ export async function startGame(gameId: string): Promise<void> {
   await startNextRound(gameId);
 }
 
+// ─────────────────────────── Team turns (TEAMS points) ──────────────────────
+//
+// Client rule (2026-08-06): a team game is turn-based, not a race. Each question
+// belongs to ONE team. Answer it right and play moves on to the other team's own
+// question. Answer it wrong (or let the clock run out) and the SAME question is
+// re-opened for the other team as a steal — worth the full point — after which
+// that team still gets its own next question. Net effect: the turn simply
+// alternates every question, and a miss hands the other team a free extra shot.
+
+/** Is this a turn-based team game (TEAMS + POINTS)? Seen-Jeem runs its own loop. */
+function isTeamTurnGame(state: RoomState): boolean {
+  return state.type === GameType.TEAMS && state.mode === GameMode.POINTS;
+}
+
+/** The turn ring, falling back to the live team map for pre-existing rooms. */
+function turnRing(state: RoomState): string[] {
+  const ring = state.teamOrder?.filter((id) => state.teams[id]);
+  return ring?.length ? ring : Object.keys(state.teams);
+}
+
+/** Which team is asked question `index` (0-based). */
+function teamForRound(state: RoomState, index: number): string | undefined {
+  const ring = turnRing(state);
+  if (!ring.length) return undefined;
+  return ring[((index % ring.length) + ring.length) % ring.length];
+}
+
+/** Who gets the steal when `teamId` misses — the next team in the ring. */
+function stealTeamFor(state: RoomState, teamId: string): string | undefined {
+  const ring = turnRing(state);
+  if (ring.length < 2) return undefined;
+  const i = ring.indexOf(teamId);
+  if (i < 0) return undefined;
+  return ring[(i + 1) % ring.length];
+}
+
+/** Between-round window in ms (answer recap + standings). */
+function nextInMsFor(state: RoomState): number {
+  return state.settings.intermissionSec * 1000;
+}
+
+/** Public descriptor of the team on the clock, for QUESTION_SHOW. */
+function turnTeamPayload(
+  state: RoomState,
+  teamId: string | undefined,
+): { turnTeam: { teamId: string; name: string; color: string } } | Record<string, never> {
+  const team = teamId ? state.teams[teamId] : undefined;
+  return team ? { turnTeam: { teamId: team.id, name: team.name, color: team.color } } : {};
+}
+
 // ──────────────────────────────── Round loop ────────────────────────────────
 
 /** Fisher-Yates shuffle (used to narrow showdown options). */
@@ -433,6 +488,14 @@ function shuffleArr<T>(arr: T[]): T[] {
 
 export async function startNextRound(gameId: string): Promise<void> {
   const state = await mustGetRoom(gameId);
+
+  // A queued team steal takes priority over a fresh question: the other team is
+  // still owed its attempt at the question that was just missed. Covers the host
+  // advancing manually (autoAdvance off) as well as any resumed loop.
+  if (state.pendingSteal) {
+    await startStealRound(gameId, state.pendingSteal);
+    return;
+  }
 
   // In sudden-death overtime the "next round" is always a tiebreaker question
   // (also covers a host who advances manually instead of auto-advance).
@@ -514,6 +577,8 @@ export async function startNextRound(gameId: string): Promise<void> {
     basePoints: loaded.basePoints,
     speedBonus: loaded.speedBonus,
     answers: {},
+    // TEAMS points: this question belongs to exactly one team; only they may answer.
+    ...(isTeamTurnGame(state) ? { answeringTeamId: teamForRound(state, nextIndex) } : {}),
   };
   await saveRoom(state);
 
@@ -526,6 +591,7 @@ export async function startNextRound(gameId: string): Promise<void> {
     startsAt: startedAt,
     endsAt,
     ...(owner ? { turnPlayer: { nickname: owner.nickname, avatarId: owner.avatarId } } : {}),
+    ...turnTeamPayload(state, state.currentRound.answeringTeamId),
   });
 
   // Countdown ticks (≈4 Hz) + the authoritative resolution at endsAt.
@@ -533,6 +599,56 @@ export async function startNextRound(gameId: string): Promise<void> {
     emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId, remainingMs }),
   );
   scheduleRoundEnd(gameId, endsAt, () => void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'resolve on timer failed')));
+}
+
+/**
+ * TEAMS points: re-open the round's question for the other team after the team
+ * that owned it missed. Same question, same Round row (and therefore the same
+ * roundId) — a steal is a second attempt at one question, not a new one, so it
+ * never consumes a question from `questionOrder` nor advances `roundIndex`.
+ *
+ * Reusing the Round row is safe because `baseOutcomes` only records the team on
+ * the clock, so the two attempts write Answer rows for disjoint participants
+ * (Answer is unique per round+participant).
+ */
+async function startStealRound(gameId: string, stealTeamId: string): Promise<void> {
+  const state = await mustGetRoom(gameId);
+  const prev = state.currentRound;
+  if (!prev) return;
+  state.pendingSteal = undefined; // claimed
+
+  const now = Date.now();
+  const startedAt = now + GET_READY_MS;
+  const endsAt = startedAt + prev.timeLimitSec * 1000;
+
+  state.lastHeroes = undefined;
+  state.currentRound = {
+    ...prev,
+    startedAt,
+    endsAt,
+    phase: RoundPhase.COLLECTING,
+    answers: {},
+    answeringTeamId: stealTeamId,
+    isSteal: true,
+  };
+  await saveRoom(state);
+
+  emitter.toRoom(gameId, ServerEvent.QUESTION_SHOW, {
+    round: prev.index + 1,
+    roundId: prev.roundId,
+    question: prev.question,
+    startsAt: startedAt,
+    endsAt,
+    steal: true,
+    ...turnTeamPayload(state, stealTeamId),
+  });
+
+  scheduleTicks(gameId, endsAt, (remainingMs) =>
+    emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId: prev.roundId, remainingMs }),
+  );
+  scheduleRoundEnd(gameId, endsAt, () =>
+    void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'resolve steal on timer failed')),
+  );
 }
 
 // ──────────────────────────────── Answer ────────────────────────────────────
@@ -564,6 +680,11 @@ export async function submitAnswer(
     if (!participant || participant.status !== ParticipantStatus.ACTIVE) {
       throw new AppError(ErrorCode.NOT_AUTHORIZED, 'Not an active player');
     }
+    // TEAMS points: the question belongs to one team — the others are spectators
+    // this round. Enforced server-side so a tampered client can't answer out of turn.
+    if (round.answeringTeamId && participant.teamId !== round.answeringTeamId) {
+      throw new AppError(ErrorCode.NOT_AUTHORIZED, 'ليس دور فريقك في هذا السؤال');
+    }
     if (!round.question.options.some((o) => o.id === optionId)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Unknown option');
     }
@@ -578,12 +699,17 @@ export async function submitAnswer(
     round.answers[participantId] = { optionId, serverTs };
     await saveRoom(state);
 
-    const active = activeParticipants(state);
+    // Resolve early once everyone who COULD answer has. In a team turn round that
+    // is just the team on the clock — waiting on the spectating team would stall
+    // the round until the timer expired.
+    const eligible = activeParticipants(state).filter(
+      (p) => !round.answeringTeamId || p.teamId === round.answeringTeamId,
+    );
     const answeredCount = Object.keys(round.answers).length;
     return {
       result: { accepted: true, lockedAt: serverTs },
-      shouldResolve: answeredCount >= active.length,
-      received: { answeredCount, totalActive: active.length },
+      shouldResolve: answeredCount >= eligible.length,
+      received: { answeredCount, totalActive: eligible.length },
     };
   });
 
@@ -647,6 +773,15 @@ export async function resolveRound(gameId: string): Promise<void> {
     });
     state.lastHeroes = richHeroes.length ? richHeroes : undefined;
 
+    // TEAMS points: did the team on the clock miss, so the other team gets to steal
+    // this same question? Decided HERE, before the reveal, because a pending steal
+    // must NOT disclose the correct answer — the stealing team is about to answer
+    // the very same question. The reveal happens after the steal resolves instead.
+    const stealTeamId =
+      isTeamTurnGame(state) && round.answeringTeamId && !round.isSteal && !heroes.length
+        ? stealTeamFor(state, round.answeringTeamId)
+        : undefined;
+
     round.phase = RoundPhase.RESOLVING;
 
     // Persist answers (one transaction = one milestone flush).
@@ -668,30 +803,35 @@ export async function resolveRound(gameId: string): Promise<void> {
       prisma.round.update({ where: { id: round.roundId }, data: { endedAt: new Date() } }),
     ]);
 
-    // Reveal (now safe to disclose the correct answer).
-    const distribution: Record<string, number> = {};
-    for (const o of outcomes) {
-      if (o.selectedOptionId) distribution[o.selectedOptionId] = (distribution[o.selectedOptionId] ?? 0) + 1;
-    }
-    // Everyone who answered correctly, ranked fastest → slowest. The reveal shows
-    // the full list (not just the top 3) — `place` still marks 1st/2nd/3rd.
-    const topAnswerers = outcomes
-      .filter((o) => o.isCorrect)
-      .sort((a, b) => a.responseMs - b.responseMs)
-      .map((o, i) => {
-        const p = state.participants[o.participantId]!;
-        return { participantId: o.participantId, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };
-      });
+    // Reveal — but ONLY when the question is finished with. If a steal is pending
+    // the same question is about to be re-asked to the other team, so disclosing
+    // the correct answer (or even the answer distribution) here would hand them the
+    // point. The reveal is deferred to the steal's own resolution.
+    if (!stealTeamId) {
+      const distribution: Record<string, number> = {};
+      for (const o of outcomes) {
+        if (o.selectedOptionId) distribution[o.selectedOptionId] = (distribution[o.selectedOptionId] ?? 0) + 1;
+      }
+      // Everyone who answered correctly, ranked fastest → slowest. The reveal shows
+      // the full list (not just the top 3) — `place` still marks 1st/2nd/3rd.
+      const topAnswerers = outcomes
+        .filter((o) => o.isCorrect)
+        .sort((a, b) => a.responseMs - b.responseMs)
+        .map((o, i) => {
+          const p = state.participants[o.participantId]!;
+          return { participantId: o.participantId, nickname: p.nickname, avatarId: p.avatarId, place: i + 1 };
+        });
 
-    const loaded = await loadQuestion(round.questionId).catch(() => null);
-    emitter.toRoom(gameId, ServerEvent.QUESTION_REVEAL, {
-      roundId: round.roundId,
-      correctOptionId: round.correctOptionId,
-      distribution,
-      topAnswerers,
-      explanationAr: loaded?.explanationAr,
-      explanationEn: loaded?.explanationEn,
-    });
+      const loaded = await loadQuestion(round.questionId).catch(() => null);
+      emitter.toRoom(gameId, ServerEvent.QUESTION_REVEAL, {
+        roundId: round.roundId,
+        correctOptionId: round.correctOptionId,
+        distribution,
+        topAnswerers,
+        explanationAr: loaded?.explanationAr,
+        explanationEn: loaded?.explanationEn,
+      });
+    }
 
     // Personal results.
     for (const o of outcomes) {
@@ -739,6 +879,39 @@ export async function resolveRound(gameId: string): Promise<void> {
     }
 
     await saveRoom(state);
+
+    // TEAMS points: the team on the clock missed → hand the SAME question to the
+    // other team as a steal. Checked BEFORE the win condition so a miss on the very
+    // last question still gets stolen rather than ending the game early. The steal
+    // reuses this round (no question is consumed, `roundIndex` doesn't move), so
+    // afterwards the normal alternation already puts the next question with the
+    // other team — exactly the "ثم ننتقل للسؤال الثاني للفريق الثاني" rule.
+    if (stealTeamId) {
+      round.phase = RoundPhase.INTERMISSION;
+      state.pendingSteal = stealTeamId;
+      await saveRoom(state);
+      const stealTeam = state.teams[stealTeamId];
+      emitter.toRoom(gameId, ServerEvent.ROUND_COMPLETED, {
+        roundIndex: round.index + 1,
+        nextInMs: state.settings.autoAdvance ? nextInMsFor(state) : undefined,
+        steal: true,
+        ...(stealTeam
+          ? { stealTeam: { teamId: stealTeam.id, name: stealTeam.name, color: stealTeam.color } }
+          : {}),
+      });
+      await release();
+      if (state.settings.autoAdvance) {
+        setTimeout(
+          () =>
+            void (async () => {
+              const cur = await getRoom(gameId);
+              if (cur?.status === GameStatus.ACTIVE) await startStealRound(gameId, stealTeamId);
+            })().catch((err) => logger.error({ err, gameId }, 'steal advance failed')),
+          nextInMsFor(state),
+        );
+      }
+      return;
+    }
 
     // Win condition? Route through concludeGame so a tie opens sudden-death
     // overtime instead of crowning someone by join order.
@@ -1206,11 +1379,14 @@ export async function resumeGame(gameId: string): Promise<void> {
     );
     scheduleRoundEnd(gameId, endsAt, () => void resolveRound(gameId));
   } else if (state.currentRound && state.currentRound.phase === RoundPhase.INTERMISSION && state.settings.autoAdvance) {
-    // Paused mid-intermission (the auto-advance was skipped). Resume the loop by
-    // moving on to the next question.
+    // Paused mid-intermission (the auto-advance was skipped). Resume the loop —
+    // replaying a queued steal first, so pausing during the recap can't rob the
+    // other team of its attempt at the missed question.
+    const steal = state.pendingSteal;
     await saveRoom(state);
     emitter.toRoom(gameId, ServerEvent.GAME_RESUMED, { reason: 'host' });
-    await startNextRound(gameId);
+    if (steal) await startStealRound(gameId, steal);
+    else await startNextRound(gameId);
     return;
   } else {
     await saveRoom(state);

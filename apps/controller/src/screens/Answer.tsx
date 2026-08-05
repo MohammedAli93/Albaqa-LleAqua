@@ -16,6 +16,7 @@ export function Answer() {
   const {
     question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered,
     myLives, gameMode, round, totalRounds, isTiebreak, locale,
+    turnTeam, isSteal, myTeamId, pendingStealTeam,
   } = useStore();
 
   // Tick the 3-2-1 pre-roll on requestAnimationFrame, server-synced so the phone
@@ -35,12 +36,27 @@ export function Answer() {
   if (!question || !roundId) return null;
   const isElimination = gameMode === GameMode.ELIMINATION;
   const inPreroll = !!startsAt && now < startsAt;
+  // TEAMS games are turn-based: one team owns each question. If it isn't ours we
+  // watch this one out — the server rejects out-of-turn answers anyway, but the
+  // phone shouldn't dangle buttons that can't be pressed.
+  const myTurn = !turnTeam || turnTeam.teamId === myTeamId;
 
   const onPick = (optionId: string) => {
-    if (hasAnswered || inPreroll) return;
+    if (hasAnswered || inPreroll || !myTurn) return;
     haptic([12, 30, 12]);
     submitAnswer(roundId, optionId).catch(() => {});
   };
+
+  // ── Turn badge (TEAMS): whose question this is, and whether it's a steal. ──
+  const turnBadge = !turnTeam ? null : isSteal ? (
+    <Pill color={myTurn ? 'orange' : 'blue'}>
+      {myTurn ? t(locale, 'teamStealYours') : t(locale, 'teamStealOther', { team: turnTeam.name })}
+    </Pill>
+  ) : (
+    <Pill color={myTurn ? 'green' : 'blue'}>
+      {myTurn ? t(locale, 'teamTurnYours') : t(locale, 'teamTurnOther', { team: turnTeam.name })}
+    </Pill>
+  );
 
   // ── Round badge (blue pill) shown on pre-roll. ──
   const roundBadge = isTiebreak ? (
@@ -60,8 +76,11 @@ export function Answer() {
           <YellowCard className="text-center">
             <div className="flex flex-col items-center gap-5">
               {roundBadge}
+              {turnBadge}
               {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
-              <p className="font-display text-3xl font-black text-desert-ink">{t(locale, 'getReady')}</p>
+              <p className="font-display text-3xl font-black text-desert-ink">
+                {turnTeam && !myTurn ? t(locale, 'teamTurnWatch') : t(locale, 'getReady')}
+              </p>
               <Squircle size={104}>
                 <motion.span
                   key={n}
@@ -73,6 +92,37 @@ export function Answer() {
                   {n}
                 </motion.span>
               </Squircle>
+            </div>
+          </YellowCard>
+        </CenterStage>
+      </GameShell>
+    );
+  }
+
+  // ── Not our turn (TEAMS): watch the other team play this one out. ──
+  // The question stays visible so the whole room follows along, but there are no
+  // answer buttons — pressing them would just be rejected by the server.
+  if (turnTeam && !myTurn) {
+    return (
+      <GameShell>
+        <CenterStage>
+          <YellowCard>
+            <div className="flex flex-col items-center gap-4">
+              {turnBadge}
+              {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
+              <h2
+                className="text-center font-display text-2xl font-black leading-snug text-desert-ink"
+                dir="rtl"
+              >
+                {question.promptAr}
+              </h2>
+              {/* They missed it and the steal is coming to US — turn the waiting
+                  card into a heads-up instead of a flat "wait your turn". */}
+              {pendingStealTeam && pendingStealTeam.teamId === myTeamId ? (
+                <Pill color="green" className="px-7 py-2.5 text-base">{t(locale, 'teamStealYours')}</Pill>
+              ) : (
+                <Pill color="red" className="px-7 py-2.5 text-base">{t(locale, 'teamTurnWatch')}</Pill>
+              )}
             </div>
           </YellowCard>
         </CenterStage>
@@ -124,6 +174,7 @@ export function Answer() {
       <CenterStage className="pt-3">
         <YellowCard>
           <div className="flex flex-col items-center gap-4">
+            {turnBadge}
             {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
             <h2 className="text-center font-display text-2xl font-black leading-snug text-desert-ink" dir="rtl">
               {question.promptAr}

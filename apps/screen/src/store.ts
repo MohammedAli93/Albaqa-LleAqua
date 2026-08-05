@@ -11,6 +11,7 @@ import {
   type RankedEntry,
   type PublicQuestion,
   type QuestionShowPayload,
+  type RoundCompletedPayload,
   type QuestionRevealPayload,
   type ScoreUpdatePayload,
   type PlayerEliminatedPayload,
@@ -61,6 +62,12 @@ export interface ScreenState {
   question: PublicQuestion | null;
   /** Per-player-category mode: whose category this round belongs to. */
   turnPlayer: { nickname: string; avatarId: string } | null;
+  /** TEAMS turn-based games: the team on the clock for the current question. */
+  turnTeam: { teamId: string; name: string; color: string } | null;
+  /** TEAMS: the current question is a steal of one the other team missed. */
+  isSteal: boolean;
+  /** TEAMS: during the recap, the team about to get a steal attempt. */
+  pendingStealTeam: { teamId: string; name: string; color: string } | null;
   endsAt: number | null;
   roundTotalMs: number;
   remainingMs: number;
@@ -104,6 +111,9 @@ export const useStore = create<ScreenState>((set) => ({
   roundId: null,
   question: null,
   turnPlayer: null,
+  turnTeam: null,
+  isSteal: false,
+  pendingStealTeam: null,
   endsAt: null,
   roundTotalMs: 15000,
   remainingMs: 0,
@@ -168,6 +178,8 @@ export const useStore = create<ScreenState>((set) => ({
             roundId: p.roundId,
             question: p.question,
             turnPlayer: p.turnPlayer ?? null,
+            turnTeam: p.turnTeam ?? null,
+            isSteal: p.steal ?? false,
             endsAt: p.endsAt,
             roundTotalMs: Math.max(1000, p.endsAt - Date.now()),
             remainingMs: Math.max(0, p.endsAt - Date.now()),
@@ -207,8 +219,14 @@ export const useStore = create<ScreenState>((set) => ({
           const p = payload as PlayerEliminatedPayload;
           return { eliminatedThisRound: p.participantIds };
         }
-        case ServerEvent.ROUND_COMPLETED:
-          return { phase: 'intermission' };
+        case ServerEvent.ROUND_COMPLETED: {
+          const p = payload as RoundCompletedPayload;
+          // TEAMS: a missed question is about to be re-opened for the other team.
+          return {
+            phase: 'intermission' as const,
+            pendingStealTeam: p.steal ? (p.stealTeam ?? null) : null,
+          };
+        }
         case ServerEvent.GAME_PAUSED:
           return { paused: true };
         case ServerEvent.GAME_RESUMED:

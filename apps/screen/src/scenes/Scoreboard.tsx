@@ -51,7 +51,7 @@ export function Scoreboard() {
 
 /** Team-vs-team standings on the warm sand plate (reference screen 20). */
 function TeamBoard() {
-  const { teams, leaderboard, locale } = useStore();
+  const { teams, leaderboard, locale, pendingStealTeam } = useStore();
   const ranked = [...teams].sort((a, b) => b.score - a.score);
 
   return (
@@ -63,6 +63,18 @@ function TeamBoard() {
       >
         {t(locale, 'leaderboard')}
       </h2>
+      {/* A missed question doesn't just vanish — tell the room it's about to be
+          re-asked to the other team, so the repeat reads as a steal, not a bug. */}
+      {pendingStealTeam && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 mx-auto mb-4 rounded-full px-7 py-2 font-display text-screen-status font-black text-white shadow-glow"
+          style={{ background: pendingStealTeam.color }}
+        >
+          {t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+        </motion.div>
+      )}
       <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
         {ranked.map((team, idx) => {
           const members = leaderboard.filter((e) => e.teamId === team.id);

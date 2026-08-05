@@ -20,6 +20,7 @@ export function Question() {
   const {
     question, phase, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds,
     correctOptionId, distribution, heroes, teams, leaderboard, mode, turnPlayer, locale,
+    turnTeam, isSteal,
   } = useStore();
 
   const collecting = phase === 'collecting';
@@ -73,6 +74,22 @@ export function Question() {
                   <Avatar avatarId={turnPlayer.avatarId} size={32} shape="square" />
                   <span className="font-display text-screen-status font-black text-desert-ink">
                     {t(locale, 'yourTurn', { name: turnPlayer.nickname })}
+                  </span>
+                </motion.div>
+              )}
+              {/* TEAMS: whose question this is. A steal is flagged so the room can
+                  see the other team got a shot at a question they didn't own. */}
+              {turnTeam && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2.5 rounded-full px-5 py-1.5 shadow-sm"
+                  style={{ background: turnTeam.color }}
+                >
+                  <span className="font-display text-screen-status font-black text-white">
+                    {isSteal
+                      ? t(locale, 'teamStealOther', { team: turnTeam.name })
+                      : t(locale, 'teamTurnOther', { team: turnTeam.name })}
                   </span>
                 </motion.div>
               )}
