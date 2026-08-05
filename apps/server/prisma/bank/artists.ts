@@ -46,7 +46,6 @@ export const artists: BankQuestion[] = [
   { ar: "من الموسيقي اللبناني ابن فيروز صاحب المسرحيات الساخرة؟", en: "Fairuz’s son, satirical composer?", o: ["عاصي الرحباني", "زياد الرحباني", "منصور الرحباني", "إلياس الرحباني"], c: 1, d: 'MEDIUM' },
   { ar: "من المطرب اللبناني الراحل الملقب بـ«صوت الجبل»؟", en: "Late Lebanese singer, \"Voice of the Mountain\"?", o: ["نصري شمس الدين", "وديع الصافي", "ملحم بركات", "وليد توفيق"], c: 1, d: 'MEDIUM' },
   { ar: "من الفنانة اللبنانية الراحلة الملقبة بـ«الشحرورة»؟", en: "Late Lebanese singer nicknamed Al Shahroura?", o: ["فيروز", "صباح", "سميرة توفيق", "نجاح سلام"], c: 1, d: 'MEDIUM' },
-  { ar: "من الفنان السوري الملقب بـ«سلطان الطرب»؟", en: "Syrian singer called Sultan of Tarab?", o: ["صباح فخري", "جورج وسوف", "ميادة الحناوي", "فهد بلان"], c: 1, d: 'MEDIUM' },
   { ar: "من المطرب السوري الحلبي الشهير بالقدود والموشحات؟", en: "Aleppan Syrian master of qudood and muwashahat?", o: ["جورج وسوف", "صباح فخري", "فهد بلان", "ميادة بسيليس"], c: 1, d: 'MEDIUM' },
   { ar: "ما المدينة السورية التي تُعد عاصمة الطرب والقدود؟", en: "Syrian capital of tarab and qudood?", o: ["دمشق", "حلب", "حمص", "اللاذقية"], c: 1, d: 'MEDIUM' },
   { ar: "ما نوع الفن الغنائي الشامي الذي يجمع بين الشعر والألحان الشرقية القديمة؟", en: "Levantine sung poetry with old Eastern melodies?", o: ["الموشحات", "الجاز", "الأوبرا", "الراب"], c: 0, d: 'MEDIUM' },
