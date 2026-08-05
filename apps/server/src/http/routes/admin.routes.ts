@@ -53,7 +53,12 @@ adminRouter.patch(
   asyncHandler(async (req, res) => {
     const { id } = valid<typeof idParam>(req, 'params');
     const input = valid<typeof CategoryGroupEditSchema>(req);
-    const group = await content.updateCategoryGroup(id, input);
+    // Reordering a group in the panel makes its position the owner's: flag it so the
+    // next `db:seed` doesn't snap it back to the taxonomy's order.
+    const group = await content.updateCategoryGroup(id, {
+      ...input,
+      ...(input.sortOrder !== undefined && { sortEdited: true }),
+    });
     await audit({ actorId: req.auth!.userId, action: 'categoryGroup.update', entityType: 'CategoryGroup', entityId: id, metadata: input, ip: req.ip });
     ok(res, group);
   }),
@@ -90,7 +95,13 @@ adminRouter.patch(
     const owned =
       input.nameAr !== undefined || input.nameEn !== undefined ||
       input.color !== undefined || input.groupId !== undefined;
-    const cat = await content.updateCategory(id, { ...input, ...(owned && { adminEdited: true }) });
+    // Position is flagged separately from name/colour: the owner reorders far more
+    // often than they rename, and a re-order shouldn't freeze the Arabic name too.
+    const cat = await content.updateCategory(id, {
+      ...input,
+      ...(owned && { adminEdited: true }),
+      ...(input.sortOrder !== undefined && { sortEdited: true }),
+    });
     await audit({ actorId: req.auth!.userId, action: 'category.update', entityType: 'Category', entityId: id, metadata: input, ip: req.ip });
     ok(res, cat);
   }),

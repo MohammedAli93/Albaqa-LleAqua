@@ -13,8 +13,14 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Check, X, Search, FolderPlus, Layers } from 'lucide-react';
+import { Plus, Pencil, Check, X, Search, FolderPlus, Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { get, post, patch } from '../api/client.js';
+
+/**
+ * Target bank size per category — the client's brief (2026-08-05): every category is
+ * a bank of 500 questions. Mirrors TARGET_BANK_SIZE in server/prisma/taxonomy.ts.
+ */
+const TARGET_BANK_SIZE = 500;
 
 interface Group {
   id: string;
@@ -23,6 +29,7 @@ interface Group {
   nameEn: string;
   color: string;
   icon?: string | null;
+  sortOrder: number;
   _count?: { categories: number };
 }
 
@@ -32,6 +39,7 @@ interface Category {
   nameAr: string;
   nameEn: string;
   color: string;
+  sortOrder: number;
   groupId?: string | null;
   group?: { id: string; slug: string; nameAr: string; nameEn: string; color: string } | null;
   adminEdited?: boolean;
@@ -46,16 +54,18 @@ type Draft = { nameAr: string; nameEn: string; color: string; groupId: string };
  * prisma/taxonomy.ts so a hand-added category looks native next to a seeded one.
  */
 const PALETTE: { value: string; label: string }[] = [
-  { value: '#7C3AED', label: 'Violet — بنفسجي' },
-  { value: '#0EA371', label: 'Green — أخضر' },
-  { value: '#16A34A', label: 'Islamic green — أخضر داكن' },
+  { value: '#F97316', label: 'Orange — برتقالي محروق' },
+  { value: '#F59E0B', label: 'Amber — كهرماني' },
   { value: '#EF4444', label: 'Red — أحمر' },
-  { value: '#06B6D4', label: 'Cyan — سماوي' },
-  { value: '#0EA5E9', label: 'Blue — أزرق' },
+  { value: '#7C3AED', label: 'Violet — بنفسجي' },
+  { value: '#16A34A', label: 'Islamic green — أخضر داكن' },
   { value: '#EC4899', label: 'Pink — وردي' },
-  { value: '#8B5CF6', label: 'Purple — أرجواني' },
+  { value: '#A855F7', label: 'Purple — أرجواني' },
+  { value: '#06B6D4', label: 'Cyan — سماوي' },
+  { value: '#0EA371', label: 'Green — أخضر' },
+  { value: '#0EA5E9', label: 'Blue — أزرق' },
+  { value: '#8B5CF6', label: 'Purple (dark) — بنفسجي داكن' },
   { value: '#22C55E', label: 'Lime — أخضر فاتح' },
-  { value: '#F59E0B', label: 'Amber — برتقالي' },
   { value: '#64748B', label: 'Slate — رمادي' },
 ];
 
@@ -115,6 +125,36 @@ export function Categories() {
     },
   });
 
+  /**
+   * Reordering: swap the two rows' `sortOrder` values. The order the client asked for
+   * (المتشابه والمختلف → نكهة محلية → الرياضة → …) ships in the taxonomy, but the owner
+   * can re-rank both levels from here without a deploy — a moved row is flagged
+   * `sortEdited` server-side so the next content deploy leaves its position alone.
+   *
+   * When two rows happen to share a `sortOrder` a swap would be a no-op, so the moving
+   * row steps past its neighbour instead.
+   */
+  const reorder = useMutation({
+    mutationFn: async ({ kind, a, b, dir }: {
+      kind: 'categories' | 'category-groups';
+      a: { id: string; sortOrder: number };
+      b: { id: string; sortOrder: number };
+      dir: -1 | 1;
+    }) => {
+      if (a.sortOrder === b.sortOrder) {
+        await patch(`/api/v1/admin/${kind}/${a.id}`, { sortOrder: Math.max(0, a.sortOrder + dir) });
+        return;
+      }
+      await patch(`/api/v1/admin/${kind}/${a.id}`, { sortOrder: b.sortOrder });
+      await patch(`/api/v1/admin/${kind}/${b.id}`, { sortOrder: a.sortOrder });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['categories'] });
+      qc.invalidateQueries({ queryKey: ['categoryGroups'] });
+      qc.invalidateQueries({ queryKey: ['adminCategories'] });
+    },
+  });
+
   const save = useMutation({
     mutationFn: (id: string) => patch(`/api/v1/admin/categories/${id}`, { ...draft, groupId: draft.groupId || null }),
     onSuccess: () => {
@@ -145,13 +185,16 @@ export function Categories() {
         c.slug.toLowerCase().includes(needle)
       );
     });
-    const buckets: { key: string; group: Group | null; items: Category[] }[] = [];
+    // `siblings` is the group's FULL category list (ignoring search/filter) — the
+    // ↑/↓ buttons must move a row past its real neighbour, not past whatever the
+    // current search happens to show.
+    const buckets: { key: string; group: Group | null; items: Category[]; siblings: Category[] }[] = [];
     for (const g of groups) {
       const items = matched.filter((c) => c.groupId === g.id);
-      if (items.length) buckets.push({ key: g.id, group: g, items });
+      if (items.length) buckets.push({ key: g.id, group: g, items, siblings: all.filter((c) => c.groupId === g.id) });
     }
     const loose = matched.filter((c) => !c.groupId);
-    if (loose.length) buckets.push({ key: UNGROUPED, group: null, items: loose });
+    if (loose.length) buckets.push({ key: UNGROUPED, group: null, items: loose, siblings: all.filter((c) => !c.groupId) });
     return buckets;
   }, [all, groups, search, groupFilter]);
 
@@ -165,8 +208,13 @@ export function Categories() {
           <h1 className="text-2xl font-bold">Categories</h1>
           <p className="text-sm text-slate-500">
             Two levels: a <b>group</b> (فئة رئيسية) holds the <b>categories</b> (فئات فرعية) under it.
-            Filter by group, search by name, and rename in place — changes reach players immediately,
-            no deploy needed.
+            The list below is in the exact order players see it — use ↑/↓ to re-rank a group or a
+            category. Rename in place; changes reach players immediately, no deploy needed.
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            Target bank size: <b className="tnum">{TARGET_BANK_SIZE}</b> questions per category. The
+            bar in each row shows how full that bank is — add questions on the <b>Questions</b> page
+            or in bulk from <b>Import</b>.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -236,9 +284,9 @@ export function Categories() {
         </div>
       )}
 
-      {save.isError && (
+      {(save.isError || reorder.isError) && (
         <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-          {(save.error as Error).message}
+          {((save.error ?? reorder.error) as Error).message}
         </div>
       )}
 
@@ -272,31 +320,54 @@ export function Categories() {
         <p className="card p-8 text-center text-slate-400">Nothing matches that filter.</p>
       ) : (
         <div className="space-y-5">
-          {sections.map((section) => (
+          {sections.map((section) => {
+            const gi = section.group ? groups.findIndex((g) => g.id === section.group!.id) : -1;
+            return (
             <div key={section.key} className="card overflow-hidden">
               <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3"
                 style={{ background: `${section.group?.color ?? '#94A3B8'}12` }}>
+                {gi >= 0 && (
+                  <span className="tnum me-1 grid h-6 w-6 place-items-center rounded-full text-xs font-bold text-white"
+                    style={{ background: section.group!.color }} title="Order players see this group in">
+                    {gi + 1}
+                  </span>
+                )}
                 <Layers size={16} style={{ color: section.group?.color ?? '#94A3B8' }} />
                 <span className="font-semibold" dir="auto">{section.group?.nameAr ?? 'No group'}</span>
                 <span className="text-sm text-slate-400">{section.group?.nameEn ?? 'unfiled'}</span>
+                {gi >= 0 && (
+                  <span className="ms-3 flex gap-1">
+                    <MoveBtn label="Move group up" disabled={gi === 0 || reorder.isPending}
+                      onClick={() => reorder.mutate({ kind: 'category-groups', a: groups[gi]!, b: groups[gi - 1]!, dir: -1 })}>
+                      <ChevronUp size={14} />
+                    </MoveBtn>
+                    <MoveBtn label="Move group down" disabled={gi === groups.length - 1 || reorder.isPending}
+                      onClick={() => reorder.mutate({ kind: 'category-groups', a: groups[gi]!, b: groups[gi + 1]!, dir: 1 })}>
+                      <ChevronDown size={14} />
+                    </MoveBtn>
+                  </span>
+                )}
                 <span className="tnum ms-auto text-sm text-slate-400">{section.items.length} categories</span>
               </div>
               <table className="w-full text-left">
                 <thead className="bg-slate-50 text-sm text-slate-500">
                   <tr>
+                    <th className="p-3">Order</th>
                     <th className="p-3">Colour</th>
                     <th className="p-3">Slug</th>
                     <th className="p-3">Arabic (shown to players)</th>
                     <th className="p-3">English</th>
                     <th className="p-3">Group</th>
-                    <th className="p-3">Questions</th>
+                    <th className="p-3">Bank ({TARGET_BANK_SIZE} target)</th>
                     <th className="p-3 text-right">Edit</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {section.items.map((c) =>
-                    editId === c.id ? (
+                  {section.items.map((c) => {
+                    const ci = section.siblings.findIndex((s) => s.id === c.id);
+                    return editId === c.id ? (
                       <tr key={c.id} className="border-t border-slate-100 bg-violet-50/40">
+                        <td className="p-3 tnum text-slate-400">{ci + 1}</td>
                         <td className="p-3">
                           <ColorField value={draft.color} onChange={(v) => setDraft({ ...draft, color: v })} />
                         </td>
@@ -318,7 +389,7 @@ export function Categories() {
                             {groups.map((g) => <option key={g.id} value={g.id}>{g.nameAr}</option>)}
                           </select>
                         </td>
-                        <td className="p-3 tnum text-slate-400">{c._count?.questions ?? 0}</td>
+                        <td className="p-3"><BankBar count={c._count?.questions ?? 0} color={c.color} /></td>
                         <td className="p-3">
                           <div className="flex justify-end gap-1">
                             <button className="btn-primary !px-3 !py-1.5 text-sm" disabled={save.isPending || !draft.nameAr.trim() || !draft.nameEn.trim()}
@@ -333,26 +404,78 @@ export function Categories() {
                       </tr>
                     ) : (
                       <tr key={c.id} className="border-t border-slate-100">
+                        <td className="p-3">
+                          <div className="flex items-center gap-1">
+                            <span className="tnum w-5 text-slate-400">{ci + 1}</span>
+                            <MoveBtn label="Move up" disabled={ci <= 0 || reorder.isPending}
+                              onClick={() => reorder.mutate({ kind: 'categories', a: c, b: section.siblings[ci - 1]!, dir: -1 })}>
+                              <ChevronUp size={14} />
+                            </MoveBtn>
+                            <MoveBtn label="Move down" disabled={ci < 0 || ci >= section.siblings.length - 1 || reorder.isPending}
+                              onClick={() => reorder.mutate({ kind: 'categories', a: c, b: section.siblings[ci + 1]!, dir: 1 })}>
+                              <ChevronDown size={14} />
+                            </MoveBtn>
+                          </div>
+                        </td>
                         <td className="p-3"><span className="inline-block h-5 w-5 rounded" style={{ background: c.color }} /></td>
                         <td className="p-3 font-mono text-sm">{c.slug}</td>
                         <td className="p-3 font-semibold" dir="rtl">{c.nameAr}</td>
                         <td className="p-3">{c.nameEn}</td>
                         <td className="p-3 text-sm text-slate-500" dir="auto">{c.group?.nameAr ?? '—'}</td>
-                        <td className="p-3 tnum text-slate-500">{c._count?.questions ?? 0}</td>
+                        <td className="p-3"><BankBar count={c._count?.questions ?? 0} color={c.color} /></td>
                         <td className="p-3 text-right">
                           <button className="btn-ghost !px-3 !py-1.5 text-sm" onClick={() => startEdit(c)}>
                             <Pencil size={14} /> Edit
                           </button>
                         </td>
                       </tr>
-                    ),
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A square ↑/↓ nudge button used for both group and category ordering. */
+function MoveBtn({ label, disabled, onClick, children }: {
+  label: string; disabled: boolean; onClick: () => void; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="grid h-6 w-6 place-items-center rounded border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * How full this category's question bank is against the 500-per-category target.
+ * The number is what the owner actually needs; the bar just makes the short banks
+ * findable at a glance when scanning sixty rows.
+ */
+function BankBar({ count, color }: { count: number; color: string }) {
+  const pct = Math.min(100, Math.round((count / TARGET_BANK_SIZE) * 100));
+  return (
+    <div className="min-w-[7rem]">
+      <div className="tnum mb-1 text-sm text-slate-600">
+        {count}
+        <span className="text-slate-400"> / {TARGET_BANK_SIZE}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: count ? color : '#E2E8F0' }} />
+      </div>
     </div>
   );
 }

@@ -2,102 +2,102 @@
  * Category/group illustration. Maps a taxonomy slug to a glyph so every tile in
  * the picker carries a recognizable visual. The component takes a `slug` + sizing
  * `className`; the art is swappable here without touching the pickers.
+ *
+ * Mirrors prisma/taxonomy.ts (rev. 2026-08-05). A slug with no entry falls back to
+ * 🎯, so a category the owner adds in the admin panel still gets a tile.
  */
 const ART: Record<string, string> = {
-  // ── groups ──
+  // ── groups (فئات رئيسية) ──
+  'similar-different': '🔀',
+  'local-flavor': '🪔',
+  sports: '🏆',
   'culture-knowledge': '🧠',
   religion: '🕌',
-  sports: '🏆',
+  'drama-art': '🎬',
+  entertainment: '🎉',
   'science-tech': '🔬',
-  transport: '🚗',
-  entertainment: '🎬',
   'language-culture': '📖',
-  'life-nature': '🌿',
-  'local-flavor': '🪔',
-  'misc-knowledge': '💡',
-  'arab-countries': '🌍',
-  // ── Arab countries (flag glyphs; Twemoji renders the regional flags) ──
-  'country-kuwait': '🇰🇼',
-  'country-bahrain': '🇧🇭',
-  'country-qatar': '🇶🇦',
-  'country-uae': '🇦🇪',
-  'country-oman': '🇴🇲',
-  'country-iraq': '🇮🇶',
-  'country-syria': '🇸🇾',
-  'country-palestine': '🇵🇸',
-  'country-jordan': '🇯🇴',
-  'country-lebanon': '🇱🇧',
-  'country-yemen': '🇾🇪',
-  'country-egypt': '🇪🇬',
-  'country-sudan': '🇸🇩',
-  'country-libya': '🇱🇾',
-  'country-tunisia': '🇹🇳',
-  'country-algeria': '🇩🇿',
-  'country-morocco': '🇲🇦',
-  // ── categories ──
+  transport: '🚗',
+
+  // ── ١) المتشابه والمختلف ──
+  'what-similar': '🧩',
+  'what-different': '🚫',
+
+  // ── ٢) نكهة محلية ──
+  dialects: '💬',
+  'dialects-arab': '🗣️',
+  vision2030: '🏗️',
+  heritage: '🐪',
+  'heritage-arab': '🕌',
+  nostalgia: '📼',
+  'saudi-landmarks': '🕋',
+  'world-landmarks': '🗼',
+
+  // ── ٣) الرياضة ──
+  'world-cup': '🏆',
+  'football-europe': '⚽',
+  'football-asia': '🌏',
+  'football-africa': '🌍',
+  'football-southamerica': '🌎',
+  'football-arab': '🏟️',
+  'football-gulf': '🏜️',
+  'saudi-league': '🥇',
+  'premier-league': '🦁',
+  laliga: '🐂',
+
+  // ── ٤) الثقافة والمعرفة ──
   general: '🌍',
   'arab-world': '🕌',
-  saudi: '🇸🇦',
   gulf: '🛢️',
   history: '🏛️',
   'islamic-history': '☪️',
+  'military-history': '⚔️',
   geography: '🗺️',
   'flags-capitals': '🚩',
+  currencies: '💰',
+
+  // ── ٥) الدين الإسلامي ──
   quran: '📖',
+  'islamic-culture': '🕌',
   seerah: '🕋',
   'prophets-companions': '🌙',
-  'football-world': '⚽',
-  'football-arab': '🏟️',
-  'saudi-league': '🥇',
-  'egypt-league': '🇪🇬',
-  'football-gulf': '🏜️',
-  'football-morocco': '🇲🇦',
-  'gulf-cup': '🏅',
-  'arab-cup': '🏆',
-  'asian-cup': '🌏',
-  'africa-cup': '🌍',
-  'world-cup': '🏆',
+
+  // ── ٦) الدراما والفن ──
+  'ramadan-drama': '🌙',
+  'movies-series': '🎬',
+  'cinema-gulf': '📽️',
+  'cinema-levant': '🎥',
+  'anime-cartoon': '🦸',
+  'art-gulf': '🪕',
+  artists: '⭐',
+
+  // ── ٧) الترفيه ──
+  'video-games': '🎮',
+  'social-celebs': '📱',
+  guess: '❓',
+  'world-wonders': '🗿',
+  'weird-facts': '🤯',
+  'puzzles-logic': '🧠',
+
+  // ── ٨) العلوم والتقنية ──
+  'medicine-health': '🩺',
   science: '🔬',
   space: '🚀',
   tech: '💻',
   ai: '🤖',
-  'internet-apps': '📱',
-  'muslim-scientists': '⚗️',
-  cars: '🏎️',
-  aviation: '✈️',
-  'video-games': '🎮',
-  'movies-series': '🎬',
-  'cinema-gulf': '📽️',
-  'cinema-iraq': '🎞️',
-  'cinema-levant': '🎥',
-  'anime-cartoon': '🦸',
-  celebrities: '⭐',
-  'art-music': '🎨',
-  'art-gulf': '🪕',
-  'art-iraq': '🎻',
-  'art-levant': '🎼',
-  guess: '❓',
+  'internet-apps': '🌐',
+  economy: '📈',
+  'scientists-inventors': '⚗️',
+  inventions: '💡',
+
+  // ── ٩) اللغة والثقافة ──
   'arabic-literature': '📚',
   poetry: '✒️',
-  proverbs: '🗣️',
-  food: '🍽️',
-  animals: '🦁',
-  nature: '🌋',
-  dialects: '💬',
-  'ramadan-drama': '🌙',
-  vision2030: '🏗️',
-  heritage: '🐪',
-  nostalgia: '📼',
-  'saudi-landmarks': '🕌',
-  inventions: '💡',
-  economy: '📈',
-  currencies: '💰',
-  'medicine-health': '🩺',
-  'military-history': '⚔️',
-  'world-wonders': '🗿',
-  'weird-facts': '🤯',
-  'puzzles-logic': '🧩',
-  'true-false': '✅',
+  proverbs: '🗨️',
+
+  // ── ١٠) السيارات والطيران ──
+  cars: '🏎️',
+  aviation: '✈️',
 };
 
 /** The emoji glyph for a taxonomy slug (used to build the cartoon Twemoji sticker). */
