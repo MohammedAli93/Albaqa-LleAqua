@@ -62,7 +62,9 @@ for (const cat of CATEGORIES) {
     if (q.o.some((o) => !o.trim())) at('has an empty option');
     if (new Set(q.o.map(normalizeAr)).size !== q.o.length) at('has duplicate options');
     if (q.c < 0 || q.c >= q.o.length) at(`correct index ${q.c} is out of range`);
-    if (!/[؟?]\s*$/.test(q.ar)) at('prompt does not end in a question mark');
+    // A prompt is either a question or a fill-in-the-blank stem ("عاصمة إسبانيا هي …").
+    // Both are valid quiz formats; anything else is a statement and reads as broken.
+    if (!/([؟?]|\.\.\.|…)\s*$/.test(q.ar)) at('prompt is neither a question nor a fill-in-the-blank stem');
 
     const answer = q.o[q.c] ?? '';
     if (isAnswerLeak(q.ar, answer)) at(`prompt contains its own answer ("${answer}")`);
