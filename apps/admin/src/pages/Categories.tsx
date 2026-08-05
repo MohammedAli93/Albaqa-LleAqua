@@ -17,10 +17,11 @@ import { Plus, Pencil, Check, X, Search, FolderPlus, Layers, ChevronUp, ChevronD
 import { get, post, patch } from '../api/client.js';
 
 /**
- * Target bank size per category — the client's brief (2026-08-05): every category is
- * a bank of 500 questions. Mirrors TARGET_BANK_SIZE in server/prisma/taxonomy.ts.
+ * Target bank size per category. Mirrors TARGET_BANK_SIZE in server/prisma/taxonomy.ts —
+ * keep the two in step. The brief said 500; the owner lowered it to 350 to reach a
+ * playable depth in every category sooner.
  */
-const TARGET_BANK_SIZE = 500;
+const TARGET_BANK_SIZE = 350;
 
 interface Group {
   id: string;

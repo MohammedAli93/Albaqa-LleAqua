@@ -192,5 +192,10 @@ export const RETIRED_CATEGORY_SLUGS: string[] = Object.keys(BANK_ALIASES);
 /** Groups the restructure emptied — deleted by the seed once nothing points at them. */
 export const RETIRED_GROUP_SLUGS: string[] = ['arab-countries', 'life-nature', 'misc-knowledge'];
 
-/** Target bank size per category (client 2026-08-05: «بنك اسئلة يحتوي على ٥٠٠ سؤال»). */
-export const TARGET_BANK_SIZE = 500;
+/**
+ * Target bank size per category. The client's brief said 500 («بنك اسئلة يحتوي على
+ * ٥٠٠ سؤال»); the owner lowered it to 350 to get every category to a playable depth
+ * sooner. Raise it back when the banks are levelled — nothing caps a category here,
+ * the number only sets what "done" means for the progress view and the admin panel.
+ */
+export const TARGET_BANK_SIZE = 350;
