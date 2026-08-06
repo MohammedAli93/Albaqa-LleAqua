@@ -33,6 +33,36 @@ const prisma = new PrismaClient();
 
 const env = (k: string, fallback?: string) => process.env[k] ?? fallback;
 
+/**
+ * Spread the correct answer across the four slots.
+ *
+ * The bank is written correct-answer-first (73% of it is `c: 0`) and the game serves
+ * options in stored order — so "always pick the first one" was a winning strategy, which
+ * quietly defeats every hard question we write. Shuffled here, once, at seed time.
+ *
+ * Deterministic (keyed on the prompt) on purpose: re-seeding a deploy must not reshuffle
+ * answers under players who already saw the question, and the seed's own diffs stay clean.
+ */
+function hash32(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function shuffleOptions<T>(options: T[], correctIndex: number, key: string): { options: T[]; correctIndex: number } {
+  const arr = options.map((o, i) => ({ o, i }));
+  let seed = hash32(key) || 1;
+  for (let i = arr.length - 1; i > 0; i--) {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    const j = (seed >>> 16) % (i + 1); // high bits — an LCG's low bits barely vary
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return { options: arr.map((x) => x.o), correctIndex: arr.findIndex((x) => x.i === correctIndex) };
+}
+
 async function main() {
   console.log('🌱 Seeding Tahaddi database…');
 
@@ -180,7 +210,8 @@ async function main() {
         continue;
       }
       seenNorm.add(norm);
-      const optionDefs = q.o.map((text, i) => ({ id: String.fromCharCode(97 + i), textAr: text }));
+      const shuffled = shuffleOptions(q.o, q.c, q.ar);
+      const optionDefs = shuffled.options.map((text, i) => ({ id: String.fromCharCode(97 + i), textAr: text }));
       const data = {
         type: 'MULTIPLE_CHOICE' as const,
         difficulty: (q.d ?? 'MEDIUM') as Prisma.QuestionCreateInput['difficulty'],
@@ -188,7 +219,7 @@ async function main() {
         promptAr: q.ar,
         promptEn: q.en,
         options: optionDefs as unknown as Prisma.InputJsonValue,
-        correctOptionId: optionDefs[q.c]!.id,
+        correctOptionId: optionDefs[shuffled.correctIndex]!.id,
         timeLimitSec: 15,
         basePoints: 100,
         speedBonus: true,
