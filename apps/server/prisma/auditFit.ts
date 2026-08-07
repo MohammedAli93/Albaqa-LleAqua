@@ -146,9 +146,11 @@ const FIT: Record<string, Fit> = {
     banned: [[['صح', 'خطا'], 'general']],
   },
   gulf: {
-    anchors: ['الخليج', 'الخليجي', 'خليجي', 'التعاون', 'السعوديه', 'الامارات', 'الكويت',
-              'قطر', 'البحرين', 'عمان', 'سلطنه عمان', 'الرياض', 'ابوظبي', 'دبي', 'الدوحه',
-              'المنامه', 'مسقط', 'الكويت العاصمه'],
+    anchors: ['الخليج', 'الخليجي', 'خليجي', 'التعاون', 'السعوديه', 'السعودي', 'المملكه',
+              'الامارات', 'الاماراتي', 'الكويت', 'الكويتي', 'قطر', 'القطري', 'البحرين',
+              'البحريني', 'عمان', 'العماني', 'سلطنه عمان', 'الرياض', 'ابوظبي', 'دبي',
+              'الدوحه', 'المنامه', 'مسقط', 'الطائف', 'الدمام', 'جده', 'مكه', 'نيوم',
+              'الجزيره العربيه', 'رويه 2030'],
     // Yemen and Iraq are not GCC states — client, 2026-08-07.
     banned: [[['اليمن', 'اليمني', 'اليمنيه', 'صنعاء', 'عدن', 'حضرموت', 'تعز'], 'arab-world'],
              [['العراق', 'العراقي', 'العراقيه', 'بغداد', 'البصره', 'الموصل', 'اربيل'], 'arab-world']],
@@ -219,7 +221,7 @@ const FIT: Record<string, Fit> = {
               'العلم', 'علم', 'اللوجو', 'الايقونه', 'الشكل', 'اللون', 'الوان', 'المعلم',
               'التمثال', 'تمثال', 'البرج', 'المبني', 'الشخصيه', 'الملصق', 'الغلاف', 'خمن'],
     banned: [[[...M.anatomy], 'medicine-health'], [[...M.space], 'space'],
-             [[...M.geographyPhys], 'geography'], [[...M.religion], 'islamic-culture']],
+             [[...M.geographyPhys], 'geography'], [[...M.religion], 'prophets-companions']],
   },
   'world-wonders': { anchors: ['عجائب', 'الاعجوبه', 'الاهرام', 'الهرم', 'سور الصين', 'البتراء', 'بترا', 'تاج محل', 'الكولوسيوم', 'ماتشو', 'المسيح الفادي', 'المعلم', 'الاثر', 'الاثريه', 'المعبد', 'الحدائق المعلقه', 'المناره', 'التمثال', 'الضريح', 'البرج', 'المبني', 'القلعه', 'القصر', 'الصرح', 'المدينه', 'يقع', 'تقع', 'بني', 'شيد', 'الحضاره', 'الاسوار', 'الكنيسه', 'الكاتدرائيه', 'المسجد', 'الجامع', 'الساعه', 'دار الاوبرا', 'السد', 'النصب'] },
 
@@ -254,11 +256,23 @@ const FIT: Record<string, Fit> = {
 };
 
 /**
- * Normalise for anchor matching: normalizeAr, then drop the definite article from the
- * start of every word. Arabic glues «ال» onto nouns freely, so without this an anchor
- * has to be written twice (البرج / برج) to catch the same word in two positions.
+ * Normalise for marker matching: normalizeAr, then drop the definite article from the
+ * start of every word — including after a one-letter proclitic, so «بالعود» folds to
+ * «بعود». Arabic glues «ال» onto nouns freely; without this an anchor has to be
+ * written twice (البرج / برج) to catch the same word in two positions.
  */
-const fold = (s: string): string => ` ${normalizeAr(s).replace(/(^|\s)ال/g, '$1')} `;
+const fold = (s: string): string => ` ${normalizeAr(s).replace(/(^|\s)([وبلفك]?)ال/g, '$1$2')} `;
+
+/**
+ * Does `text` (already folded) contain `marker` as the start of a word?
+ *
+ * Prefix-anchored rather than free substring: «المعدنية» folds to «معدنيه», which
+ * *contains* «عدن» and had the Saudi-riyal-subunit question filed as a question about
+ * Aden. Suffixes stay free so one marker «يمن» still catches «يمني/اليمنية», and a
+ * single proclitic (و ب ل ف ك) is allowed in front.
+ */
+const hasMarker = (text: string, marker: string): boolean =>
+  new RegExp(`(?:^|\\s)[وبلفك]?${fold(marker).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text);
 
 const arg = process.argv[2];
 const rows: { slug: string; nameAr: string; total: number; unanchored: number; misfiled: number; badDiff: number }[] = [];
@@ -273,7 +287,12 @@ for (const cat of CATEGORIES) {
 
   for (const q of questions) {
     const text = fold(`${q.ar} ${q.o.join(' ')}`);
-    const hasAnchor = !fit?.anchors || fit.anchors.some((a) => text.includes(fold(a).trim()));
+    const hasAnchor = !fit?.anchors || fit.anchors.some((a) => hasMarker(text, a));
+    // Banned markers are matched against the PROMPT only. What a question is *about*
+    // is what it asks; a country named among the distractors is scenery. "مع أي دولتين
+    // تشترك الكويت في حدودها؟ ✓ العراق والسعودية" is a Gulf question that happens to
+    // say العراق, and flagging it would train us to delete good questions.
+    const promptText = fold(q.ar);
 
     if (fit?.noDifficulty?.includes(q.d ?? 'MEDIUM')) {
       badDiff++;
@@ -287,7 +306,7 @@ for (const cat of CATEGORIES) {
     let moved = false;
     if (fit?.banned) {
       for (const [words, goes] of fit.banned) {
-        if (words.some((w) => text.includes(fold(w).trim()))) {
+        if (words.some((w) => hasMarker(promptText, w))) {
           misfiled++;
           moved = true;
           if (arg === cat.slug) detail.push(`  [→ ${goes}] ${q.ar}`);

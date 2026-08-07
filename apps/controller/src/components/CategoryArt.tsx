@@ -58,9 +58,7 @@ const ART: Record<string, string> = {
 
   // ── ٥) الدين الإسلامي ──
   quran: '📖',
-  'islamic-culture': '🕌',
-  seerah: '🕋',
-  'prophets-companions': '🌙',
+  'prophets-companions': '🕋',
 
   // ── ٦) الدراما والفن ──
   'ramadan-drama': '🌙',

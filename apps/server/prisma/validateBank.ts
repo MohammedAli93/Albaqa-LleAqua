@@ -58,7 +58,7 @@ const seenQuoted = new Map<string, string>(); // category → first prompt quoti
  */
 const TOPIC_MARKERS: { slugs: string[]; words: string[] }[] = [
   {
-    slugs: ['quran', 'islamic-culture', 'seerah', 'prophets-companions', 'islamic-history'],
+    slugs: ['quran', 'prophets-companions', 'islamic-history'],
     words: ['سورة', 'الآية', 'القرآن', 'الرسول', 'النبي', 'الصحابي', 'الصحابة', 'الخليفة',
             'الصلاة', 'الزكاة', 'الحج', 'الصيام', 'رمضان', 'الحديث النبوي', 'غزوة', 'الأنبياء'],
   },

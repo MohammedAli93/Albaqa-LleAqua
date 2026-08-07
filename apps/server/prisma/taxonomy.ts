@@ -84,9 +84,10 @@ export const CATEGORIES: CategoryDef[] = [
 
   // ── ٥) الدين الإسلامي ──
   { slug: 'quran', nameAr: 'القرآن الكريم', nameEn: 'The Holy Quran', group: 'religion' },
-  { slug: 'islamic-culture', nameAr: 'الثقافة الإسلامية', nameEn: 'Islamic Culture', group: 'religion' },
-  { slug: 'seerah', nameAr: 'السيرة النبوية', nameEn: "The Prophet's Biography", group: 'religion' },
-  { slug: 'prophets-companions', nameAr: 'الأنبياء والصحابة', nameEn: 'Prophets & Companions', group: 'religion' },
+  // Merged 2026-08-07 at the client's request: «الثقافة والسيرة والأنبياء والرسل (دمج
+  // بفئة واحدة يكون اسمها الأنبياء والرسل)». islamic-culture and seerah keep their bank
+  // files and feed in through BANK_ALIASES, so all three banks live on here.
+  { slug: 'prophets-companions', nameAr: 'الأنبياء والرسل', nameEn: 'Prophets & Messengers', group: 'religion' },
 
   // ── ٦) الدراما والفن ──
   { slug: 'ramadan-drama', nameAr: 'رمضان والدراما الرمضانية', nameEn: 'Ramadan & Its Drama', group: 'drama-art' },
@@ -139,14 +140,20 @@ export const CATEGORIES: CategoryDef[] = [
  * e.g. the 18 per-country banks now feed «العالم العربي» / «الخليج العربي».
  */
 export const BANK_ALIASES: Record<string, string> = {
-  // per-country banks → الخليج العربي / العالم العربي
+  // religion: the three non-Quran banks are one category now — «الأنبياء والرسل»
+  'islamic-culture': 'prophets-companions',
+  seerah: 'prophets-companions',
+
+  // per-country banks → الخليج العربي / العالم العربي.
+  // Yemen and Iraq are not GCC states — client, 2026-08-07 — so they file under
+  // «العالم العربي» with the rest of the Arab world.
   saudi: 'gulf',
   'country-kuwait': 'gulf',
   'country-bahrain': 'gulf',
   'country-qatar': 'gulf',
   'country-uae': 'gulf',
   'country-oman': 'gulf',
-  'country-yemen': 'gulf',
+  'country-yemen': 'arab-world',
   'country-iraq': 'arab-world',
   'country-syria': 'arab-world',
   'country-palestine': 'arab-world',
