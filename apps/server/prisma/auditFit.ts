@@ -52,6 +52,12 @@ interface Fit {
    * «نجمة» belongs to space, but «شعار سيارة بنجمة ثلاثية» is a logo question.
    */
   banned?: [string[], string][];
+  /**
+   * Markers that cancel an `excludes` hit. A hard boundary still needs an escape for
+   * the question that legitimately straddles it: «من الممثل السوري الذي انتقل للدراما
+   * المصرية؟» is a Levant question that has to say مصر to be asked at all.
+   */
+  shield?: string[];
   /** Difficulties this category refuses (client: dialects are never EASY). */
   noDifficulty?: ('EASY' | 'MEDIUM' | 'HARD')[];
 }
@@ -187,12 +193,14 @@ const FIT: Record<string, Fit> = {
               'ممثله', 'الفنان', 'الفنانه', 'المخرج', 'السينما', 'الدراما', 'بطوله', 'دور',
               'شخصيه', 'الحلقه', 'المشهد', 'السيناريو', 'اخرج', 'جسد', 'قدم'],
     excludes: [[[...M.shopping], 'world-landmarks']],
+    shield: ['مسلسل', 'فيلم', 'مسرحيه', 'الحلقه', 'احداثه', 'تدور', 'بطوله'],
   },
   'cinema-gulf': {
     anchors: ['فيلم', 'الفيلم', 'افلام', 'مسلسل', 'المسلسل', 'مسرحيه', 'المسرحيه', 'الممثل',
               'ممثله', 'الفنان', 'الفنانه', 'المخرج', 'السينما', 'الدراما', 'بطوله', 'دور',
               'شخصيه', 'الحلقه', 'المشهد', 'السيناريو', 'اخرج', 'جسد', 'قدم', 'المهرجان السينمائي'],
     excludes: [[[...M.shopping], 'world-landmarks']],
+    shield: ['مسلسل', 'فيلم', 'مسرحيه', 'الحلقه', 'احداثه', 'تدور', 'بطوله'],
     banned: [[[...M.football], 'football-gulf']],
   },
   'cinema-levant': {
@@ -201,7 +209,10 @@ const FIT: Record<string, Fit> = {
               'شخصيه', 'الحلقه', 'المشهد', 'اخرج', 'جسد'],
     // Levant = Syria, Lebanon, Palestine, Jordan. Egyptian drama has its own bank.
     excludes: [[['مصري', 'مصريه', 'مصر', 'القاهره', 'الاسكندريه', 'الصعيد'], 'movies-series'],
-             [[...M.shopping], 'general']],
+               [[...M.shopping], 'world-landmarks']],
+    shield: ['السوري', 'السوريه', 'اللبناني', 'اللبنانيه', 'الاردني', 'الاردنيه',
+             'الفلسطيني', 'الفلسطينيه', 'الشامي', 'الشاميه', 'سوريا', 'لبنان',
+             'الاردن', 'فلسطين', 'دمشق', 'بيروت'],
   },
   'anime-cartoon': { anchors: ['انمي', 'الانمي', 'الكرتون', 'كرتون', 'الرسوم', 'المتحركه', 'الشخصيه', 'المسلسل', 'ديزني', 'ستوديو', 'ياباني', 'المانجا', 'الحلقه', 'البطل', 'دبلجه', 'مدبلج'] },
   'art-gulf': {
@@ -336,7 +347,11 @@ for (const cat of CATEGORIES) {
     // Hard boundaries apply always; soft hints only to questions that had no anchor
     // of their own to begin with.
     let moved = false;
-    const rules = [...(fit?.excludes ?? []), ...(hasAnchor ? [] : (fit?.banned ?? []))];
+    const shielded = fit?.shield?.some((w) => hasMarker(promptText, w)) ?? false;
+    const rules = [
+      ...(shielded ? [] : (fit?.excludes ?? [])),
+      ...(hasAnchor ? [] : (fit?.banned ?? [])),
+    ];
     for (const [words, goes] of rules) {
       if (words.some((w) => hasMarker(promptText, w))) {
         misfiled++;
