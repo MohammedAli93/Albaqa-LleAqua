@@ -73,7 +73,7 @@ const ART: Record<string, string> = {
 
   // ── ٧) الترفيه ──
   'video-games': '🎮',
-  'social-celebs': '🌟', // «المشاهير» — the celebrities themselves (slug kept from its old name)
+  'social-celebs': '🌟', // «مشاهير السوشل ميديا» — creators and streamers (slug predates the name)
   guess: '❓',
   'world-wonders': '🗿',
   'weird-facts': '🤯',

@@ -99,9 +99,10 @@ export const CATEGORIES: CategoryDef[] = [
 
   // ── ٧) الترفيه ──
   { slug: 'video-games', nameAr: 'الألعاب الإلكترونية', nameEn: 'Video Games', group: 'entertainment' },
-  // Slug kept for continuity; renamed 2026-08-06 — the client asked for a category about
-  // the celebrities themselves, not about social-media platforms (see bank/social-celebs.ts).
-  { slug: 'social-celebs', nameAr: 'المشاهير', nameEn: 'Celebrities', group: 'entertainment' },
+  // Slug kept for continuity; renamed 2026-08-07 — the client asked for a category about
+  // social-media celebrities (creators, streamers, podcasters), not artists or TV people
+  // and not platform trivia (that lives in internet-apps). See bank/social-celebs.ts.
+  { slug: 'social-celebs', nameAr: 'مشاهير السوشل ميديا', nameEn: 'Social-Media Celebrities', group: 'entertainment' },
   { slug: 'guess', nameAr: 'خمّن (شعارات وصور)', nameEn: 'Guess (logos & pictures)', group: 'entertainment' },
   { slug: 'world-wonders', nameAr: 'عجائب العالم', nameEn: 'World Wonders', group: 'entertainment' },
   { slug: 'weird-facts', nameAr: 'حقائق غريبة', nameEn: 'Weird Facts', group: 'entertainment' },
