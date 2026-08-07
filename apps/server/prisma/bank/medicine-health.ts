@@ -36,8 +36,6 @@ export const medicineHealth: BankQuestion[] = [
   { ar: "ما العملية التي يدخل بها الأكسجين ويخرج بها ثاني أكسيد الكربون؟", en: "Process of taking in O2 and expelling CO2?", o: ["الهضم", "التنفس", "الإخراج", "الدوران"], c: 1, d: 'EASY' },
   { ar: "ما الجهاز الذي يشمل القلب والأوعية الدموية؟", en: "System of the heart and blood vessels?", o: ["الهضمي", "الدوري", "العصبي", "التنفسي"], c: 1, d: 'HARD' },
   { ar: "كم عدد أسنان الإنسان البالغ؟", en: "Teeth in an adult human?", o: ["28", "30", "32", "34"], c: 2 },
-  { ar: "ما الفيتامين الذي نحصل عليه من أشعة الشمس؟", en: "Vitamin we get from sunlight?", o: ["A", "C", "D", "B12"], c: 2 },
-  { ar: "ما العضو الذي يضخ الدم في الجسم؟", en: "Organ that pumps blood?", o: ["الكبد", "القلب", "الكلى", "الرئة"], c: 1, d: 'EASY' },
   { ar: "كم عدد رئتي الإنسان؟", en: "How many lungs does a human have?", o: ["1", "2", "3", "4"], c: 1, d: 'EASY' },
   { ar: "ما العدد الطبيعي لحجرات قلب الإنسان؟", en: "Number of chambers in the human heart?", o: ["2", "3", "4", "5"], c: 2 },
 

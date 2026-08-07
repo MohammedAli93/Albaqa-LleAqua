@@ -46,6 +46,41 @@ const quoted = (s: string): string | null => {
 const seenQuoted = new Map<string, string>(); // category → first prompt quoting this term
 
 /**
+ * Content words of a prompt: everything except the interrogative scaffolding that
+ * every prompt in the bank shares. Without stripping those, "ما اسم … ؟" alone gives
+ * two unrelated questions a head start toward looking similar.
+ */
+const STOP = new Set(['ما', 'من', 'هو', 'هي', 'اسم', 'التي', 'الذي', 'في', 'علي', 'الي',
+  'اي', 'كم', 'متي', 'اين', 'كيف', 'لماذا', 'هل', 'عن', 'مع', 'الي', 'هذا', 'هذه',
+  'يسمي', 'تسمي', 'تعني', 'يعني', 'ماذا', 'كان', 'كانت', 'و', 'او', 'ثم', 'قد', 'بـ']);
+const contentWords = (s: string): Set<string> =>
+  new Set(normalizeAr(s).split(' ').filter((w) => w.length > 1 && !STOP.has(w)));
+
+/**
+ * Decorative words that do not change what a question asks. Stripped before comparing,
+ * so «ما أطول سورة في القرآن؟» and «ما أطول سورة في القرآن الكريم؟» compare equal.
+ */
+const DECOR = new Set(['الكريم', 'الشريف', 'تعالي', 'المباركه', 'العظيم', 'الشهير',
+  'المشهور', 'المعروف', 'الكبير', 'عام', 'سنه', 'دوله', 'مدينه', 'الحالي', 'حاليا']);
+
+/**
+ * Two prompts ask the same question when, after decoration is stripped, one's content
+ * words are a subset of the other's. Deliberately NOT a similarity threshold: a
+ * threshold cannot tell «أين ذُكرت غزوة تبوك؟» from «أين ذُكرت غزوة حنين؟» — both
+ * answer سورة التوبة and differ by exactly one word, but they are two real questions.
+ * A subset means one prompt adds detail and asks nothing new; that is a duplicate.
+ */
+const asksTheSame = (a: Set<string>, b: Set<string>): boolean => {
+  const A = [...a].filter((w) => !DECOR.has(w));
+  const B = [...b].filter((w) => !DECOR.has(w));
+  if (!A.length || !B.length) return false;
+  return A.every((w) => b.has(w)) || B.every((w) => a.has(w));
+};
+
+/** category+answer → prompts already using it, for the near-duplicate check. */
+const byAnswer = new Map<string, { prompt: string; words: Set<string> }[]>();
+
+/**
  * Topic coherence. A category is a promise about what the player will be asked:
  * pick «الرياضة» and every question should be about sport. Bulk intake can break
  * that promise silently — a religion question landing in a football bank reads as
@@ -150,6 +185,28 @@ for (const cat of CATEGORIES) {
       else seenQuoted.set(key, q.ar);
     }
 
+    // Near-duplicate: same correct answer, and a prompt that asks nothing the other
+    // didn't. Catches what exact-match and the «quoted term» rule both miss —
+    //   "ما اسم صيغة الصور التي تدعم الشفافية؟"      ✓ بي إن جي
+    //   "ما اسم صيغة الصور التي تدعم الخلفية الشفافة؟" ✓ بي إن جي
+    // — two rows, one question, and the client's oldest complaint is that questions
+    // repeat. Keyed on the answer first so the comparison stays cheap: only prompts
+    // that already agree on the answer are ever compared word-by-word.
+    const ansKey = `${cat.slug}::${normalizeAr(answer)}`;
+    const words = contentWords(q.ar);
+    const sameAnswer = byAnswer.get(ansKey);
+    if (sameAnswer) {
+      for (const prev of sameAnswer) {
+        if (asksTheSame(words, prev.words)) {
+          at(`near-duplicate of "${prev.prompt}" (same answer "${answer}")`);
+          break;
+        }
+      }
+      sameAnswer.push({ prompt: q.ar, words });
+    } else {
+      byAnswer.set(ansKey, [{ prompt: q.ar, words }]);
+    }
+
     // Same-kind options: mixing "1999" with "برشلونة" makes the odd one out obvious.
     const numeric = q.o.filter(isNumeric).length;
     if (numeric !== 0 && numeric !== q.o.length) at('mixes numeric and textual options');
@@ -183,10 +240,24 @@ if (!process.argv.includes('--fill')) {
     console.log(`✅ ${total} questions, no problems.`);
   } else {
     console.log(`❌ ${problems.length} problems:\n`);
-    for (const p of problems.slice(0, 200)) {
+    // Breakdown by kind first — with a few hundred open problems, "which kind and how
+    // many" is what decides where to start; the list below is for working through one.
+    const kinds = new Map<string, number>();
+    for (const p of problems) {
+      const kind = p.issue.replace(/ \(.*/, '').replace(/"[^"]*"/g, '…').replace(/«[^»]*»/g, '…');
+      kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+    }
+    for (const [kind, n] of [...kinds].sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${String(n).padStart(5)}  ${kind}`);
+    }
+    console.log('');
+    const limit = process.argv.includes('--all') ? problems.length : 200;
+    const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
+    const shown = only ? problems.filter((p) => p.slug === only) : problems;
+    for (const p of shown.slice(0, limit)) {
       console.log(`  [${p.slug}] ${p.issue}\n      ${p.prompt}`);
     }
-    if (problems.length > 200) console.log(`  … and ${problems.length - 200} more`);
+    if (shown.length > limit) console.log(`  … and ${shown.length - limit} more`);
   }
   console.log('');
 }

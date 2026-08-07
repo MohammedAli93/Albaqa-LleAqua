@@ -237,9 +237,14 @@ const FIT: Record<string, Fit> = {
               'التواصل الاجتماعي', 'الحساب', 'كلمه المرور', 'الرمز', 'الايقونه', 'الاشتراك',
               'يوتيوب', 'واتساب', 'انستغرام', 'انستقرام', 'سناب', 'تيك توك', 'تويتر', 'فيسبوك',
               'تيليجرام', 'جوجل', 'نتفليكس', 'اطلق', 'تاسس', 'اشتري', 'المؤسس', 'الشركه'],
-    // A question about a *person* who is famous online is a celebrity question.
-    banned: [[['صانع المحتوي', 'اليوتيوبر', 'يوتيوبر', 'المؤثر', 'المشهور', 'المشاهير',
-               'الشيف', 'الرياضي', 'اللاعب', 'الفنان', 'المطرب', 'الممثل', 'جنسيه'], 'social-celebs']],
+    // A question about a *person* who is famous online is a celebrity question; a
+    // question about the platform, the format or the business model is not. So the
+    // markers name people, and deliberately exclude «المؤثر»/«المشاهير» on their own —
+    // "what is influencer marketing called" is an internet question that happens to
+    // say المؤثر. «الرياضي» is out too: it prefix-matches الرياضيات and الرياضية.
+    banned: [[['صانع المحتوي', 'صانعه المحتوي', 'اليوتيوبر', 'يوتيوبر', 'الشيف',
+               'مؤثر خليجي', 'مؤثره عربيه', 'مؤثر عربي', 'المؤثر السعودي',
+               'جنسيه'], 'social-celebs']],
   },
   economy: { anchors: ['الاقتصاد', 'الاقتصادي', 'الشركه', 'شركه', 'السوق', 'البورصه', 'السهم', 'الاستثمار', 'الارباح', 'الناتج', 'التضخم', 'البنك', 'التجاره', 'الصادرات', 'الواردات', 'الميزانيه', 'الضريبه', 'النفط', 'العمله', 'الثروه', 'المليارد', 'العلامه التجاريه'] },
   'scientists-inventors': { anchors: ['العالم', 'عالم', 'المخترع', 'مخترع', 'اخترع', 'اكتشف', 'الاكتشاف', 'الاختراع', 'النظريه', 'الجائزه', 'نوبل', 'الطبيب', 'الفيلسوف', 'الرياضيات', 'العلماء'] },
