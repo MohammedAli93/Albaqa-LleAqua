@@ -15,9 +15,11 @@
  *   • ANCHORS — words that mean "this text is plausibly about my subject". A question
  *     carrying none of its category's anchors is *unanchored*: it may still be a fine
  *     question, but nothing in it ties it to the category the player chose.
- *   • BANNED — words that mean "this belongs to a specific other category". Carrying
- *     one while carrying no anchor of your own is a *misfile*, and the rule names the
- *     category it should move to.
+ *   • EXCLUDES — a hard boundary. Carrying one of these is a *misfile* no matter what
+ *     else the question says, and the rule names the category it should move to.
+ *   • BANNED — a soft hint. Same shape, but it only fires on a question that had no
+ *     anchor of its own, because these markers are ordinary words a good question may
+ *     borrow: «نجمة» belongs to space, yet «شعار سيارة بنجمة ثلاثية» is a logo question.
  *
  * Matching is substring-on-normalised-text (normalizeAr folds alef/ta-marbuta/hamza)
  * with the definite article stripped from the front of every word, so one anchor
@@ -38,7 +40,17 @@ import { normalizeAr } from './questionFilter.js';
 interface Fit {
   /** At least one must appear in prompt+options for the question to be "anchored". */
   anchors?: string[];
-  /** [markers, slug it belongs to] — a hit with no anchor of our own is a misfile. */
+  /**
+   * Hard boundary: [markers, slug it belongs to]. A hit is a misfile even when the
+   * question is anchored — Yemen is not a Gulf state however many Gulf words surround
+   * it, and a mall is not a film however often «دبي» appears next to it.
+   */
+  excludes?: [string[], string][];
+  /**
+   * Soft hint: [markers, slug it belongs to]. Only fires on an *unanchored* question,
+   * because these markers are ordinary words that a legitimate question may borrow —
+   * «نجمة» belongs to space, but «شعار سيارة بنجمة ثلاثية» is a logo question.
+   */
   banned?: [string[], string][];
   /** Difficulties this category refuses (client: dialects are never EASY). */
   noDifficulty?: ('EASY' | 'MEDIUM' | 'HARD')[];
@@ -154,7 +166,7 @@ const FIT: Record<string, Fit> = {
               'الدوحه', 'المنامه', 'مسقط', 'الطائف', 'الدمام', 'جده', 'مكه', 'نيوم',
               'الجزيره العربيه', 'رويه 2030'],
     // Yemen and Iraq are not GCC states — client, 2026-08-07.
-    banned: [[['اليمن', 'اليمني', 'اليمنيه', 'صنعاء', 'عدن', 'حضرموت', 'تعز'], 'arab-world'],
+    excludes: [[['اليمن', 'اليمني', 'اليمنيه', 'صنعاء', 'عدن', 'حضرموت', 'تعز'], 'arab-world'],
              [['العراق', 'العراقي', 'العراقيه', 'بغداد', 'البصره', 'الموصل', 'اربيل'], 'arab-world']],
   },
   history: { anchors: ['التاريخ', 'التاريخي', 'الحرب', 'المعركه', 'الدوله', 'الامبراطوريه', 'الملك', 'الملكه', 'الحضاره', 'القرن', 'الثوره', 'العصر', 'الاستقلال', 'المعاهده', 'الاحتلال', 'السلاله', 'تاسست', 'اندلعت', 'وقعت', 'عام', 'سنه', 'اول', 'الرئيس', 'القائد', 'الزعيم', 'المستكشف', 'اكتشف', 'وصل', 'سقط', 'انتهت', 'بدات', 'قديم', 'القدماء', 'الشعب', 'ابتكر', 'اغتيال', 'السفينه', 'الاسطول', 'المؤتمر', 'الاتفاقيه'] },
@@ -174,20 +186,21 @@ const FIT: Record<string, Fit> = {
     anchors: ['فيلم', 'الفيلم', 'افلام', 'مسلسل', 'المسلسل', 'مسرحيه', 'المسرحيه', 'الممثل',
               'ممثله', 'الفنان', 'الفنانه', 'المخرج', 'السينما', 'الدراما', 'بطوله', 'دور',
               'شخصيه', 'الحلقه', 'المشهد', 'السيناريو', 'اخرج', 'جسد', 'قدم'],
-    banned: [[[...M.shopping], 'general']],
+    excludes: [[[...M.shopping], 'world-landmarks']],
   },
   'cinema-gulf': {
     anchors: ['فيلم', 'الفيلم', 'افلام', 'مسلسل', 'المسلسل', 'مسرحيه', 'المسرحيه', 'الممثل',
               'ممثله', 'الفنان', 'الفنانه', 'المخرج', 'السينما', 'الدراما', 'بطوله', 'دور',
               'شخصيه', 'الحلقه', 'المشهد', 'السيناريو', 'اخرج', 'جسد', 'قدم', 'المهرجان السينمائي'],
-    banned: [[[...M.shopping], 'general'], [[...M.football], 'football-gulf']],
+    excludes: [[[...M.shopping], 'world-landmarks']],
+    banned: [[[...M.football], 'football-gulf']],
   },
   'cinema-levant': {
     anchors: ['فيلم', 'الفيلم', 'افلام', 'مسلسل', 'المسلسل', 'مسرحيه', 'المسرحيه', 'الممثل',
               'ممثله', 'الفنان', 'الفنانه', 'المخرج', 'السينما', 'الدراما', 'بطوله', 'دور',
               'شخصيه', 'الحلقه', 'المشهد', 'اخرج', 'جسد'],
     // Levant = Syria, Lebanon, Palestine, Jordan. Egyptian drama has its own bank.
-    banned: [[['مصري', 'مصريه', 'مصر', 'القاهره', 'الاسكندريه', 'الصعيد'], 'movies-series'],
+    excludes: [[['مصري', 'مصريه', 'مصر', 'القاهره', 'الاسكندريه', 'الصعيد'], 'movies-series'],
              [[...M.shopping], 'general']],
   },
   'anime-cartoon': { anchors: ['انمي', 'الانمي', 'الكرتون', 'كرتون', 'الرسوم', 'المتحركه', 'الشخصيه', 'المسلسل', 'ديزني', 'ستوديو', 'ياباني', 'المانجا', 'الحلقه', 'البطل', 'دبلجه', 'مدبلج'] },
@@ -196,7 +209,7 @@ const FIT: Record<string, Fit> = {
               'الملحن', 'الملحنه', 'الشاعر الغنائي', 'الموسيقي', 'العود', 'الطرب', 'اللحن',
               'غني', 'لحن', 'الصوت', 'الشيله', 'الفن', 'الفنون'],
     // Folklore, crafts and food are heritage, not art — client, 2026-08-07.
-    banned: [[['التراث', 'تراثي', 'الحرفه', 'الحرف', 'الاكله', 'الطبق', 'الماكولات', 'المطبخ',
+    excludes: [[['التراث', 'تراثي', 'الحرفه', 'الحرف', 'الاكله', 'الطبق', 'الماكولات', 'المطبخ',
                'الزي', 'الثوب', 'البشت', 'السدو', 'الخيمه', 'الابل', 'الصقاره', 'الدله'], 'heritage']],
   },
   artists: {
@@ -218,12 +231,20 @@ const FIT: Record<string, Fit> = {
               'الستريمر', 'البث', 'اشتهر', 'يشتهر', 'اسم', 'الملقب', 'مقدم'],
   },
   guess: {
-    // Every question here is an identify-from-a-visual-cue prompt.
+    // Every question here is an identify-from-a-cue prompt: the prompt describes a
+    // thing and the player names it. The game shows no images, so the cue is written
+    // — «حيوان بخرطوم طويل وأذنين كبيرتين — ما هو؟» — and that em-dash-then-question
+    // shape is the category's own format, which is why it anchors here.
     anchors: ['شعار', 'شعارها', 'شعاره', 'صوره', 'الصوره', 'يظهر', 'تظهر', 'رمز', 'الرمز',
               'العلم', 'علم', 'اللوجو', 'الايقونه', 'الشكل', 'اللون', 'الوان', 'المعلم',
-              'التمثال', 'تمثال', 'البرج', 'المبني', 'الشخصيه', 'الملصق', 'الغلاف', 'خمن'],
-    banned: [[[...M.anatomy], 'medicine-health'], [[...M.space], 'space'],
-             [[...M.geographyPhys], 'geography'], [[...M.religion], 'prophets-companions']],
+              'التمثال', 'تمثال', 'البرج', 'المبني', 'الشخصيه', 'الملصق', 'الغلاف', 'خمن',
+              '—', 'اي شركه', 'اي ماركه', 'اي علامه', 'اي مدينه', 'اي دوله', 'اي منصه',
+              'اي تطبيق', 'اي شخصيه', 'اي بطل', 'اي مطعم', 'اي سياره', 'اي فريق'],
+    // Anatomy and physical geography are the two that actually went wrong here — the
+    // client's screenshot was «أكبر غدة في جسم الإنسان» sitting in a logo category.
+    excludes: [[[...M.anatomy], 'medicine-health']],
+    banned: [[[...M.space], 'space'], [[...M.geographyPhys], 'geography'],
+             [[...M.religion], 'prophets-companions']],
   },
   'world-wonders': { anchors: ['عجائب', 'الاعجوبه', 'الاهرام', 'الهرم', 'سور الصين', 'البتراء', 'بترا', 'تاج محل', 'الكولوسيوم', 'ماتشو', 'المسيح الفادي', 'المعلم', 'الاثر', 'الاثريه', 'المعبد', 'الحدائق المعلقه', 'المناره', 'التمثال', 'الضريح', 'البرج', 'المبني', 'القلعه', 'القصر', 'الصرح', 'المدينه', 'يقع', 'تقع', 'بني', 'شيد', 'الحضاره', 'الاسوار', 'الكنيسه', 'الكاتدرائيه', 'المسجد', 'الجامع', 'الساعه', 'دار الاوبرا', 'السد', 'النصب'] },
 
@@ -244,7 +265,7 @@ const FIT: Record<string, Fit> = {
     // markers name people, and deliberately exclude «المؤثر»/«المشاهير» on their own —
     // "what is influencer marketing called" is an internet question that happens to
     // say المؤثر. «الرياضي» is out too: it prefix-matches الرياضيات and الرياضية.
-    banned: [[['صانع المحتوي', 'صانعه المحتوي', 'اليوتيوبر', 'يوتيوبر', 'الشيف',
+    excludes: [[['صانع المحتوي', 'صانعه المحتوي', 'اليوتيوبر', 'يوتيوبر', 'الشيف',
                'مؤثر خليجي', 'مؤثره عربيه', 'مؤثر عربي', 'المؤثر السعودي',
                'جنسيه'], 'social-celebs']],
   },
@@ -278,8 +299,13 @@ const fold = (s: string): string => ` ${normalizeAr(s).replace(/(^|\s)([وبلف
  * Aden. Suffixes stay free so one marker «يمن» still catches «يمني/اليمنية», and a
  * single proclitic (و ب ل ف ك) is allowed in front.
  */
-const hasMarker = (text: string, marker: string): boolean =>
-  new RegExp(`(?:^|\\s)[وبلفك]?${fold(marker).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text);
+const hasMarker = (text: string, marker: string): boolean => {
+  const m = fold(marker).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // The tail must be a word end or an Arabic inflectional suffix. Without it,
+  // «دوائر» (circles) — which normalises to «دواءر» — matched the marker «الدواء»
+  // and filed the Spotify-logo question under medicine.
+  return new RegExp(`(?:^|\\s)[وبلفك]?${m}(?:[هايينتماكو]*)(?:\\s|$)`).test(text);
+};
 
 const arg = process.argv[2];
 const rows: { slug: string; nameAr: string; total: number; unanchored: number; misfiled: number; badDiff: number }[] = [];
@@ -306,19 +332,17 @@ for (const cat of CATEGORIES) {
       if (arg === cat.slug) detail.push(`  [difficulty ${q.d}] ${q.ar}`);
     }
 
-    // A misfile is stronger than "unanchored": it names where the question belongs,
-    // and it outranks the category's own anchors on purpose — Yemen is not a Gulf
-    // state however many Gulf words surround it, and a mall is not a film however
-    // often «دبي» appears next to it.
+    // A misfile is stronger than "unanchored": it names where the question belongs.
+    // Hard boundaries apply always; soft hints only to questions that had no anchor
+    // of their own to begin with.
     let moved = false;
-    if (fit?.banned) {
-      for (const [words, goes] of fit.banned) {
-        if (words.some((w) => hasMarker(promptText, w))) {
-          misfiled++;
-          moved = true;
-          if (arg === cat.slug) detail.push(`  [→ ${goes}] ${q.ar}`);
-          break;
-        }
+    const rules = [...(fit?.excludes ?? []), ...(hasAnchor ? [] : (fit?.banned ?? []))];
+    for (const [words, goes] of rules) {
+      if (words.some((w) => hasMarker(promptText, w))) {
+        misfiled++;
+        moved = true;
+        if (arg === cat.slug) detail.push(`  [→ ${goes}] ${q.ar}`);
+        break;
       }
     }
     if (!moved && !hasAnchor && !CROSS_TOPIC.has(cat.slug)) {
