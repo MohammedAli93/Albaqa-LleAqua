@@ -12,6 +12,7 @@ import {
 } from '@tahaddi/shared';
 import type { RoomState, LiveParticipant, LiveSeenJeem } from '../rooms/types.js';
 import { compareSurvival } from './scoring.js';
+import { teamLeaderId } from './teams.js';
 
 export function toPublicParticipant(p: LiveParticipant): PublicParticipant {
   return {
@@ -43,6 +44,9 @@ export function publicTeams(state: RoomState): TeamPublic[] {
     memberIds: Object.values(state.participants)
       .filter((p) => p.teamId === t.id && p.status !== ParticipantStatus.LEFT)
       .map((p) => p.id),
+    // Who is answering for the team right now — the named leader, or whoever is
+    // covering while they're offline. Clients gate their answer buttons on this.
+    leaderId: teamLeaderId(state, t.id),
   }));
 }
 

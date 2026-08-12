@@ -5,6 +5,7 @@ import {
   ServerEvent,
   EmptySchema,
   PlayerKickSchema,
+  SetTeamLeaderSchema,
   AdjudicateSchema,
 } from '@tahaddi/shared';
 import { screenAuth } from '../middleware/auth.js';
@@ -92,6 +93,12 @@ export function registerScreenNamespace(screenNs: Namespace): void {
 
     on(socket, ClientEvent.PLAYER_KICK, PlayerKickSchema, async (input) => {
       await engine.kickPlayer(ctx.gameId, input.participantId);
+      return { ok: true };
+    });
+
+    // TEAMS: name the member who answers for a team (defaults to its first joiner).
+    on(socket, ClientEvent.TEAM_SET_LEADER, SetTeamLeaderSchema, async (input) => {
+      await engine.setTeamLeader(ctx.gameId, input.teamId, input.participantId);
       return { ok: true };
     });
 

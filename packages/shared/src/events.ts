@@ -50,6 +50,8 @@ export const ClientEvent = {
   GAME_PAUSE: 'game:pause',
   GAME_RESUME: 'game:resume',
   PLAYER_KICK: 'player:kick',
+  /** Host picks which member of a team answers for it (TEAMS games). */
+  TEAM_SET_LEADER: 'team:setLeader',
   GAME_END: 'game:end',
   ADMIN_SUBSCRIBE: 'admin:subscribe',
   ADMIN_ROOM_TERMINATE: 'admin:room:terminate',
@@ -150,6 +152,13 @@ export const TeamPublicSchema = z.object({
   /** Max players this team may hold (TEAMS games). */
   capacity: z.number().int().optional(),
   memberIds: z.array(z.string()),
+  /**
+   * The team's leader — the ONE member allowed to lock the team's answer (client
+   * rule 2026-08-12). Everyone else advises; without this a 4-player team could
+   * cover every option and never be wrong. Defaults to the first member to join
+   * the team and is reassignable by the host from the lobby.
+   */
+  leaderId: z.string().optional(),
 });
 export type TeamPublic = z.infer<typeof TeamPublicSchema>;
 
@@ -308,6 +317,13 @@ export type PickTeamInput = z.infer<typeof PickTeamSchema>;
 export const PickCategorySchema = z.object({ categoryId: z.string().min(1) });
 export type PickCategoryInput = z.infer<typeof PickCategorySchema>;
 
+/** TEAMS mode: the host names the member who answers for a team. */
+export const SetTeamLeaderSchema = z.object({
+  teamId: z.string().min(1),
+  participantId: z.string().min(1),
+});
+export type SetTeamLeaderInput = z.infer<typeof SetTeamLeaderSchema>;
+
 export const PlayerKickSchema = z.object({ participantId: z.string().min(1) });
 export const RoomTerminateSchema = z.object({ gameId: z.string().min(1) });
 export const EmptySchema = z.object({}).strict();
@@ -327,6 +343,7 @@ export const CLIENT_EVENT_SCHEMAS = {
   [ClientEvent.GAME_PAUSE]: EmptySchema,
   [ClientEvent.GAME_RESUME]: EmptySchema,
   [ClientEvent.PLAYER_KICK]: PlayerKickSchema,
+  [ClientEvent.TEAM_SET_LEADER]: SetTeamLeaderSchema,
   [ClientEvent.GAME_END]: EmptySchema,
   [ClientEvent.ADMIN_SUBSCRIBE]: EmptySchema,
   [ClientEvent.ADMIN_ROOM_TERMINATE]: RoomTerminateSchema,

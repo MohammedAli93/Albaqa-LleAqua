@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { Play, Users } from 'lucide-react';
+import { Crown, Play, Users } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { host } from '../socket.js';
@@ -91,21 +91,43 @@ export function Lobby() {
                         </div>
                       )}
                       <AnimatePresence>
-                        {members.map((p) => (
-                          <motion.div
-                            key={p.id}
-                            layout
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="flex items-center gap-3 rounded-xl2 bg-white/80 px-3.5 py-2.5 shadow-sm"
-                          >
-                            <Avatar avatarId={p.avatarId} size={40} shape="square" />
-                            <span className="truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">{p.nickname}</span>
-                          </motion.div>
-                        ))}
+                        {members.map((p) => {
+                          const isLeader = team.leaderId === p.id;
+                          return (
+                            <motion.button
+                              key={p.id}
+                              layout
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => host.setLeader(team.id, p.id).catch(() => {})}
+                              title={t(locale, 'makeLeader')}
+                              className={`flex items-center gap-3 rounded-xl2 bg-white/80 px-3.5 py-2.5 text-start shadow-sm transition ${
+                                isLeader ? 'ring-2 ring-[#E8473A]' : ''
+                              }`}
+                            >
+                              <Avatar avatarId={p.avatarId} size={40} shape="square" />
+                              <span className="min-w-0 flex-1 truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">
+                                {p.nickname}
+                              </span>
+                              {isLeader && (
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#E8473A] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
+                                  <Crown size={14} /> {t(locale, 'teamLeader')}
+                                </span>
+                              )}
+                            </motion.button>
+                          );
+                        })}
                       </AnimatePresence>
                     </div>
+                    {/* The leader is the only one who can lock this team's answer,
+                        so the host has to be able to change who it is. */}
+                    {members.length > 1 && (
+                      <p className="font-display text-[clamp(0.7rem,1vw,0.95rem)] font-bold text-desert-ink/60">
+                        {t(locale, 'setLeaderHint')}
+                      </p>
+                    )}
                   </div>
                 );
               })}

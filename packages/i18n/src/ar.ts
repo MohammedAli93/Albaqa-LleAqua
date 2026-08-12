@@ -127,6 +127,14 @@ const ar = {
   joinTeam: 'انضم',
   teamVsTeam: 'فريق ضد فريق',
   teamLives: 'محاولات الفريق',
+  // ── Team leader: one member locks the team's answer after consulting the rest ──
+  teamLeader: 'قائد الفريق',
+  youAreTeamLeader: 'أنت قائد الفريق — أنت اللي تختار الإجابة',
+  leaderAnswers: '{name} قائد فريقكم — استشيروه وهو اللي يختار',
+  leaderAnswersShort: 'القائد هو اللي يجاوب',
+  consultThenLeaderPicks: 'تشاوروا مع بعض… والقائد يضغط الإجابة',
+  setLeaderHint: 'اضغط على اسم اللاعب لتختاره قائداً للفريق',
+  makeLeader: 'اجعله القائد',
   /** e.g. "أحمد كسب نقطة لفريق الصقور" — first correct answer scores for the team. */
   firstCorrectHero: '{name} كسب نقطة لفريق {team}',
   teamTookPoint: 'فريق {team} أحرز النقطة',

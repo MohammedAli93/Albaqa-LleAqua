@@ -44,6 +44,7 @@ import {
   toPublicParticipant,
   publicTeams,
 } from './snapshot.js';
+import { teamLeaderId, ensureTeamLeaders } from './teams.js';
 import * as fsm from './fsm.js';
 import { profileStatUpdates } from './profileStats.js';
 import { buildPerPlayerOrder, pickCategoryQuestion, pickAnyUnusedQuestion } from '../rooms/roomService.js';
@@ -202,7 +203,38 @@ export async function pickTeam(
       throw new AppError(ErrorCode.CONFLICT, 'الفريق ممتلئ');
     }
     participant.teamId = teamId;
+    // First one in leads by default, and a team whose leader just switched sides
+    // gets a new one — so no team is ever left without someone to answer for it.
+    ensureTeamLeaders(state);
     await prisma.participant.update({ where: { id: participantId }, data: { teamId } });
+    await saveRoom(state);
+    return state;
+  });
+  emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(state));
+  return state;
+}
+
+/**
+ * TEAMS mode: the host names which member answers for a team. Allowed while the
+ * game is live too — a leader whose phone died shouldn't cost the team the match.
+ */
+export async function setTeamLeader(
+  gameId: string,
+  teamId: string,
+  participantId: string,
+): Promise<RoomState> {
+  const state = await withRoomLock(gameId, async () => {
+    const state = await mustGetRoom(gameId);
+    const team = state.teams[teamId];
+    if (!team) throw new AppError(ErrorCode.NOT_FOUND, 'الفريق غير موجود');
+    const participant = state.participants[participantId];
+    if (!participant || participant.status === ParticipantStatus.LEFT) {
+      throw new AppError(ErrorCode.NOT_FOUND, 'اللاعب غير موجود');
+    }
+    if (participant.teamId !== teamId) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, 'هذا اللاعب ليس في هذا الفريق');
+    }
+    team.leaderId = participantId;
     await saveRoom(state);
     return state;
   });
@@ -271,37 +303,58 @@ export async function reconnect(
 
   if (result.wasDisconnected) {
     emitter.toRoom(gameId, ServerEvent.PLAYER_RECONNECTED, { participantId: result.participant.id });
+    // The leader badge may move back to them now that they're live again.
+    if (result.state.type === GameType.TEAMS) {
+      emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(result.state));
+    }
   }
   return { state: result.state, participant: result.participant };
 }
 
 /** Mark a participant disconnected (grace window handled by caller). */
 export async function markDisconnected(gameId: string, participantId: string): Promise<void> {
-  await withRoomLock(gameId, async () => {
+  const state = await withRoomLock(gameId, async () => {
     const state = await getRoom(gameId);
-    if (!state) return;
+    if (!state) return null;
     const p = state.participants[participantId];
-    if (!p || p.status === ParticipantStatus.LEFT) return;
+    if (!p || p.status === ParticipantStatus.LEFT) return null;
     if (p.status === ParticipantStatus.ACTIVE) p.status = ParticipantStatus.DISCONNECTED;
     p.disconnectedAt = Date.now();
     p.socketId = undefined;
     await saveRoom(state);
-  }).catch(() => {});
+    return state;
+  }).catch(() => null);
+  // TEAMS: a dropped leader is covered by the next active member, so tell the room
+  // who is answering now (the badge returns to the leader when they reconnect).
+  if (state && state.type === GameType.TEAMS) {
+    emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(state));
+  }
 }
 
 export async function leave(gameId: string, participantId: string): Promise<void> {
-  const playerCount = await withRoomLock(gameId, async () => {
+  const result = await withRoomLock(gameId, async () => {
     const state = await getRoom(gameId);
     if (!state) return null;
     const p = state.participants[participantId];
     if (!p) return null;
     p.status = ParticipantStatus.LEFT;
     p.socketId = undefined;
+    // If the team's leader walked out, hand the role to the next member — the
+    // team must always have someone who can answer.
+    ensureTeamLeaders(state);
     await saveRoom(state);
-    return Object.values(state.participants).filter((x) => x.status !== ParticipantStatus.LEFT).length;
+    return {
+      playerCount: Object.values(state.participants).filter((x) => x.status !== ParticipantStatus.LEFT).length,
+      state,
+    };
   });
-  if (playerCount === null) return;
-  emitter.toRoom(gameId, ServerEvent.PLAYER_LEFT, { participantId, playerCount });
+  if (!result) return;
+  emitter.toRoom(gameId, ServerEvent.PLAYER_LEFT, { participantId, playerCount: result.playerCount });
+  // Teams carry the leader badge, so push a fresh snapshot: the promoted member's
+  // phone has to learn it is now the one answering.
+  if (result.state.type === GameType.TEAMS) {
+    emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(result.state));
+  }
 }
 
 // ──────────────────────────────── Start game ────────────────────────────────
@@ -373,6 +426,9 @@ export async function startGame(gameId: string): Promise<void> {
         .filter((p) => p.teamId)
         .map((p) => prisma.participant.update({ where: { id: p.id }, data: { teamId: p.teamId } })),
     );
+    // Everyone is on a team now — stamp the leaders (auto-filled players included)
+    // so every team goes into the game with exactly one member who answers for it.
+    ensureTeamLeaders(state);
     // Freeze the turn order now. Team points games are turn-based: question N is
     // asked to teamOrder[N % teams], and a missed question is offered to the next
     // team in the ring. Frozen (not re-derived) so a reconnect can't reshuffle
@@ -413,6 +469,12 @@ export async function startGame(gameId: string): Promise<void> {
     data: { status: GameStatus.ACTIVE, startedAt: new Date() },
   });
   await saveRoom(state);
+
+  // TEAMS: push the settled rosters before the first question — auto-filled players
+  // learn which team they're on, and every phone learns who its leader is.
+  if (state.type === GameType.TEAMS) {
+    emitter.toRoom(gameId, ServerEvent.ROOM_STATE, buildSnapshot(state));
+  }
 
   emitter.toRoom(gameId, ServerEvent.GAME_STARTED, {
     totalRounds: state.totalRounds,
@@ -685,6 +747,15 @@ export async function submitAnswer(
     if (round.answeringTeamId && participant.teamId !== round.answeringTeamId) {
       throw new AppError(ErrorCode.NOT_AUTHORIZED, 'ليس دور فريقك في هذا السؤال');
     }
+    // TEAMS: the leader answers for the team (client rule 2026-08-12). Teammates
+    // advise out loud but never lock an answer — otherwise a four-player team could
+    // split across all four options and score every single question.
+    if (state.type === GameType.TEAMS && participant.teamId) {
+      const leaderId = teamLeaderId(state, participant.teamId);
+      if (leaderId && leaderId !== participantId) {
+        throw new AppError(ErrorCode.NOT_AUTHORIZED, 'قائد الفريق وحده هو من يختار الإجابة');
+      }
+    }
     if (!round.question.options.some((o) => o.id === optionId)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, 'Unknown option');
     }
@@ -701,10 +772,13 @@ export async function submitAnswer(
 
     // Resolve early once everyone who COULD answer has. In a team turn round that
     // is just the team on the clock — waiting on the spectating team would stall
-    // the round until the timer expired.
-    const eligible = activeParticipants(state).filter(
-      (p) => !round.answeringTeamId || p.teamId === round.answeringTeamId,
-    );
+    // the round until the timer expired. And in TEAMS only the leader can answer at
+    // all, so counting their teammates would leave the round hanging on the clock.
+    const eligible = activeParticipants(state).filter((p) => {
+      if (round.answeringTeamId && p.teamId !== round.answeringTeamId) return false;
+      if (state.type === GameType.TEAMS && p.teamId) return teamLeaderId(state, p.teamId) === p.id;
+      return true;
+    });
     const answeredCount = Object.keys(round.answers).length;
     return {
       result: { accepted: true, lockedAt: serverTs },

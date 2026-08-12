@@ -28,6 +28,7 @@ import { getRoom, saveRoom } from '../rooms/roomStore.js';
 import type { RoomState, SJCategory, SJCell } from '../rooms/types.js';
 import { loadQuestion } from '../content/questionLoader.js';
 import { buildSeenJeemSnapshot, buildLeaderboard, buildSnapshot } from './snapshot.js';
+import { teamLeaderId, ensureTeamLeaders } from './teams.js';
 import { profileStatUpdates } from './profileStats.js';
 import { getEmitter } from './emitterRef.js';
 import { withRoomLock, acquireRoomLock } from './lock.js';
@@ -140,6 +141,8 @@ export async function startSeenJeem(gameId: string): Promise<void> {
   players.forEach((p, idx) => {
     p.teamId = teamIds[idx % SEEN_JEEM.TEAMS];
   });
+  // One member per team acts for it (picks, lifelines, answers) — the first of each.
+  ensureTeamLeaders(state);
   await prisma.$transaction(
     players.map((p) => prisma.participant.update({ where: { id: p.id }, data: { teamId: p.teamId } })),
   );
@@ -455,11 +458,19 @@ async function finishSeenJeem(gameId: string): Promise<void> {
 
 // ─────────────────────────────────── helpers ────────────────────────────────
 
-/** Resolve which team a participant plays for (members act on the team's behalf). */
+/**
+ * Resolve which team a participant plays for — and check they're the one allowed to
+ * act for it. The leader picks the category, the cell, the lifeline and the answer
+ * (client rule 2026-08-12); teammates advise but never tap.
+ */
 export async function teamOf(gameId: string, participantId?: string): Promise<string> {
   if (!participantId) throw new AppError(ErrorCode.NOT_AUTHORIZED, 'Not joined');
   const state = await getRoom(gameId);
   const teamId = state?.participants[participantId]?.teamId;
-  if (!teamId) throw new AppError(ErrorCode.INVALID_STATE, 'You are not on a team yet');
+  if (!state || !teamId) throw new AppError(ErrorCode.INVALID_STATE, 'You are not on a team yet');
+  const leaderId = teamLeaderId(state, teamId);
+  if (leaderId && leaderId !== participantId) {
+    throw new AppError(ErrorCode.NOT_AUTHORIZED, 'قائد الفريق وحده هو من يختار للفريق');
+  }
   return teamId;
 }

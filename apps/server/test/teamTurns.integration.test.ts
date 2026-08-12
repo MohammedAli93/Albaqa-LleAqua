@@ -98,10 +98,17 @@ function seedRoom() {
     questionOrder: ['q1', 'q2', 'q3', 'q4'],
     roundIndex: -1,
     totalRounds: 4,
-    participants: { a1: mk('a1', 'A', 0), b1: mk('b1', 'B', 1) },
+    // Two players per team, so the leader rule has something to bite on: a1/b1
+    // lead, a2/b2 are teammates who advise but never lock an answer.
+    participants: {
+      a1: mk('a1', 'A', 0),
+      b1: mk('b1', 'B', 1),
+      a2: mk('a2', 'A', 2),
+      b2: mk('b2', 'B', 3),
+    },
     teams: {
-      A: { id: 'A', name: 'الصقور', color: '#f00', score: 0, winMs: 0, lives: 1, capacity: null },
-      B: { id: 'B', name: 'النمور', color: '#00f', score: 0, winMs: 0, lives: 1, capacity: null },
+      A: { id: 'A', name: 'الصقور', color: '#f00', score: 0, winMs: 0, lives: 1, capacity: null, leaderId: 'a1' },
+      B: { id: 'B', name: 'النمور', color: '#00f', score: 0, winMs: 0, lives: 1, capacity: null, leaderId: 'b1' },
     },
     teamOrder: ['A', 'B'],
     currentRound: null,
@@ -224,5 +231,50 @@ describe('TEAMS points — turn-based questions', () => {
     await startNextRound(GAME);
     expect(lastShow().question.id).toBe('q2');
     expect(lastShow().turnTeam).toMatchObject({ teamId: 'B' });
+  });
+});
+
+/**
+ * Client rule (2026-08-12): a team answers through ONE leader. Before this, four
+ * teammates could each tap a different option and the team was right every time.
+ */
+describe('TEAMS points — only the team leader answers', () => {
+  it("rejects a teammate's answer, accepts the leader's", async () => {
+    await startNextRound(GAME);
+    const st = room();
+    st.currentRound.startedAt = Date.now() - 1000;
+    st.currentRound.endsAt = Date.now() + 10_000;
+
+    await expect(submitAnswer(GAME, 'a2', st.currentRound.roundId, 'a')).rejects.toThrow();
+    expect(Object.keys(room().currentRound.answers)).toEqual([]);
+
+    await answer('a1', 'a');
+    expect(room().teams.A.score).toBe(1);
+  });
+
+  it('resolves as soon as the leader has answered — teammates are not waited on', async () => {
+    await startNextRound(GAME);
+    await answer('a1', 'a');
+    // Early resolution, not the timer: the round is finished with while a2 (who
+    // could never answer) is still "outstanding".
+    expect(room().currentRound.phase).not.toBe('COLLECTING');
+    expect(emitted.some((e) => e.event === ServerEvent.QUESTION_REVEAL)).toBe(true);
+  });
+
+  it('a teammate covers while the leader is offline, and hands it back on reconnect', async () => {
+    room().participants.a1.status = 'DISCONNECTED';
+    await startNextRound(GAME);
+    await answer('a2', 'a'); // the stand-in may answer now
+    expect(room().teams.A.score).toBe(1);
+
+    // Leader is back → the badge (and the buttons) return to them.
+    room().participants.a1.status = 'ACTIVE';
+    await startNextRound(GAME); // team B's question
+    await resolveRound(GAME);
+    await startNextRound(GAME); // steal for A on the same question
+    const st = room();
+    st.currentRound.startedAt = Date.now() - 1000;
+    st.currentRound.endsAt = Date.now() + 10_000;
+    await expect(submitAnswer(GAME, 'a2', st.currentRound.roundId, 'a')).rejects.toThrow();
   });
 });

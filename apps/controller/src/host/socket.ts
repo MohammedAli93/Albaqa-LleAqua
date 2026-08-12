@@ -47,6 +47,9 @@ export const host = {
   pause: () => emit(ClientEvent.GAME_PAUSE),
   resume: () => emit(ClientEvent.GAME_RESUME),
   end: () => emit(ClientEvent.GAME_END),
+  /** TEAMS: name the member who locks that team's answers. */
+  setLeader: (teamId: string, participantId: string) =>
+    emit(ClientEvent.TEAM_SET_LEADER, { teamId, participantId }),
   /** Seen-Jeem: rule on a spoken answer for the open cell. */
   adjudicate: (cellId: string, correct: boolean) =>
     emit(ClientEvent.SJ_ADJUDICATE, { cellId, correct }),

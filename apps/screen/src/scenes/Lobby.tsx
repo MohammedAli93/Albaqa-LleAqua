@@ -90,7 +90,13 @@ export function Lobby() {
                             className="flex items-center gap-3 rounded-xl2 bg-white/80 px-3.5 py-2.5 shadow-sm"
                           >
                             <Avatar avatarId={p.avatarId} size={40} shape="square" />
-                            <span className="truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">{p.nickname}</span>
+                            <span className="min-w-0 flex-1 truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">{p.nickname}</span>
+                            {/* The leader is the only one who answers for the team. */}
+                            {team.leaderId === p.id && (
+                              <span className="shrink-0 rounded-full bg-[#E8473A] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
+                                👑 {t(locale, 'teamLeader')}
+                              </span>
+                            )}
                           </motion.div>
                         ))}
                       </AnimatePresence>

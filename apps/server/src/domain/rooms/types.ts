@@ -56,6 +56,14 @@ export interface LiveTeam {
   lives: number;
   /** Optional max players per team; null = unlimited (players choose freely). */
   capacity: number | null;
+  /**
+   * The member who answers for this team (client rule 2026-08-12). Only the leader
+   * may lock the team's answer — teammates advise out loud. Stamped when the first
+   * player joins the team and reassignable by the host. If the stored leader isn't
+   * ACTIVE right now the engine falls back to the earliest-joined active member, so
+   * a dropped phone never freezes the team (see domain/game/teams.ts).
+   */
+  leaderId?: string;
 }
 
 export interface LiveRound {

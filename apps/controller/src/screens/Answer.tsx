@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from 'lucide-react';
-import { GameMode } from '@tahaddi/shared';
+import { GameMode, GameType } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Hearts } from '../components/Hearts.js';
@@ -15,8 +15,8 @@ import {
 export function Answer() {
   const {
     question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered,
-    myLives, gameMode, round, totalRounds, isTiebreak, locale,
-    turnTeam, isSteal, myTeamId, pendingStealTeam,
+    myLives, gameMode, gameType, round, totalRounds, isTiebreak, locale,
+    turnTeam, isSteal, myTeamId, pendingStealTeam, teams, participants, participantId,
   } = useStore();
 
   // Tick the 3-2-1 pre-roll on requestAnimationFrame, server-synced so the phone
@@ -40,9 +40,17 @@ export function Answer() {
   // watch this one out — the server rejects out-of-turn answers anyway, but the
   // phone shouldn't dangle buttons that can't be pressed.
   const myTurn = !turnTeam || turnTeam.teamId === myTeamId;
+  // TEAMS: the team answers with one voice — its leader's. Teammates see the
+  // question and advise, but the buttons are the leader's alone (client rule
+  // 2026-08-12: four players each picking a different option always scored).
+  const isTeams = gameType === GameType.TEAMS;
+  const myTeam = teams.find((tm) => tm.id === myTeamId);
+  const leaderId = myTeam?.leaderId;
+  const amLeader = !isTeams || !leaderId || leaderId === participantId;
+  const leaderName = participants.find((p) => p.id === leaderId)?.nickname ?? '';
 
   const onPick = (optionId: string) => {
-    if (hasAnswered || inPreroll || !myTurn) return;
+    if (hasAnswered || inPreroll || !myTurn || !amLeader) return;
     haptic([12, 30, 12]);
     submitAnswer(roundId, optionId).catch(() => {});
   };
@@ -79,7 +87,11 @@ export function Answer() {
               {turnBadge}
               {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
               <p className="font-display text-3xl font-black text-desert-ink">
-                {turnTeam && !myTurn ? t(locale, 'teamTurnWatch') : t(locale, 'getReady')}
+                {turnTeam && !myTurn
+                  ? t(locale, 'teamTurnWatch')
+                  : !amLeader
+                    ? t(locale, 'consultThenLeaderPicks')
+                    : t(locale, 'getReady')}
               </p>
               <Squircle size={104}>
                 <motion.span
@@ -123,6 +135,40 @@ export function Answer() {
               ) : (
                 <Pill color="red" className="px-7 py-2.5 text-base">{t(locale, 'teamTurnWatch')}</Pill>
               )}
+            </div>
+          </YellowCard>
+        </CenterStage>
+      </GameShell>
+    );
+  }
+
+  // ── Our question, but I'm not the leader (TEAMS) ──
+  // The question stays on screen so the whole team can weigh in out loud; only the
+  // leader gets buttons, which is the whole point of the rule.
+  if (isTeams && !amLeader) {
+    return (
+      <GameShell>
+        <CenterStage>
+          <YellowCard>
+            <div className="flex flex-col items-center gap-4">
+              {turnBadge}
+              {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
+              <h2 className="text-center font-display text-2xl font-black leading-snug text-desert-ink" dir="rtl">
+                {question.promptAr}
+              </h2>
+              {question.promptMediaUrl && (
+                <img src={question.promptMediaUrl} alt="" className="max-h-[22vh] rounded-2xl object-contain" />
+              )}
+              <div className="mt-1 grid w-full grid-cols-1 gap-2.5 opacity-60">
+                {question.options.map((opt, i) => (
+                  <AnswerPill key={opt.id} index={i} text={opt.textAr} disabled />
+                ))}
+              </div>
+              <Pill color="blue" className="px-7 py-2.5 text-center text-base">
+                {leaderName
+                  ? t(locale, 'leaderAnswers', { name: leaderName })
+                  : t(locale, 'leaderAnswersShort')}
+              </Pill>
             </div>
           </YellowCard>
         </CenterStage>
@@ -175,6 +221,9 @@ export function Answer() {
         <YellowCard>
           <div className="flex flex-col items-center gap-4">
             {turnBadge}
+            {isTeams && leaderId === participantId && (
+              <Pill color="green">👑 {t(locale, 'youAreTeamLeader')}</Pill>
+            )}
             {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}
             <h2 className="text-center font-display text-2xl font-black leading-snug text-desert-ink" dir="rtl">
               {question.promptAr}

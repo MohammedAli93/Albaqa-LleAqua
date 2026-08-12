@@ -127,10 +127,13 @@ function CategoryChooser() {
 }
 
 function TeamPicker() {
-  const { locale, teams, myTeamId } = useStore();
+  const { locale, teams, myTeamId, participantId, participants } = useStore();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const myTeam = teams.find((tm) => tm.id === myTeamId);
+  // Each team answers through one leader — show who it is here so nobody is
+  // surprised when the answer buttons only appear on one phone.
+  const nameOf = (id?: string) => participants.find((p) => p.id === id)?.nickname ?? '';
 
   async function choose(teamId: string) {
     if (busy) return;
@@ -173,6 +176,7 @@ function TeamPicker() {
                     <span className="block truncate font-display text-xl font-black">{team.name}</span>
                     <span className="block font-display text-sm font-bold text-white/80">
                       {t(locale, 'playerCount', { count })}
+                      {team.leaderId && ` · 👑 ${nameOf(team.leaderId)}`}
                     </span>
                   </span>
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/25 shadow-[inset_0_2px_3px_rgba(255,255,255,0.4)]">
@@ -191,6 +195,13 @@ function TeamPicker() {
                 <p className="font-display text-lg font-black" style={{ color: myTeam.color }}>
                   {t(locale, 'youAreInTeam', { team: myTeam.name })}
                 </p>
+                {myTeam.leaderId === participantId ? (
+                  <Pill color="green">👑 {t(locale, 'youAreTeamLeader')}</Pill>
+                ) : myTeam.leaderId ? (
+                  <p className="font-display text-sm font-bold text-desert-ink/80">
+                    {t(locale, 'leaderAnswers', { name: nameOf(myTeam.leaderId) })}
+                  </p>
+                ) : null}
                 <RingSpinner size={30} />
                 <p className="font-display text-sm font-bold text-desert-ink/80">{t(locale, 'waitingHostStart')}</p>
               </>

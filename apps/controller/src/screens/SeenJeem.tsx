@@ -1,7 +1,7 @@
 /**
  * Seen-Jeem controller screen. Context-sensitive to the board phase and whose
  * turn it is: draft a category, pick a point cell, answer, or spend a lifeline —
- * otherwise a waiting view. Any team member may act on the team's behalf.
+ * otherwise a waiting view. Only the team's leader taps; teammates advise.
  */
 import { useEffect, useState } from 'react';
 import { Phone, Scissors, Zap } from 'lucide-react';
@@ -27,10 +27,26 @@ function useCountdown(endsAt?: number): number {
 export function SeenJeem() {
   const sj = useStore((s) => s.seenJeem);
   const myTeamId = useStore((s) => s.myTeamId);
+  const teams = useStore((s) => s.teams);
+  const participants = useStore((s) => s.participants);
+  const participantId = useStore((s) => s.participantId);
   const remaining = useCountdown(sj?.active?.endsAt);
 
   if (!sj || !myTeamId) {
     return <Waiting title="جاري التحضير…" />;
+  }
+
+  // Only the team leader taps for the team (client rule 2026-08-12) — picks,
+  // lifelines and answers all go through them after the team talks it over.
+  const leaderId = teams.find((tm) => tm.id === myTeamId)?.leaderId;
+  if (leaderId && leaderId !== participantId) {
+    const leaderName = participants.find((p) => p.id === leaderId)?.nickname ?? '';
+    return (
+      <Waiting
+        title="القائد هو اللي يختار"
+        subtitle={leaderName ? `${leaderName} قائد فريقكم — ساعدوه بالإجابة` : undefined}
+      />
+    );
   }
 
   // ── My turn to answer ──
