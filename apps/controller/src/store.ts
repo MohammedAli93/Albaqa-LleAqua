@@ -82,6 +82,8 @@ export interface ControllerState {
   // Round position + standings shown on the phone between questions.
   round: number;
   totalRounds: number;
+  /** FREE tier — the fixed 15-question trial set, which starts repeating once spent. */
+  isFreeTrial: boolean;
   /** Current question is a sudden-death tie-breaker (shown after an equal-score end). */
   isTiebreak: boolean;
   /** TEAMS games: the team whose turn it is — only they may answer this question.
@@ -149,6 +151,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   lastResult: null,
   round: 0,
   totalRounds: 0,
+  isFreeTrial: false,
   isTiebreak: false,
   turnTeam: null,
   isSteal: false,
@@ -190,6 +193,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             leaderboard: snap.leaderboard ?? s.leaderboard,
             round: snap.game.round ?? s.round,
             totalRounds: snap.game.totalRounds ?? s.totalRounds,
+            isFreeTrial: snap.game.tier ? snap.game.tier === 'FREE' : s.isFreeTrial,
             paused: snap.game.status === 'PAUSED',
             question: snap.currentRound?.question ?? null,
             roundId: snap.currentRound?.roundId ?? null,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Users } from 'lucide-react';
 import { GameType } from '@tahaddi/shared';
-import { t } from '@tahaddi/i18n';
+import { t, playersLabel, teamLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { CategoryPicker } from '../components/CategoryPicker.js';
@@ -175,7 +175,7 @@ function TeamPicker() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-display text-xl font-black">{team.name}</span>
                     <span className="block font-display text-sm font-bold text-white/80">
-                      {t(locale, 'playerCount', { count })}
+                      {playersLabel(locale, count)}
                       {team.leaderId && ` · 👑 ${nameOf(team.leaderId)}`}
                     </span>
                   </span>
@@ -193,7 +193,7 @@ function TeamPicker() {
             {myTeam ? (
               <>
                 <p className="font-display text-lg font-black" style={{ color: myTeam.color }}>
-                  {t(locale, 'youAreInTeam', { team: myTeam.name })}
+                  {t(locale, 'youAreInTeam', { team: teamLabel(locale, myTeam.name) })}
                 </p>
                 {myTeam.leaderId === participantId ? (
                   <Pill color="green">👑 {t(locale, 'youAreTeamLeader')}</Pill>

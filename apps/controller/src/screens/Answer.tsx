@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Timer } from 'lucide-react';
 import { GameMode, GameType } from '@tahaddi/shared';
-import { t } from '@tahaddi/i18n';
+import { t, roundLabel, teamLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Hearts } from '../components/Hearts.js';
 import { submitAnswer } from '../socket.js';
@@ -15,7 +15,7 @@ import {
 export function Answer() {
   const {
     question, roundId, startsAt, endsAt, roundTotalMs, selectedOptionId, hasAnswered,
-    myLives, gameMode, gameType, round, totalRounds, isTiebreak, locale,
+    myLives, gameMode, gameType, round, totalRounds, isTiebreak, locale, isFreeTrial,
     turnTeam, isSteal, myTeamId, pendingStealTeam, teams, participants, participantId,
   } = useStore();
 
@@ -58,21 +58,19 @@ export function Answer() {
   // ── Turn badge (TEAMS): whose question this is, and whether it's a steal. ──
   const turnBadge = !turnTeam ? null : isSteal ? (
     <Pill color={myTurn ? 'orange' : 'blue'}>
-      {myTurn ? t(locale, 'teamStealYours') : t(locale, 'teamStealOther', { team: turnTeam.name })}
+      {myTurn ? t(locale, 'teamStealYours') : t(locale, 'teamStealOther', { team: teamLabel(locale, turnTeam.name) })}
     </Pill>
   ) : (
     <Pill color={myTurn ? 'green' : 'blue'}>
-      {myTurn ? t(locale, 'teamTurnYours') : t(locale, 'teamTurnOther', { team: turnTeam.name })}
+      {myTurn ? t(locale, 'teamTurnYours') : t(locale, 'teamTurnOther', { team: teamLabel(locale, turnTeam.name) })}
     </Pill>
   );
 
   // ── Round badge (blue pill) shown on pre-roll. ──
   const roundBadge = isTiebreak ? (
     <Pill color="orange">{t(locale, 'tieBreaker')} ⚡</Pill>
-  ) : isElimination && round > 0 ? (
-    <Pill color="blue">{t(locale, 'roundNum', { current: round })}</Pill>
-  ) : round > 0 && totalRounds > 0 ? (
-    <Pill color="blue">{t(locale, 'roundOf', { current: round, total: totalRounds })}</Pill>
+  ) : round > 0 ? (
+    <Pill color="blue">{roundLabel(locale, round, totalRounds)}</Pill>
   ) : null;
 
   // ── 3-2-1 lead-in (reference screens 19 / 21) ──
@@ -83,6 +81,14 @@ export function Answer() {
         <CenterStage>
           <YellowCard className="text-center">
             <div className="flex flex-col items-center gap-5">
+              {/* First question past the free-15 — say the trial set is looping now
+                  and what the full version adds (client 2026-08-28). */}
+              {isFreeTrial && totalRounds > 0 && round === totalRounds + 1 && (
+                <div className="w-full rounded-2xl bg-[#FBF1CE] px-4 py-3 text-center shadow-[inset_0_2px_3px_rgba(180,120,20,0.18)]">
+                  <p className="font-display text-base font-black text-[#D63A22]">🔁 {t(locale, 'freeRepeatTitle')}</p>
+                  <p className="mt-1 font-display text-sm font-bold text-desert-ink/70">{t(locale, 'freeRepeatBody')}</p>
+                </div>
+              )}
               {roundBadge}
               {turnBadge}
               {question.category && <Pill fill={question.category.color}>{question.category.nameAr}</Pill>}

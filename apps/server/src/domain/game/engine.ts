@@ -366,9 +366,10 @@ export async function leave(gameId: string, participantId: string): Promise<void
  * double-start (or a retry after a network blip) can't charge twice.
  */
 async function chargeCreditIfNeeded(state: RoomState): Promise<void> {
-  const isPaidIndividual =
-    state.type === GameType.INDIVIDUAL && state.settings.tier === GameTier.PAID;
-  if (!isPaidIndividual || !state.hostPlayerId) return;
+  // Every PAID game costs one credit, whatever the format — «تُستخدم اللعبة
+  // الواحدة لبدء مباراة كاملة بالنظام الذي تختاره» (client 2026-08-28). Teams
+  // used to slip through this check and got the full bank for free.
+  if (state.settings.tier !== GameTier.PAID || !state.hostPlayerId) return;
 
   // Already paid for (this room was started before, or created under the old
   // charge-on-create rule) → nothing to do.
@@ -1079,12 +1080,14 @@ async function scheduleTiebreak(gameId: string): Promise<void> {
   );
 }
 
-/** A FREE individual game is walled off from the paid bank: it may only ever
- *  serve questions from the fixed free-15 pack, replaying them once the 15 are
- *  spent (client 2026-07-28: «خلها تنعاد الأسئلة المجانية عليه عشان يضطر يشتري
- *  ألعاب»). Paid/teams games draw from the whole bank as before. */
+/** A FREE game — in ANY format (individual points, individual elimination or
+ *  teams) — is walled off from the paid bank: it may only ever serve questions
+ *  from the fixed free-15 pack, replaying them in a fresh random order once the
+ *  15 are spent (client 2026-07-28 «خلها تنعاد الأسئلة المجانية عليه عشان يضطر
+ *  يشتري ألعاب», widened to teams 2026-08-28). Paid games draw from the whole
+ *  bank as before. */
 function isFreeTier(state: RoomState): boolean {
-  return state.type === GameType.INDIVIDUAL && state.settings.tier === GameTier.FREE;
+  return state.settings.tier === GameTier.FREE && state.mode !== GameMode.SEEN_JEEM;
 }
 
 /** A package question not yet used (scripted or prior tiebreak); reuse one only
@@ -1108,7 +1111,11 @@ async function pickPackageQuestion(state: RoomState, used: Set<string>): Promise
   });
   const ids = pkgQs.map((q) => q.questionId);
   const fresh = ids.filter((id) => !used.has(id));
-  const pool = fresh.length ? fresh : ids;
+  // Once every question has been shown, replay the pack in a random order — but
+  // never hand back the question that was just asked, which would read as a bug.
+  const justAsked = state.questionOrder[state.questionOrder.length - 1];
+  const recycled = ids.length > 1 ? ids.filter((id) => id !== justAsked) : ids;
+  const pool = fresh.length ? fresh : recycled;
   return pool[Math.floor(Math.random() * pool.length)] ?? state.questionOrder[state.questionOrder.length - 1]!;
 }
 

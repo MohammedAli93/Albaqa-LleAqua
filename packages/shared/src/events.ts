@@ -8,6 +8,7 @@ import {
   GameType,
   GameMode,
   GameStatus,
+  GameTier,
   RoundPhase,
   ParticipantStatus,
   QuestionType,
@@ -249,6 +250,9 @@ export const RoomSnapshotSchema = z.object({
     totalRounds: z.number().int(),
     /** Per-player-category mode: each player picks their own category in the lobby. */
     perPlayerCategory: z.boolean().optional(),
+    /** FREE = the fixed 15-question trial set (recycled once spent), PAID = the
+     *  full category game. Clients use it for trial labelling / the repeat notice. */
+    tier: zEnum(GameTier).optional(),
   }),
   participants: z.array(PublicParticipantSchema),
   teams: z.array(TeamPublicSchema).optional(),

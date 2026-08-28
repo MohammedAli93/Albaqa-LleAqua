@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogOut, ScanLine, ChevronRight, ChevronLeft,
 } from 'lucide-react';
-import { GameType, GameMode, GameTier } from '@tahaddi/shared';
+import { GameType, GameMode, GameTier, roundsCopyAr } from '@tahaddi/shared';
 import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { clearAccount } from '../../lib/account.js';
@@ -46,7 +46,7 @@ const TILES = [
 
 /** The 4 "كيف نلعب؟" steps — text right, empty yellow placeholder square left. */
 const STEPS = [
-  'افتح اللعبة على شاشة كبيرة (تلفاز أو لابتوب).',
+  'افتح اللعبة على شاشة مشتركة (تلفاز أو لابتوب أو آيباد).',
   'كل واحد يمسح الكود من جواله ويدخل.',
   'العبوا فردي أو فِرَق، وكل واحد يختار فئته.',
   'اجمعوا أكثر نقاط… والبقاء للأقوى.',
@@ -218,11 +218,13 @@ export function Home() {
               >
                 <PanelRow title="تجربة مجانية" desc="١٥ سؤال ثابت للتجربة — بدون اختيار فئات وبدون تسجيل"
                   onClick={() => launch(pendingType, pendingMode, GameTier.FREE)} />
+                {/* Round count differs per format — teams play 15, individual points
+                    35, elimination runs to the last survivor (client 2026-08-28). */}
                 <PanelRow title="النسخة الكاملة"
                   desc={
                     account?.credits
-                      ? `٣٥ سؤال + تختار فئاتك — رصيدك ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
-                      : '٣٥ سؤال + تختار فئاتك — اشترِ باقة'
+                      ? `${roundsCopyAr(pendingType, pendingMode)} + اختيار الفئات — رصيدك ${account.credits} ${account.credits === 1 ? 'لعبة' : 'ألعاب'}`
+                      : `${roundsCopyAr(pendingType, pendingMode)} + اختيار الفئات — اشترِ باقة`
                   }
                   onClick={() => launch(pendingType, pendingMode, GameTier.PAID)} />
               </ChooserPanel>
@@ -291,8 +293,20 @@ export function Home() {
               </PillButton>
             </div>
           )}
+          {/* الأجهزة المطلوبة — stated plainly so nobody buys expecting to play on
+              one phone (client 2026-08-28). */}
+          <div className="mx-auto mt-8 max-w-[760px] rounded-[1.5rem] bg-white p-6 text-center shadow-[0_18px_40px_-28px_rgba(0,0,0,0.4)] sm:p-7">
+            <p className="text-base font-black leading-relaxed text-desert-ink sm:text-lg">
+              📺 تحتاجون شاشة مشتركة لعرض الأسئلة والنتائج، بالإضافة إلى جوال لكل لاعب.
+              <br />
+              الحد الأدنى: لاعبان + شاشة عرض.
+            </p>
+            <p className="mt-2 text-sm font-bold leading-relaxed text-desert-ink/60 sm:text-base">
+              يمكن استخدام التلفاز أو اللابتوب أو الآيباد أو جوال إضافي كشاشة مشتركة.
+            </p>
+          </div>
           <p className="mt-5 text-center text-sm leading-relaxed text-desert-ink/55">
-            افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود ويختار فئته.
+            الشاشة المشتركة تعرض بداية المباراة والأسئلة والنتائج والترتيب، وكل لاعب يجيب من جواله.
           </p>
         </div>
       </section>

@@ -9,6 +9,7 @@ import {
   DEFAULT_TEAM_COUNT,
   FREE_PACKAGE_SLUG,
   TIER_ROUNDS,
+  roundsForGame,
   type GameSettings,
   type CreateRoomResponse,
   type RoomLobbyInfo,
@@ -318,28 +319,36 @@ export async function createRoom(input: {
   hostPlayerId?: string;
 }): Promise<CreateRoomResponse> {
   const tier: GameTier = input.tier ?? GameTier.FREE;
-  const isIndividual = input.settings.type === GameType.INDIVIDUAL;
+  // Seen Jeem is its own board format and is never sold as a free trial.
+  const isFree = tier === GameTier.FREE && input.settings.mode !== GameMode.SEEN_JEEM;
 
   // Resolve the package + the effective settings from the tier. The server is
   // authoritative here: a client can't request paid content by sending a packageId.
   let settings: GameSettings = { ...input.settings, tier };
   let pkg: Awaited<ReturnType<typeof findPackageWithQuestions>>;
 
-  if (isIndividual && tier === GameTier.FREE) {
-    // FREE: a fixed 15-question set, no categories. No login required.
+  if (isFree) {
+    // FREE: the fixed 15-question trial set, no categories, in EVERY format —
+    // individual points, individual elimination and teams alike (client
+    // 2026-08-28). No login required.
     pkg = await findPackageWithQuestions({ slug: FREE_PACKAGE_SLUG });
     if (!pkg) throw new AppError(ErrorCode.NOT_FOUND, 'Free pack not seeded — run db:seed');
     settings = { ...settings, perPlayerCategory: false, categoryId: undefined, totalRounds: TIER_ROUNDS.FREE };
   } else {
-    // PAID (individual) or TEAMS / SEEN_JEEM: the full category game.
-    if (isIndividual && tier === GameTier.PAID) {
+    // PAID: the full category game (or Seen Jeem).
+    if (tier === GameTier.PAID) {
       // Check only — the credit is NOT spent here. It's charged when the host
       // actually starts the game (engine.startGame), so opening a room, sharing the
       // link and then abandoning it (or re-creating it) never costs a credit.
       if (!input.hostPlayerId || (await getPlayerCredits(input.hostPlayerId)) < 1) {
         throw new AppError(ErrorCode.PAYMENT_REQUIRED, 'تحتاج رصيد لعبة لبدء لعبة النسخة الكاملة');
       }
-      settings = { ...settings, totalRounds: TIER_ROUNDS.PAID };
+      // Round count is per-format: individual points 35, teams 15, elimination
+      // plays on to the last survivor (the number is only its scripted minimum).
+      settings = {
+        ...settings,
+        totalRounds: roundsForGame(input.settings.type, input.settings.mode, tier),
+      };
     }
     pkg = await findPackageWithQuestions({ excludeSlug: FREE_PACKAGE_SLUG });
     if (!pkg) throw new AppError(ErrorCode.NOT_FOUND, 'No published package available — run db:seed');
@@ -366,11 +375,11 @@ export async function createRoom(input: {
   } else {
     const requested = settings.totalRounds ?? 15;
     let base: string[] = [];
-    if (isIndividual && tier === GameTier.FREE) {
-      // FREE tier: play ONLY the fixed free-15 demo set (reshuffled each game) and
-      // never touch the paid bank — no drawFreshQuestions, no markQuestionsUsed. So
-      // the free version replays the same 15 questions every game and gives away no
-      // paid content until the host actually pays for a game.
+    if (isFree) {
+      // FREE tier: play ONLY the fixed free-15 demo set (reshuffled at the start of
+      // every match) and never touch the paid bank — no drawFreshQuestions, no
+      // markQuestionsUsed. So the free version replays the same 15 questions in a
+      // new order each game and gives away no paid content until the host pays.
       base = shuffleIds(packageOrder).slice(0, requested);
     } else if (settings.categoryId) {
       // Draw the least-recently-used approved questions and mark them used, so a game

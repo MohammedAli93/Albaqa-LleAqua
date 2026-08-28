@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Users, Zap } from 'lucide-react';
-import { t } from '@tahaddi/i18n';
+import { t, roundLabel, teamLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
 import { ConfettiBurst } from '../components/Confetti.js';
@@ -44,7 +44,7 @@ export function Question() {
           <img src="/art/logo-wordmark.png" alt="البقاء للأقوى" className="h-auto w-[8rem] drop-shadow-sm lg:w-[11rem]" />
           <div className="flex items-center gap-2 lg:gap-3">
             <RoundPill>
-              {isElimination ? t(locale, 'roundNum', { current: round }) : t(locale, 'roundOf', { current: round, total: totalRounds })}
+              {roundLabel(locale, round, totalRounds)}
             </RoundPill>
             <span className="flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 font-display text-screen-meta font-black text-desert-ink shadow-sm">
               <Users className="text-[#E8473A]" size={20} />
@@ -88,8 +88,8 @@ export function Question() {
                 >
                   <span className="font-display text-screen-status font-black text-white">
                     {isSteal
-                      ? t(locale, 'teamStealOther', { team: turnTeam.name })
-                      : t(locale, 'teamTurnOther', { team: turnTeam.name })}
+                      ? t(locale, 'teamStealOther', { team: teamLabel(locale, turnTeam.name) })
+                      : t(locale, 'teamTurnOther', { team: teamLabel(locale, turnTeam.name) })}
                   </span>
                 </motion.div>
               )}
@@ -143,7 +143,7 @@ export function Question() {
                 >
                   <Zap className="text-[#FFE9A8]" size={22} />
                   <span className="font-display text-screen-status font-bold">
-                    {t(locale, 'teamTookPoint', { team: h.teamName })} · {t(locale, 'answeredFirst', { name: h.nickname })}
+                    {t(locale, 'teamTookPoint', { team: teamLabel(locale, h.teamName) })} · {t(locale, 'answeredFirst', { name: h.nickname })}
                   </span>
                   <span className="tnum font-display text-screen-status font-black">+{h.pointsAwarded}</span>
                 </motion.div>

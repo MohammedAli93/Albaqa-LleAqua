@@ -153,6 +153,22 @@ describe('paid game-credit is charged at start, not at room creation', () => {
     expect(h.wallet()).toBe(1);
   });
 
+  it('spends a credit for a PAID TEAMS game too (every format costs one)', async () => {
+    // Teams used to slip past the individual-only check and got the full bank for
+    // free — «تُستخدم اللعبة الواحدة لبدء مباراة كاملة بالنظام الذي تختاره».
+    seedRoom({ tier: GameTier.PAID, hostPlayerId: 'host-1', type: GameType.TEAMS });
+    await start();
+    expect(h.calls.consume).toBe(1);
+    expect(h.wallet()).toBe(0);
+  });
+
+  it('charges nothing for a FREE TEAMS game', async () => {
+    seedRoom({ tier: GameTier.FREE, hostPlayerId: 'host-1', type: GameType.TEAMS });
+    await start();
+    expect(h.calls.consume).toBe(0);
+    expect(h.wallet()).toBe(1);
+  });
+
   it('charges nothing for a FREE game', async () => {
     seedRoom({ tier: GameTier.FREE, hostPlayerId: 'host-1' });
     await start();

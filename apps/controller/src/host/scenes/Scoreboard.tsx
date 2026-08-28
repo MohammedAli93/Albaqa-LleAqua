@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skull, Check } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
-import { t } from '@tahaddi/i18n';
+import { t, roundLabel, teamLabel } from '@tahaddi/i18n';
 import type { Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
@@ -43,7 +43,7 @@ export function Scoreboard() {
       <div className="relative z-10 mb-5 flex flex-col items-center gap-2.5 lg:mb-8">
         {round > 0 && (isElimination || totalRounds > 0) && (
           <RoundPill>
-            {isElimination ? t(locale, 'roundNum', { current: round }) : t(locale, 'roundOf', { current: round, total: totalRounds })}
+            {roundLabel(locale, round, totalRounds)}
           </RoundPill>
         )}
         <GoldTitle className="text-screen-title">{t(locale, 'leaderboard')}</GoldTitle>
@@ -136,7 +136,7 @@ function TeamBoard() {
       <HostBg variant="team" />
       <div className="relative z-10 mb-5 flex flex-col items-center gap-2.5 lg:mb-8">
         {round > 0 && totalRounds > 0 && (
-          <RoundPill>{t(locale, 'roundOf', { current: round, total: totalRounds })}</RoundPill>
+          <RoundPill>{roundLabel(locale, round, totalRounds)}</RoundPill>
         )}
         <h2
           className="text-center font-display text-screen-title font-black text-desert-ink"
@@ -151,7 +151,7 @@ function TeamBoard() {
             className="rounded-full px-6 py-2 font-display text-screen-status font-black text-white shadow-glow"
             style={{ background: pendingStealTeam.color }}
           >
-            {t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+            {t(locale, 'teamStealIncoming', { team: teamLabel(locale, pendingStealTeam.name) })}
           </span>
         )}
       </div>

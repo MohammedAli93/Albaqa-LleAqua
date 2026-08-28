@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { Crown, Play, Users } from 'lucide-react';
-import { t } from '@tahaddi/i18n';
+import { Check, Crown, Monitor, Play, Users } from 'lucide-react';
+import { t, playersLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { host } from '../socket.js';
 import { Avatar } from '../components/Avatar.js';
@@ -17,7 +17,16 @@ export function Lobby() {
   const isTeams = teams.length > 0;
   // In per-player-category mode a player only appears once they've actually picked
   // their category — so the room never shows "ghosts" who joined but haven't chosen.
-  const roster = perPlayerCategory ? participants.filter((p) => p.categoryId) : participants;
+  // TEAMS is the exception: a player shows up the moment they pick a team (client
+  // 2026-08-28 — the host thought joins were failing), and anyone who hasn't picked
+  // yet is listed separately under «لم يحدد فريقه» instead of vanishing.
+  const roster = perPlayerCategory && !isTeams ? participants.filter((p) => p.categoryId) : participants;
+  const unassigned = isTeams ? roster.filter((p) => !teams.some((tm) => tm.memberIds.includes(p.id))) : [];
+  /** Nothing left for this player to choose before the game can start. */
+  const isReady = (p: { categoryId?: string | null }) => !perPlayerCategory || !!p.categoryId;
+  // A game needs at least two players; say why the button is dead rather than
+  // leaving the host staring at a greyed-out «ابدأ اللعب».
+  const canStart = roster.length >= 2;
 
   return (
     <div className="safe relative flex min-h-dvh flex-col overflow-x-hidden overflow-y-auto p-5 text-desert-ink lg:h-full lg:p-8" dir="rtl">
@@ -81,13 +90,13 @@ export function Lobby() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-display text-[clamp(1.25rem,2.4vw,2.25rem)] font-black" style={{ color: team.color }}>{team.name}</span>
                       <span className="tnum rounded-full bg-white/70 px-3 py-1 font-display text-[clamp(0.85rem,1.3vw,1.25rem)] font-bold text-desert-ink/70">
-                        {t(locale, 'playerCount', { count: members.length })}
+                        {playersLabel(locale, members.length)}
                       </span>
                     </div>
                     <div className="flex flex-col gap-2">
                       {members.length === 0 && (
                         <div className="rounded-xl2 bg-white/55 px-4 py-3 text-center font-display text-screen-status font-bold text-desert-ink/45">
-                          لاعب · 0
+                          {playersLabel(locale, 0)}
                         </div>
                       )}
                       <AnimatePresence>
@@ -111,6 +120,14 @@ export function Lobby() {
                               <span className="min-w-0 flex-1 truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">
                                 {p.nickname}
                               </span>
+                              {/* «جاهز» next to the name, so the host can see at a
+                                  glance who is in. In the free game picking a team is
+                                  all there is; the paid game also waits on a category. */}
+                              {isReady(p) && (
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#2FA36B] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
+                                  <Check size={14} /> {t(locale, 'playerReady')}
+                                </span>
+                              )}
                               {isLeader && (
                                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#E8473A] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
                                   <Crown size={14} /> {t(locale, 'teamLeader')}
@@ -131,6 +148,26 @@ export function Lobby() {
                   </div>
                 );
               })}
+
+              {/* Joined but hasn't tapped a team yet — listed rather than hidden, so
+                  the host never thinks a player's join failed (client 2026-08-28). */}
+              {unassigned.length > 0 && (
+                <div className="flex flex-col gap-2 rounded-[1.5rem] bg-white/60 p-4 ring-1 ring-white/50 backdrop-blur-sm lg:p-5">
+                  <span className="font-display text-[clamp(1rem,1.6vw,1.4rem)] font-black text-desert-ink/70">
+                    {t(locale, 'noTeamYet')} · {playersLabel(locale, unassigned.length)}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {unassigned.map((p) => (
+                      <span key={p.id} className="flex items-center gap-2 rounded-full bg-white/85 px-3 py-1.5 shadow-sm">
+                        <Avatar avatarId={p.avatarId} size={28} shape="square" />
+                        <span className="max-w-[10rem] truncate font-display text-[clamp(0.85rem,1.3vw,1.2rem)] font-bold text-desert-ink">
+                          {p.nickname}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 lg:gap-4">
@@ -160,15 +197,28 @@ export function Lobby() {
         <motion.button
           whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.03 }}
           onClick={() => host.start().catch(() => {})}
-          disabled={roster.length < 2}
+          disabled={!canStart}
           className="flex items-center gap-3 rounded-full px-12 py-4 font-display text-screen-status font-black text-white shadow-[0_18px_40px_-16px_rgba(214,58,34,0.9)] transition disabled:opacity-40 lg:px-16 lg:py-5"
           style={{ backgroundImage: RED_BTN }}
         >
           <Play fill="currentColor" /> {t(locale, 'startGame')}
         </motion.button>
+
+        {/* Why «ابدأ اللعب» is dead — a lone player can't start a game. */}
+        {!canStart && (
+          <p className="rounded-full bg-white/85 px-4 py-1.5 text-center font-display text-[clamp(0.8rem,1.1vw,1.05rem)] font-black text-[#E8473A] shadow-sm backdrop-blur">
+            {t(locale, 'waitingSecondPlayer')}
+          </p>
+        )}
+
+        {/* What the room actually needs to play: this shared screen + a phone each. */}
+        <p className="flex max-w-[52rem] items-center justify-center gap-2 rounded-2xl bg-white/70 px-4 py-1.5 text-center font-display text-[clamp(0.7rem,1vw,0.95rem)] font-bold leading-snug text-desert-ink/70 backdrop-blur">
+          <Monitor size={16} className="shrink-0 text-[#E8473A]" /> {t(locale, 'devicesNeeded')}
+        </p>
+
         {/* FREE games are a trial — say so plainly here, not just on the picker, so
-            nobody starts one expecting the full 35-question category game. Paid
-            games instead get the "charged on start" reassurance. */}
+            nobody starts one expecting the full category game. Paid games instead
+            get the "charged on start" reassurance. */}
         <p className="rounded-full bg-white/70 px-4 py-1 text-center font-display text-[clamp(0.7rem,1vw,0.95rem)] font-bold text-desert-ink/70 backdrop-blur">
           {isFreeTrial
             ? 'نسخة تجربة مجانية — ١٥ سؤال ثابت، وللفئات والأسئلة الكاملة افتح النسخة الكاملة'

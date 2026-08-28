@@ -20,6 +20,9 @@ const ar = {
   roundOf: 'جولة {current} من {total}',
   // ELIMINATION: open-ended — play to the last survivor, so no fixed total.
   roundNum: 'السؤال {current}',
+  /** Elimination past the scripted count: «جولة 45 من 15» made no sense, so the
+   *  counter switches to open-ended extra rounds (client 2026-08-28). */
+  roundExtra: 'جولة إضافية {current}',
   tieBreaker: 'سؤال حاسم',
   tieBreak: 'تعادل! سؤال حاسم',
   standings: 'الترتيب',
@@ -102,11 +105,11 @@ const ar = {
   seenJeem: 'سين جيم',
   // ── Team turns (TEAMS points): one question per team, missed ones get stolen ──
   teamTurnYours: 'دوركم! السؤال لفريقكم',
-  teamTurnOther: 'دور فريق {team}',
+  teamTurnOther: 'دور {team}',
   teamTurnWatch: 'خلّوهم يجاوبون… دوركم جاي',
   teamStealYours: 'فرصة! غلطوا والسؤال صار لكم',
-  teamStealOther: 'فرصة لفريق {team} على نفس السؤال',
-  teamStealIncoming: 'ما جاوبوا صح — السؤال ينتقل لفريق {team}',
+  teamStealOther: 'فرصة ل{team} على نفس السؤال',
+  teamStealIncoming: 'ما جاوبوا صح — السؤال ينتقل ل{team}',
   next: 'التالي',
   back: 'رجوع',
   // ── Teams ──
@@ -136,8 +139,8 @@ const ar = {
   setLeaderHint: 'اضغط على اسم اللاعب لتختاره قائداً للفريق',
   makeLeader: 'اجعله القائد',
   /** e.g. "أحمد كسب نقطة لفريق الصقور" — first correct answer scores for the team. */
-  firstCorrectHero: '{name} كسب نقطة لفريق {team}',
-  teamTookPoint: 'فريق {team} أحرز النقطة',
+  firstCorrectHero: '{name} كسب نقطة ل{team}',
+  teamTookPoint: '{team} أحرز النقطة',
   answeredFirst: '{name} أجاب أولاً وأسرع',
   // ── Registration / account ──
   register: 'حساب جديد',
@@ -154,5 +157,21 @@ const ar = {
   mobileInvalid: 'الرقم غير صحيح',
   noAccount: 'ما عندك حساب؟ سجّل واحد',
   haveAccount: 'عندك حساب؟ ادخل',
+  // ── Player counts — Arabic needs real plural forms, not «لاعب · 0» ──
+  noPlayers: 'لا يوجد لاعبون',
+  onePlayer: 'لاعب واحد',
+  twoPlayers: 'لاعبان',
+  manyPlayers: '{count} لاعبين',
+  // ── Lobby / room readiness ──
+  preparingRoom: 'جاري تجهيز الغرفة…',
+  waitingSecondPlayer: 'بانتظار لاعب ثانٍ لبدء اللعبة.',
+  playerReady: 'جاهز',
+  noTeamYet: 'لم يحدد فريقه',
+  // ── What you need to play (shared screen + a phone each) ──
+  devicesNeeded: 'تحتاجون شاشة مشتركة لعرض الأسئلة والنتائج، بالإضافة إلى جوال لكل لاعب. الحد الأدنى: لاعبان + شاشة عرض.',
+  devicesHint: 'يمكن استخدام التلفاز أو اللابتوب أو الآيباد أو جوال إضافي كشاشة مشتركة.',
+  // ── FREE trial: the 15 questions start looping ──
+  freeRepeatTitle: 'بدأت أسئلة التجربة تتكرر',
+  freeRepeatBody: 'افتح النسخة الكاملة لأسئلة أكثر وفئات من اختياركم.',
 };
 export default ar;

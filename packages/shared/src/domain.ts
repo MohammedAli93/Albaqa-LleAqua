@@ -62,10 +62,12 @@ export type ScoringMode = (typeof ScoringMode)[keyof typeof ScoringMode];
 export const PLACEMENT_POINTS = { FIRST: 3, SECOND: 2, REST: 1 } as const;
 
 /**
- * Game **tier** — free vs paid, chosen when creating an INDIVIDUAL game.
- *  - FREE: a fixed 15-question set, no category selection. No login required.
- *  - PAID: the full 35-question game with category selection. Requires a
- *    logged-in host whose account has the one-time paid unlock ({@link PAID_UNLOCK_SKU}).
+ * Game **tier** — free vs paid, chosen when creating ANY game (individual or teams).
+ *  - FREE: the fixed 15-question trial set, no category selection, in every
+ *    format (points / elimination / teams). Replays the same 15 in a random order
+ *    and never touches the paid bank. No login required.
+ *  - PAID: the full category game. Round count depends on the format — see
+ *    {@link roundsForGame}. Requires a logged-in host with a game credit.
  */
 export const GameTier = {
   FREE: 'FREE',
@@ -79,6 +81,31 @@ export const TIER_ROUNDS: Record<GameTier, number> = {
   PAID: 35,
 };
 
+/** Rounds in a PAID team game (client 2026-08-28: «نظام الفرق 15 جولة فقط»). */
+export const TEAM_ROUNDS = 15;
+
+/**
+ * Scripted round count for a game. Free is always the fixed 15-question trial in
+ * every format. Paid differs per format (client 2026-08-28):
+ *   - INDIVIDUAL / POINTS      → 35 rounds
+ *   - TEAMS                    → 15 rounds
+ *   - INDIVIDUAL / ELIMINATION → runs to the last survivor; the number below is
+ *     only the scripted minimum, and the engine appends more as needed.
+ */
+export function roundsForGame(type: GameType, mode: GameMode, tier: GameTier): number {
+  if (tier === GameTier.FREE) return TIER_ROUNDS.FREE;
+  if (type === GameType.TEAMS) return TEAM_ROUNDS;
+  if (mode === GameMode.ELIMINATION) return TIER_ROUNDS.FREE; // scripted minimum only
+  return TIER_ROUNDS.PAID;
+}
+
+/** Human copy for how long a full-version game runs, per format (Arabic). */
+export function roundsCopyAr(type: GameType, mode: GameMode): string {
+  if (type === GameType.TEAMS) return '١٥ جولة';
+  if (mode === GameMode.ELIMINATION) return 'تستمر حتى يبقى لاعب واحد';
+  return '٣٥ جولة';
+}
+
 /** Slug of the seeded free pack (the fixed 15-question, no-category set). */
 export const FREE_PACKAGE_SLUG = 'free-15';
 
@@ -87,7 +114,7 @@ export const PAID_UNLOCK_SKU = 'paid_unlock';
 
 /**
  * The paid catalog: game-credit packages (البقاء للأقوى). Buying a package adds
- * `credits` game-starts to the host's wallet; each PAID (35-question) game a host
+ * `credits` game-starts to the host's wallet; each PAID game a host
  * starts consumes one credit. Prices are minor units (halalas; 2000 = 20 SAR).
  * This is the single source of truth for the seed and the storefront.
  */

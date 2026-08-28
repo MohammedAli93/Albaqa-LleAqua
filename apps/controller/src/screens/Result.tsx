@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Check, X, Timer, Zap, Play } from 'lucide-react';
 import { GameType, GameMode } from '@tahaddi/shared';
-import { t } from '@tahaddi/i18n';
+import { t, roundLabel, teamLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Hearts } from '../components/Hearts.js';
 import { Avatar } from '../components/Avatar.js';
@@ -82,7 +82,7 @@ export function Result() {
                       <Zap size={20} className="shrink-0" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-display text-sm font-black">
-                          {t(locale, 'teamTookPoint', { team: h.teamName })}
+                          {t(locale, 'teamTookPoint', { team: teamLabel(locale, h.teamName) })}
                         </span>
                         <span className="block truncate font-display text-xs font-bold text-white/80" dir="auto">
                           {t(locale, 'answeredFirst', { name: h.nickname })}
@@ -127,9 +127,7 @@ export function Result() {
                 <span className="min-w-0 flex-1">
                   <span className="block font-display text-xs font-black text-desert-ink/70">{t(locale, 'nextUp')}</span>
                   <span className="block truncate font-display text-base font-black text-desert-ink">
-                    {isElimination
-                      ? t(locale, 'roundNum', { current: nextRound })
-                      : t(locale, 'questionOf', { current: nextRound, total: totalRounds })}
+                    {roundLabel(locale, nextRound, totalRounds)}
                     {nextCategory ? ` – ${nextCategory.nameAr}` : ''}
                   </span>
                 </span>

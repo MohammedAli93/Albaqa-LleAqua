@@ -120,7 +120,7 @@ export function Profile() {
                 : 'باقات الألعاب'}
             </span>
             <span className="block text-sm text-white/85">
-              {account?.credits ? 'اشترِ المزيد — ٣٥ سؤالاً لكل لعبة' : '٣٥ سؤالاً + اختيار الفئات — اشترِ باقة'}
+              {account?.credits ? 'اشترِ المزيد من الألعاب' : 'مباراة كاملة + اختيار الفئات — اشترِ باقة'}
             </span>
           </span>
           <ChevronRight size={20} className="shrink-0 rotate-180" />

@@ -161,6 +161,9 @@ export const useStore = create<ScreenState>((set) => ({
             type: snap.game.type,
             mode: snap.game.mode,
             perPlayerCategory: snap.game.perPlayerCategory ?? false,
+            // Take the tier from the server so a reconnecting host screen keeps
+            // showing the trial labelling (and the free-repeat notice).
+            isFreeTrial: snap.game.tier ? snap.game.tier === 'FREE' : s.isFreeTrial,
             round: snap.game.round,
             totalRounds: snap.game.totalRounds,
             participants: snap.participants,

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Users, Zap, Crown } from 'lucide-react';
-import { t } from '@tahaddi/i18n';
+import { t, roundLabel, teamLabel } from '@tahaddi/i18n';
 import type { Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { CountdownRing } from '../components/CountdownRing.js';
@@ -18,23 +18,34 @@ const TINTS = ['#F5A93C', '#FFC81C', '#36B7A6', '#EE6AA0', '#22C55E', '#A855F7']
 const QUESTION_CARD = 'linear-gradient(180deg,#FCA438 0%,#F7872B 100%)';
 
 /** Full-screen 3-2-1 lead-in shown before a question opens for answering. */
-function GetReady({ msLeft, round, totalRounds, isTiebreak, isElimination, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; isElimination: boolean; locale: Locale }) {
+function GetReady({ msLeft, round, totalRounds, isTiebreak, isFreeTrial, locale }: { msLeft: number; round: number; totalRounds: number; isTiebreak: boolean; isFreeTrial: boolean; locale: Locale }) {
   const n = Math.max(1, Math.ceil(msLeft / 1000));
+  // The very first question past the free-15: tell the room the trial set is now
+  // looping and what the full version adds (client 2026-08-28). Shown once, for
+  // the length of this lead-in, then the match carries on as normal.
+  const freeLoopStarts = isFreeTrial && totalRounds > 0 && round === totalRounds + 1;
   return (
     <div className="safe relative grid min-h-dvh place-items-center overflow-hidden lg:h-full">
       <HostBg variant="sky" />
       <div className="relative z-10 flex flex-col items-center gap-4 lg:gap-7">
+        {freeLoopStarts && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+            className="max-w-[46rem] rounded-[1.5rem] bg-white/90 px-8 py-4 text-center shadow-[0_24px_60px_-30px_rgba(120,70,10,0.7)] ring-1 ring-white/60 backdrop-blur"
+          >
+            <p className="font-display text-screen-status font-black text-[#E8473A]">🔁 {t(locale, 'freeRepeatTitle')}</p>
+            <p className="mt-1 font-display text-screen-meta font-bold text-desert-ink/75">{t(locale, 'freeRepeatBody')}</p>
+          </motion.div>
+        )}
         {isTiebreak ? (
           <span className="rounded-full bg-prize-gold px-6 py-2 font-display text-screen-status font-black text-desert-ink shadow-gold">
             {t(locale, 'tieBreaker')} ⚡
           </span>
-        ) : isElimination && round > 0 ? (
+        ) : round > 0 ? (
           <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-[#E8473A] shadow-card">
-            {t(locale, 'roundNum', { current: round })}
-          </span>
-        ) : round > 0 && totalRounds > 0 ? (
-          <span className="rounded-full bg-white px-6 py-2 font-display text-screen-status font-black text-[#E8473A] shadow-card">
-            {t(locale, 'roundOf', { current: round, total: totalRounds })}
+            {roundLabel(locale, round, totalRounds)}
           </span>
         ) : null}
         <p className="font-display text-screen-title font-black text-desert-ink drop-shadow-sm">{t(locale, 'getReady')}</p>
@@ -59,7 +70,7 @@ function GetReady({ msLeft, round, totalRounds, isTiebreak, isElimination, local
 export function Question() {
   const {
     question, phase, startsAt, endsAt, roundTotalMs, answeredCount, totalActive, round, totalRounds, isTiebreak,
-    correctOptionId, distribution, heroes, teams, leaderboard, mode, locale, turnTeam, isSteal,
+    correctOptionId, distribution, heroes, teams, leaderboard, mode, locale, turnTeam, isSteal, isFreeTrial,
   } = useStore();
 
   const collecting = phase === 'collecting';
@@ -71,7 +82,7 @@ export function Question() {
   const isElimination = mode === GameMode.ELIMINATION;
 
   // 3-2-1 lead-in before the question opens for answering.
-  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} isTiebreak={isTiebreak} isElimination={isElimination} locale={locale} />;
+  if (inPreroll) return <GetReady msLeft={preMs} round={round} totalRounds={totalRounds} isTiebreak={isTiebreak} isFreeTrial={isFreeTrial} locale={locale} />;
   if (!question) return null;
   const totalVotes = Object.values(distribution).reduce((a, b) => a + b, 0);
 
@@ -87,11 +98,7 @@ export function Question() {
           <Brand />
           <div className="flex items-center gap-2 lg:gap-3">
             <span className={`rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-black lg:px-5 lg:py-2 ${isTiebreak ? 'bg-prize-gold text-brand-deep shadow-gold' : 'glass text-ink-secondary'}`}>
-              {isTiebreak
-                ? `${t(locale, 'tieBreaker')} ⚡`
-                : isElimination
-                  ? t(locale, 'roundNum', { current: round })
-                  : t(locale, 'roundOf', { current: round, total: totalRounds })}
+              {isTiebreak ? `${t(locale, 'tieBreaker')} ⚡` : roundLabel(locale, round, totalRounds)}
             </span>
             <span className="glass flex items-center gap-2 rounded-xl2 px-3 py-1.5 font-display text-screen-meta font-bold lg:px-5 lg:py-2">
               <Users className="text-brand-cyan" />
@@ -122,8 +129,8 @@ export function Question() {
                   style={{ background: turnTeam.color }}
                 >
                   {isSteal
-                    ? t(locale, 'teamStealOther', { team: turnTeam.name })
-                    : t(locale, 'teamTurnOther', { team: turnTeam.name })}
+                    ? t(locale, 'teamStealOther', { team: teamLabel(locale, turnTeam.name) })
+                    : t(locale, 'teamTurnOther', { team: teamLabel(locale, turnTeam.name) })}
                 </motion.div>
               )}
 
@@ -177,7 +184,7 @@ export function Question() {
                 >
                   <Zap className="text-prize-gold" size={22} />
                   <span className="font-display text-screen-status font-semibold">
-                    {t(locale, 'teamTookPoint', { team: h.teamName })} · {t(locale, 'answeredFirst', { name: h.nickname })}
+                    {t(locale, 'teamTookPoint', { team: teamLabel(locale, h.teamName) })} · {t(locale, 'answeredFirst', { name: h.nickname })}
                   </span>
                   <span className="tnum font-display text-screen-status font-bold text-success">+{h.pointsAwarded}</span>
                 </motion.div>

@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Play, Users } from 'lucide-react';
-import { t } from '@tahaddi/i18n';
+import { t, playersLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { host } from '../socket.js';
 import { Avatar } from '../components/Avatar.js';
@@ -75,7 +75,7 @@ export function Lobby() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-display text-[clamp(1.25rem,2.4vw,2.25rem)] font-black" style={{ color: team.color }}>{team.name}</span>
                       <span className="tnum rounded-full bg-white/70 px-3 py-1 font-display text-[clamp(0.85rem,1.3vw,1.25rem)] font-bold text-desert-ink/70">
-                        {t(locale, 'playerCount', { count: members.length })}
+                        {playersLabel(locale, members.length)}
                       </span>
                     </div>
                     <div className="flex flex-col gap-2">

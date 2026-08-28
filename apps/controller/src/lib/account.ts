@@ -13,9 +13,9 @@ export interface Account {
   eliminationWins: number;
   teamWins: number;
   gamesPlayed: number;
-  /** Remaining game-credits (each PAID 35-question game consumes one). */
+  /** Remaining game-credits (each PAID game consumes one, whatever the format). */
   credits: number;
-  /** Convenience flag = credits > 0: can start a PAID (35-question) game now. */
+  /** Convenience flag = credits > 0: can start a PAID game now. */
   paidUnlocked: boolean;
   /** Player JWT for authenticated calls. */
   token: string;

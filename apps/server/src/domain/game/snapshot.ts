@@ -141,6 +141,7 @@ export function buildSnapshot(state: RoomState, selfId?: string): RoomSnapshot {
       round: state.roundIndex + 1,
       totalRounds: state.totalRounds,
       perPlayerCategory: state.settings.perPlayerCategory || undefined,
+      tier: state.settings.tier,
     },
     participants: visibleParticipants(state).map(toPublicParticipant),
     teams: Object.keys(state.teams).length ? publicTeams(state) : undefined,

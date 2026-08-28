@@ -183,6 +183,7 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
       {!error && needSetup && (
         <Setup
           initialType={setupType}
+          tier={launch?.tier}
           onConfirm={(sel) => void createAndHost(buildSettings({ ...sel }), !!sel.demo)}
         />
       )}
@@ -246,7 +247,10 @@ function pickScene(
 }
 
 function Connecting() {
-  // Loading screen between scenes — our gold wordmark on the sky plate, no text.
+  // Loading screen shown while the room is being created — the wordmark alone read
+  // as a blank/stuck screen for the few seconds before the room code appears, so
+  // it now says what it's doing (client 2026-08-28).
+  const { locale } = useStore();
   return (
     <div className="relative grid min-h-dvh place-items-center overflow-hidden lg:h-full">
       <HostBg variant="sky" />
@@ -259,7 +263,12 @@ function Connecting() {
           transition={{ type: 'spring', stiffness: 180, damping: 16 }}
           className="w-[clamp(15rem,30vw,28rem)] drop-shadow-[0_12px_40px_rgba(0,0,0,0.25)]"
         />
-        <Loader2 size={64} className="animate-spin text-white drop-shadow-lg" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={64} className="animate-spin text-white drop-shadow-lg" />
+          <p className="rounded-full bg-white/85 px-6 py-2 font-display text-screen-status font-black text-desert-ink shadow-card backdrop-blur">
+            {t(locale, 'preparingRoom')}
+          </p>
+        </div>
       </div>
     </div>
   );

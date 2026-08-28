@@ -17,7 +17,7 @@ const savingMinor = (p: Product, unitMinor: number) => (p.credits ?? 1) * unitMi
 
 /**
  * Storefront — buy a game-credit package (1 / 2 / 5 / 10 full-version games).
- * Buying adds credits to the account; each PAID (35-question) game the host
+ * Buying adds credits to the account; each PAID game the host
  * starts consumes one. On return from Tap (`?upgrade=success&order=<id>`) we poll
  * the order and, once PAID, refresh the account so the new balance shows.
  */
@@ -132,7 +132,7 @@ export function Upgrade() {
         <span className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
         <Sparkles className="mx-auto" size={40} />
         <h1 className="mt-3 font-display text-3xl font-black">باقات الألعاب</h1>
-        <p className="mx-auto mt-2 max-w-xs text-white/90">اشترِ رصيد ألعاب — كل لعبة كاملة (٣٥ سؤالاً مع اختيار الفئات) تستهلك رصيداً واحداً.</p>
+        <p className="mx-auto mt-2 max-w-xs text-white/90">اشترِ رصيد ألعاب — تُستخدم اللعبة الواحدة لبدء مباراة كاملة بالنظام الذي تختاره، وفق عدد الجولات الخاص بكل نظام، مع إمكانية اختيار الفئات.</p>
         {account && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/20 px-5 py-2 font-display text-lg font-black backdrop-blur">
             <Wallet size={18} /> رصيدك: {balance} {balance === 1 ? 'لعبة' : 'ألعاب'}

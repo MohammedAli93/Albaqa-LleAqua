@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Users, Coins, Swords, ChevronLeft } from 'lucide-react';
+import { User, Users, Coins, Swords, ChevronLeft, Monitor } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { GameType, GameMode } from '@tahaddi/shared';
+import { GameType, GameMode, type GameTier } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { HostBg } from '../components/HostBg.js';
@@ -12,6 +12,9 @@ export interface SetupSelection {
   mode: GameMode;
   /** TEAMS only: host-entered team names (≥2). */
   teamNames?: string[];
+  /** Free vs paid — carried through from the landing's tier step. Dropping it here
+   *  is what let FREE team games pick categories and pull the paid bank. */
+  tier?: GameTier;
   /** Fill the room with auto-playing bots and start (solo testing). */
   demo?: boolean;
 }
@@ -28,9 +31,12 @@ const RED_BTN = 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)';
 export function Setup({
   onConfirm,
   initialType = null,
+  tier,
 }: {
   onConfirm: (sel: SetupSelection) => void;
   initialType?: GameType | null;
+  /** Tier chosen on the landing, passed straight back out with the selection. */
+  tier?: GameTier;
 }) {
   const { locale } = useStore();
   const [step, setStep] = useState<1 | 2>(initialType ? 2 : 1);
@@ -60,7 +66,7 @@ export function Setup({
 
   function createTeams() {
     const names = [teamA.trim() || 'الفريق الأول', teamB.trim() || 'الفريق الثاني'];
-    onConfirm({ type: GameType.TEAMS, mode: GameMode.POINTS, teamNames: names, demo: bots });
+    onConfirm({ type: GameType.TEAMS, mode: GameMode.POINTS, teamNames: names, tier, demo: bots });
   }
 
   return (
@@ -151,7 +157,7 @@ export function Setup({
                     return (
                       <button
                         key={m.key}
-                        onClick={() => onConfirm({ type: GameType.INDIVIDUAL, mode: m.key, demo: bots })}
+                        onClick={() => onConfirm({ type: GameType.INDIVIDUAL, mode: m.key, tier, demo: bots })}
                         className="flex flex-col items-center gap-3 rounded-[1.5rem] bg-white/70 p-6 text-center shadow-sm backdrop-blur-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-lg lg:gap-4 lg:p-8"
                       >
                         <span className="grid h-16 w-16 place-items-center rounded-3xl bg-white shadow-md lg:h-20 lg:w-20">
@@ -166,6 +172,15 @@ export function Setup({
               )}
             </div>
           )}
+        </div>
+
+        {/* What the room needs before a game is created: one shared screen for the
+            questions + a phone per player (client 2026-08-28). */}
+        <div className="mt-7 rounded-[1.4rem] bg-white/70 p-4 text-center shadow-[inset_0_2px_5px_rgba(170,120,20,0.14)] lg:p-5">
+          <p className="flex items-center justify-center gap-2 font-display text-base font-black text-desert-ink lg:text-lg">
+            <Monitor size={20} className="shrink-0 text-[#E8473A]" /> {t(locale, 'devicesNeeded')}
+          </p>
+          <p className="mt-1.5 font-display text-sm font-bold text-desert-ink/60 lg:text-base">{t(locale, 'devicesHint')}</p>
         </div>
       </motion.div>
     </div>

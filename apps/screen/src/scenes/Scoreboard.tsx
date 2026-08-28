@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skull } from 'lucide-react';
 import { GameMode } from '@tahaddi/shared';
-import { t } from '@tahaddi/i18n';
+import { t, teamLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
@@ -72,7 +72,7 @@ function TeamBoard() {
           className="relative z-10 mx-auto mb-4 rounded-full px-7 py-2 font-display text-screen-status font-black text-white shadow-glow"
           style={{ background: pendingStealTeam.color }}
         >
-          {t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+          {t(locale, 'teamStealIncoming', { team: teamLabel(locale, pendingStealTeam.name) })}
         </motion.div>
       )}
       <div className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 auto-cols-fr grid-flow-row gap-4 lg:grid-flow-col lg:gap-6">
