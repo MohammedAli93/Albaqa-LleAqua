@@ -2,11 +2,12 @@ import { motion } from 'framer-motion';
 import { Heart } from 'lucide-react';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { leaveRoom } from '../socket.js';
 import { GameShell, Pill } from '../components/desert.js';
 
 /** Loss / elimination screen (reference screen 22). */
 export function Eliminated() {
-  const { myRank, locale } = useStore();
+  const { myRank, locale, set, resetGame } = useStore();
   return (
     <GameShell className="items-center justify-center px-6 text-center">
       <div className="flex flex-1 flex-col items-center justify-center gap-7">
@@ -32,6 +33,21 @@ export function Eliminated() {
         {myRank > 0 && (
           <Pill color="green" className="px-8 py-2.5 text-lg">{t(locale, 'yourRank', { rank: myRank })}</Pill>
         )}
+      </div>
+
+      {/* Watch the rest on the big screen, or step out — either way, don't leave
+          the phone with no way forward (client 2026-08-30). */}
+      <div className="w-full max-w-md pb-6">
+        <button
+          onClick={() => {
+            leaveRoom();
+            resetGame();
+            set({ appView: 'home' });
+          }}
+          className="w-full rounded-2xl bg-white/85 py-3.5 font-display text-base font-black text-desert-ink"
+        >
+          {t(locale, 'backHome')}
+        </button>
       </div>
     </GameShell>
   );

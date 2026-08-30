@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { AVATARS, GAME_LIMITS } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
-import { connect, joinGame, getSocket } from '../socket.js';
+import { loadSession } from '../lib/config.js';
+import { connect, joinGame, getSocket, waitForSelf } from '../socket.js';
 import { Avatar } from '../components/Avatar.js';
 import { haptic } from '../hooks/useDevice.js';
 import {
@@ -14,7 +15,7 @@ import {
  * avatar grid inside the orange card. Presentation rebuilt; join logic unchanged.
  */
 export function Join() {
-  const { roomCode, locale, set, conn } = useStore();
+  const { roomCode, locale, set } = useStore();
   const [code, setCode] = useState(roomCode);
   const [nickname, setNickname] = useState('');
   const [avatarId, setAvatarId] = useState(AVATARS[0]!.id);
@@ -32,13 +33,36 @@ export function Join() {
     try {
       const upper = code.trim().toUpperCase();
       set({ roomCode: upper });
-      if (!getSocket() || conn !== 'connected') {
+
+      // This device already holds a seat in this room (it joined, then navigated
+      // away or dropped). Come back AS that player instead of joining fresh —
+      // otherwise the server refuses the nickname it is itself still holding
+      // («الاسم مستخدم») and the room gains a ghost (client 2026-08-30).
+      const saved = loadSession(upper);
+      if (saved) {
+        connect(upper, saved.sessionToken);
+        await waitForConnect();
+        // `participantId` only lands once the server's snapshot confirms the seat,
+        // so this really does test whether the old seat is still ours.
+        if (await waitForSelf()) {
+          set({ nickname: saved.nickname, avatarId: saved.avatarId, phase: 'lobby' });
+          return;
+        }
+        // The seat is gone (room recycled, or we were removed) — fall through and
+        // join fresh under the name they typed.
+        set({ participantId: null });
+      }
+
+      // Live state, not the value captured when this component last rendered —
+      // the session attempt above may have just changed it.
+      if (!getSocket() || useStore.getState().conn !== 'connected') {
         connect(upper);
         await waitForConnect();
       }
       await joinGame(nickname.trim(), avatarId);
     } catch (e) {
       setErr(mapError(e instanceof Error ? e.message : 'ERROR', locale));
+    } finally {
       setBusy(false);
     }
   }
@@ -120,6 +144,7 @@ function waitForConnect(timeoutMs = 6000): Promise<void> {
 }
 
 function mapError(code: string, locale: 'ar' | 'en'): string {
+  if (code === 'TIMEOUT' || code === 'NETWORK_ERROR') return t(locale, 'loadFailed');
   if (code === 'NICKNAME_TAKEN') return t(locale, 'nicknameTaken');
   if (code === 'ROOM_FULL') return t(locale, 'roomFull');
   if (code === 'UNKNOWN_ROOM' || code === 'CONNECT_ERROR') return t(locale, 'roomNotFound');

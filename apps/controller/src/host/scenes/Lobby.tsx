@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { Check, Crown, Monitor, Play, Users } from 'lucide-react';
+import { Check, Crown, Monitor, Play, Users, WifiOff } from 'lucide-react';
+import type { PublicParticipant } from '@tahaddi/shared';
 import { t, playersLabel } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { host } from '../socket.js';
@@ -14,6 +16,8 @@ const RED_BTN = 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)';
  *  side, the teams (or players) filling in on the other, on the painted dunes. */
 export function Lobby() {
   const { roomCode, joinUrl, participants, teams, locale, perPlayerCategory, isFreeTrial } = useStore();
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const isTeams = teams.length > 0;
   // In per-player-category mode a player only appears once they've actually picked
   // their category — so the room never shows "ghosts" who joined but haven't chosen.
@@ -22,11 +26,36 @@ export function Lobby() {
   // yet is listed separately under «لم يحدد فريقه» instead of vanishing.
   const roster = perPlayerCategory && !isTeams ? participants.filter((p) => p.categoryId) : participants;
   const unassigned = isTeams ? roster.filter((p) => !teams.some((tm) => tm.memberIds.includes(p.id))) : [];
+  /** A phone that dropped: still listed (it may come back) but never counted. */
+  const isOffline = (p: PublicParticipant) => p.status === 'DISCONNECTED';
   /** Nothing left for this player to choose before the game can start. */
   const isReady = (p: { categoryId?: string | null }) => !perPlayerCategory || !!p.categoryId;
-  // A game needs at least two players; say why the button is dead rather than
-  // leaving the host staring at a greyed-out «ابدأ اللعب».
-  const canStart = roster.length >= 2;
+
+  // ── Can the host press the start button? ──
+  // Client 2026-08-30: it used to go live the instant two phones joined, so games
+  // started with players still on the team picker / the category picker, and a
+  // phone that had dropped still counted towards the two. The server enforces the
+  // same rules (fsm.assertStartable) — this keeps the button honest and names the
+  // step the room is still waiting on.
+  //
+  // NB this deliberately measures `participants`, not `roster`: in a per-player
+  // category game the roster hides anyone who hasn't chosen yet, so gating on it
+  // would let the host start a game the server then refuses.
+  const live = participants.filter((p) => !isOffline(p));
+  const missingTeam = isTeams ? live.filter((p) => !teams.some((tm) => tm.memberIds.includes(p.id))) : [];
+  const emptyTeams = isTeams ? teams.filter((tm) => !live.some((p) => tm.memberIds.includes(p.id))) : [];
+  const missingCategory = live.filter((p) => !isReady(p));
+  const blockedReason =
+    live.length < 2
+      ? t(locale, 'waitingSecondPlayer')
+      : missingTeam.length > 0
+        ? t(locale, 'waitingTeamPick', { count: missingTeam.length })
+        : emptyTeams.length > 0
+          ? t(locale, 'waitingEmptyTeam')
+          : missingCategory.length > 0
+            ? t(locale, 'waitingCategoryPick', { count: missingCategory.length })
+            : null;
+  const canStart = !blockedReason && !starting;
 
   return (
     <div className="safe relative flex min-h-dvh flex-col overflow-x-hidden overflow-y-auto p-5 text-desert-ink lg:h-full lg:p-8" dir="rtl">
@@ -37,7 +66,7 @@ export function Lobby() {
         <img src="/art/logo-wordmark.png" alt="البقاء للأقوى" className="h-auto w-[10rem] drop-shadow-sm lg:w-[13rem]" />
         <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 shadow-sm backdrop-blur lg:px-5 lg:py-2.5">
           <Users className="text-[#E8473A]" size={22} />
-          <span className="tnum font-display text-[clamp(1.25rem,2vw,2rem)] font-black">{roster.length}</span>
+          <span className="tnum font-display text-[clamp(1.25rem,2vw,2rem)] font-black">{live.length}</span>
         </div>
       </header>
 
@@ -94,9 +123,12 @@ export function Lobby() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-2">
+                      {/* The count pill above already reads "no players yet" — this
+                          row says what the team is waiting for instead of printing
+                          the very same sentence twice (client 2026-08-30). */}
                       {members.length === 0 && (
                         <div className="rounded-xl2 bg-white/55 px-4 py-3 text-center font-display text-screen-status font-bold text-desert-ink/45">
-                          {playersLabel(locale, 0)}
+                          {t(locale, 'waitingForPlayers')}
                         </div>
                       )}
                       <AnimatePresence>
@@ -114,7 +146,7 @@ export function Lobby() {
                               title={t(locale, 'makeLeader')}
                               className={`flex items-center gap-3 rounded-xl2 bg-white/80 px-3.5 py-2.5 text-start shadow-sm transition ${
                                 isLeader ? 'ring-2 ring-[#E8473A]' : ''
-                              }`}
+                              } ${isOffline(p) ? 'opacity-50' : ''}`}
                             >
                               <Avatar avatarId={p.avatarId} size={40} shape="square" />
                               <span className="min-w-0 flex-1 truncate font-display text-[clamp(1rem,1.6vw,1.6rem)] font-bold text-desert-ink">
@@ -123,10 +155,16 @@ export function Lobby() {
                               {/* «جاهز» next to the name, so the host can see at a
                                   glance who is in. In the free game picking a team is
                                   all there is; the paid game also waits on a category. */}
-                              {isReady(p) && (
-                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#2FA36B] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
-                                  <Check size={14} /> {t(locale, 'playerReady')}
+                              {isOffline(p) ? (
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#9AA0A6] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
+                                  <WifiOff size={14} /> {t(locale, 'playerOffline')}
                                 </span>
+                              ) : (
+                                isReady(p) && (
+                                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#2FA36B] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
+                                    <Check size={14} /> {t(locale, 'playerReady')}
+                                  </span>
+                                )
                               )}
                               {isLeader && (
                                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#E8473A] px-2.5 py-1 font-display text-[clamp(0.65rem,0.9vw,0.9rem)] font-black text-white">
@@ -171,6 +209,23 @@ export function Lobby() {
             </div>
           ) : (
             <div className="grid grid-cols-3 content-start gap-3 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 lg:gap-4">
+              {/* Joined but still on the category picker — listed so the host can
+                  see exactly who the start button is waiting for. */}
+              {missingCategory.length > 0 && (
+                <div className="col-span-full flex flex-wrap items-center gap-2 rounded-[1.25rem] bg-white/60 p-3 ring-1 ring-white/50 backdrop-blur-sm">
+                  <span className="font-display text-[clamp(0.85rem,1.3vw,1.15rem)] font-black text-desert-ink/70">
+                    {t(locale, 'stillChoosing')}
+                  </span>
+                  {missingCategory.map((p) => (
+                    <span key={p.id} className="flex items-center gap-2 rounded-full bg-white/85 px-3 py-1.5 shadow-sm">
+                      <Avatar avatarId={p.avatarId} size={26} shape="square" />
+                      <span className="max-w-[9rem] truncate font-display text-[clamp(0.8rem,1.2vw,1.1rem)] font-bold text-desert-ink">
+                        {p.nickname}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
               <AnimatePresence>
                 {roster.map((p) => (
                   <motion.div
@@ -180,10 +235,17 @@ export function Lobby() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.5 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                    className="flex flex-col items-center gap-2 rounded-xl2 bg-white/80 p-3 shadow-sm backdrop-blur lg:p-4"
+                    className={`flex flex-col items-center gap-2 rounded-xl2 bg-white/80 p-3 shadow-sm backdrop-blur lg:p-4 ${
+                      isOffline(p) ? 'opacity-50' : ''
+                    }`}
                   >
                     <Avatar avatarId={p.avatarId} size={56} shape="square" />
                     <span className="max-w-full truncate font-display text-[clamp(0.95rem,1.5vw,1.4rem)] font-bold text-desert-ink">{p.nickname}</span>
+                    {isOffline(p) && (
+                      <span className="flex items-center gap-1 rounded-full bg-[#9AA0A6] px-2 py-0.5 font-display text-[clamp(0.6rem,0.85vw,0.8rem)] font-black text-white">
+                        <WifiOff size={12} /> {t(locale, 'playerOffline')}
+                      </span>
+                    )}
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -196,7 +258,18 @@ export function Lobby() {
       <footer className="sticky bottom-0 z-20 mt-4 flex flex-col items-center gap-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-5">
         <motion.button
           whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.03 }}
-          onClick={() => host.start().catch(() => {})}
+          onClick={() => {
+            if (!canStart) return;
+            setStarting(true);
+            setStartError(null);
+            host
+              .start()
+              // The server runs the same readiness checks; if it refuses, the host
+              // has to be told why — this used to be swallowed and the press just
+              // did nothing (client 2026-08-30).
+              .catch((e: Error) => setStartError(e?.message || t(locale, 'error')))
+              .finally(() => setStarting(false));
+          }}
           disabled={!canStart}
           className="flex items-center gap-3 rounded-full px-12 py-4 font-display text-screen-status font-black text-white shadow-[0_18px_40px_-16px_rgba(214,58,34,0.9)] transition disabled:opacity-40 lg:px-16 lg:py-5"
           style={{ backgroundImage: RED_BTN }}
@@ -204,10 +277,18 @@ export function Lobby() {
           <Play fill="currentColor" /> {t(locale, 'startGame')}
         </motion.button>
 
-        {/* Why «ابدأ اللعب» is dead — a lone player can't start a game. */}
-        {!canStart && (
+        {/* The server refused the start — say what it said. */}
+        {startError && (
+          <p className="max-w-[40rem] rounded-2xl bg-[#E8473A] px-4 py-2 text-center font-display text-[clamp(0.8rem,1.1vw,1.05rem)] font-black text-white shadow-sm">
+            {startError}
+          </p>
+        )}
+
+        {/* Why the start button is dead — the exact step the room is still waiting
+            on, not just "we need a second player". */}
+        {blockedReason && (
           <p className="rounded-full bg-white/85 px-4 py-1.5 text-center font-display text-[clamp(0.8rem,1.1vw,1.05rem)] font-black text-[#E8473A] shadow-sm backdrop-blur">
-            {t(locale, 'waitingSecondPlayer')}
+            {blockedReason}
           </p>
         )}
 

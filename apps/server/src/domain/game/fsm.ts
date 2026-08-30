@@ -3,7 +3,7 @@
  * which state (doc 06 §2.1). The engine calls these before mutating; illegal
  * intents are rejected with INVALID_STATE rather than corrupting the game.
  */
-import { AppError, ErrorCode, GameStatus, RoundPhase } from '@tahaddi/shared';
+import { AppError, ErrorCode, GameMode, GameStatus, GameType, RoundPhase } from '@tahaddi/shared';
 import type { RoomState } from '../rooms/types.js';
 
 /** Legal Game status transitions. */
@@ -32,14 +32,36 @@ export function assertJoinable(state: RoomState): void {
   }
 }
 
-/** The host may start only from LOBBY with enough players. */
+/**
+ * The host may start only from LOBBY, with enough players, and once every phone in
+ * the room has finished its lobby step (client 2026-08-30: «ابدأ اللعب» used to go
+ * live the moment two players joined, so team games started with players still on
+ * «اختر فريقك» and paid games with nobody's category picked).
+ *
+ * Only ACTIVE players are counted — a phone that dropped is neither blocking the
+ * start nor making up the minimum.
+ */
 export function assertStartable(state: RoomState): void {
   if (state.status !== GameStatus.LOBBY) {
     throw new AppError(ErrorCode.INVALID_STATE, 'Game already started');
   }
-  const count = Object.values(state.participants).filter((p) => p.status === 'ACTIVE').length;
-  if (count < state.settings.minPlayers) {
+  const players = Object.values(state.participants).filter((p) => p.status === 'ACTIVE');
+  if (players.length < state.settings.minPlayers) {
     throw new AppError(ErrorCode.INVALID_STATE, `Need at least ${state.settings.minPlayers} players`);
+  }
+  if (state.mode === GameMode.SEEN_JEEM) return; // its own board setup, no lobby picks
+
+  if (state.type === GameType.TEAMS) {
+    if (players.some((p) => !p.teamId)) {
+      throw new AppError(ErrorCode.INVALID_STATE, 'كل لاعب لازم يختار فريقه قبل بدء اللعب');
+    }
+    const teams = Object.values(state.teams);
+    if (teams.length < 2 || teams.some((t) => !players.some((p) => p.teamId === t.id))) {
+      throw new AppError(ErrorCode.INVALID_STATE, 'كل فريق يحتاج لاعباً واحداً على الأقل');
+    }
+  }
+  if (state.settings.perPlayerCategory && players.some((p) => !p.categoryId)) {
+    throw new AppError(ErrorCode.INVALID_STATE, 'كل لاعب لازم يختار فئته قبل بدء اللعب');
   }
 }
 

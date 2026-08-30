@@ -37,6 +37,7 @@ import {
   topContenders,
   decideTiebreak,
   compareSurvival,
+  isEliminationSuddenDeath,
 } from './scoring.js';
 import {
   buildSnapshot,
@@ -48,7 +49,7 @@ import { teamLeaderId, ensureTeamLeaders } from './teams.js';
 import * as fsm from './fsm.js';
 import { profileStatUpdates } from './profileStats.js';
 import { buildPerPlayerOrder, pickCategoryQuestion, pickAnyUnusedQuestion } from '../rooms/roomService.js';
-import { consumeCredit } from '../payments/paymentService.js';
+import { consumeCredit, refundCredit } from '../payments/paymentService.js';
 import {
   scheduleRoundEnd,
   clearRoundTimer,
@@ -77,6 +78,31 @@ export interface JoinResult {
   participantId: string;
   sessionToken: string;
   state: RoomState;
+}
+
+/** Prisma's "unique constraint failed" (P2002), whatever wrapper it arrives in. */
+function isUniqueViolation(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as { code?: string }).code === 'P2002';
+}
+
+/**
+ * Free a nickname still held by a player who LEFT the room. `Participant` is
+ * unique per (gameId, nickname), so without this a player who dropped out and came
+ * back under the same name hit a P2002 and the phone hung on «جاري الدخول».
+ * The abandoned row is renamed to a tombstone (kept for the game's answer history)
+ * and dropped from the live room.
+ */
+async function releaseNickname(state: RoomState, nickname: string): Promise<void> {
+  const lower = nickname.toLowerCase();
+  const stale = Object.values(state.participants).filter(
+    (p) => p.status === ParticipantStatus.LEFT && p.nickname.toLowerCase() === lower,
+  );
+  for (const p of stale) {
+    await prisma.participant
+      .update({ where: { id: p.id }, data: { nickname: `${p.nickname} (خرج ${p.id.slice(0, 6)})` } })
+      .catch(() => {});
+    delete state.participants[p.id];
+  }
 }
 
 export async function join(
@@ -116,21 +142,39 @@ export async function join(
     if (visible.some((p) => p.nickname.toLowerCase() === nickname.toLowerCase())) {
       throw new AppError(ErrorCode.NICKNAME_TAKEN, 'Nickname already taken');
     }
+    // Somebody who LEFT still owns this nickname in the DB (Participant is unique
+    // per game+nickname). They're gone from the room, so hand the name back: retire
+    // the abandoned row under a tombstone name rather than letting the insert blow
+    // up with P2002 and freeze the joining phone (client 2026-08-30).
+    await releaseNickname(state, nickname);
 
-    const joinOrder = Object.keys(state.participants).length;
-    const dbParticipant = await prisma.participant.create({
-      data: {
-        gameId,
-        nickname,
-        avatarId: input.avatarId,
-        status: ParticipantStatus.ACTIVE,
-        score: 0,
-        lives: state.settings.livesPerPlayer,
-        joinOrder,
-        sessionToken: sessionTokenHash,
-        ...(playerId ? { playerId } : {}),
-      },
-    });
+    // Monotonic, never reused: `releaseNickname` can delete a row above, so the
+    // plain participant count would hand out an order another player already has —
+    // and joinOrder is the final tiebreaker for ranking and team-leader order.
+    const joinOrder =
+      Object.values(state.participants).reduce((max, p) => Math.max(max, p.joinOrder), -1) + 1;
+    const dbParticipant = await prisma.participant
+      .create({
+        data: {
+          gameId,
+          nickname,
+          avatarId: input.avatarId,
+          status: ParticipantStatus.ACTIVE,
+          score: 0,
+          lives: state.settings.livesPerPlayer,
+          joinOrder,
+          sessionToken: sessionTokenHash,
+          ...(playerId ? { playerId } : {}),
+        },
+      })
+      .catch((err: unknown) => {
+        // Last line of defence: a unique-constraint clash must surface as a clean
+        // "name taken" the join screen can show, never as an unhandled crash.
+        if (isUniqueViolation(err)) {
+          throw new AppError(ErrorCode.NICKNAME_TAKEN, 'Nickname already taken');
+        }
+        throw err;
+      });
 
     const participant: LiveParticipant = {
       id: dbParticipant.id,
@@ -537,6 +581,38 @@ function turnTeamPayload(
   return team ? { turnTeam: { teamId: team.id, name: team.name, color: team.color } } : {};
 }
 
+/**
+ * The round loop failed on a background timer. Nobody is left to retry it, so the
+ * game would sit frozen mid-round with the host's game-credit already spent.
+ *
+ * A single failure is usually transient (a DB blip on the Round insert, a slow
+ * question load), and killing a live match for one hiccup is worse than the freeze
+ * it prevents — so we retry the loop ONCE after a short pause. Only if that retry
+ * also fails is the game genuinely unrunnable: then it is aborted, which refunds
+ * the credit (client 2026-08-30).
+ */
+const ROUND_RETRY_MS = 2000;
+function onRoundFailure(gameId: string, err: unknown, where: string): void {
+  logger.error({ err, gameId }, where);
+  setTimeout(() => {
+    void (async () => {
+      const cur = await getRoom(gameId);
+      // Already gone, already over, or paused (the host will resume) — nothing to do.
+      if (!cur || cur.status !== GameStatus.ACTIVE) return;
+      try {
+        if (cur.pendingSteal) await startStealRound(gameId, cur.pendingSteal);
+        else await startNextRound(gameId);
+        logger.warn({ gameId, where }, 'round loop recovered on retry');
+      } catch (retryErr) {
+        logger.error({ err: retryErr, gameId, where }, 'round loop retry failed — aborting');
+        await abortGame(gameId, where).catch((e) =>
+          logger.error({ err: e, gameId }, 'abort after round failure failed'),
+        );
+      }
+    })().catch((e) => logger.error({ err: e, gameId }, 'round failure handler crashed'));
+  }, ROUND_RETRY_MS);
+}
+
 // ──────────────────────────────── Round loop ────────────────────────────────
 
 export async function startNextRound(gameId: string): Promise<void> {
@@ -627,6 +703,9 @@ export async function startNextRound(gameId: string): Promise<void> {
     question: loaded.publicQuestion,
     startsAt: startedAt,
     endsAt,
+    // An elimination duel this far past its scripted length is settled on speed —
+    // flag it so both screens show the decisive-question badge.
+    ...(isEliminationSuddenDeath(state, nextIndex) ? { tiebreak: true } : {}),
     ...(owner ? { turnPlayer: { nickname: owner.nickname, avatarId: owner.avatarId } } : {}),
     ...turnTeamPayload(state, state.currentRound.answeringTeamId),
   });
@@ -635,7 +714,9 @@ export async function startNextRound(gameId: string): Promise<void> {
   scheduleTicks(gameId, endsAt, (remainingMs) =>
     emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId, remainingMs }),
   );
-  scheduleRoundEnd(gameId, endsAt, () => void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'resolve on timer failed')));
+  scheduleRoundEnd(gameId, endsAt, () =>
+    void resolveRound(gameId).catch((err) => onRoundFailure(gameId, err, 'resolve on timer failed')),
+  );
 }
 
 /**
@@ -684,7 +765,7 @@ async function startStealRound(gameId: string, stealTeamId: string): Promise<voi
     emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId: prev.roundId, remainingMs }),
   );
   scheduleRoundEnd(gameId, endsAt, () =>
-    void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'resolve steal on timer failed')),
+    void resolveRound(gameId).catch((err) => onRoundFailure(gameId, err, 'resolve steal on timer failed')),
   );
 }
 
@@ -805,7 +886,7 @@ export async function resolveRound(gameId: string): Promise<void> {
     const { outcomes, heroes } = scored;
     const deltas: Record<string, number> = {};
     for (const o of outcomes) deltas[o.participantId] = o.pointsAwarded;
-    const { eliminatedIds } = applyResolution(state, round, scored);
+    const { eliminatedIds, stalemate } = applyResolution(state, round, scored);
 
     // TEAMS mode: surface who earned each team's point this round.
     const richHeroes: RoundHero[] = heroes.map((h) => {
@@ -955,7 +1036,7 @@ export async function resolveRound(gameId: string): Promise<void> {
             void (async () => {
               const cur = await getRoom(gameId);
               if (cur?.status === GameStatus.ACTIVE) await startStealRound(gameId, stealTeamId);
-            })().catch((err) => logger.error({ err, gameId }, 'steal advance failed')),
+            })().catch((err) => onRoundFailure(gameId, err, 'steal advance failed')),
           nextInMsFor(state),
         );
       }
@@ -1009,6 +1090,10 @@ export async function resolveRound(gameId: string): Promise<void> {
       nextInMs: state.settings.autoAdvance ? nextInMs : undefined,
       nextRound: nextIdx < state.questionOrder.length ? nextIdx + 1 : undefined,
       nextCategory,
+      // ELIMINATION: everyone left was on their last life and everyone missed, so
+      // the question is replayed with no life taken. Said out loud, otherwise the
+      // unchanged hearts read as a scoring bug.
+      ...(stalemate === 'replay' ? { stalemate: true } : {}),
     });
 
     await release();
@@ -1021,7 +1106,7 @@ export async function resolveRound(gameId: string): Promise<void> {
             // (e.g. host dropped). resumeGame() continues from here on reconnect.
             const cur = await getRoom(gameId);
             if (cur?.status === GameStatus.ACTIVE) await startNextRound(gameId);
-          })().catch((err) => logger.error({ err, gameId }, 'auto-advance failed')),
+          })().catch((err) => onRoundFailure(gameId, err, 'auto-advance failed')),
         nextInMs,
       );
     }
@@ -1075,7 +1160,7 @@ async function scheduleTiebreak(gameId: string): Promise<void> {
       void (async () => {
         const cur = await getRoom(gameId);
         if (cur?.status === GameStatus.ACTIVE) await startTiebreakRound(gameId);
-      })().catch((err) => logger.error({ err, gameId }, 'tiebreak advance failed')),
+      })().catch((err) => onRoundFailure(gameId, err, 'tiebreak advance failed')),
     nextInMs,
   );
 }
@@ -1231,7 +1316,7 @@ async function startTiebreakRound(gameId: string): Promise<void> {
     emitter.toRoom(gameId, ServerEvent.TIMER_TICK, { roundId, remainingMs }),
   );
   scheduleRoundEnd(gameId, endsAt, () =>
-    void resolveRound(gameId).catch((err) => logger.error({ err, gameId }, 'tiebreak resolve failed')),
+    void resolveRound(gameId).catch((err) => onRoundFailure(gameId, err, 'tiebreak resolve failed')),
   );
 }
 
@@ -1457,14 +1542,60 @@ export async function endGame(gameId: string): Promise<void> {
   await completeGame(gameId, false);
 }
 
+/**
+ * Hand the host their game-credit back when a PAID game was charged for but can
+ * never be finished — the room was abandoned mid-match, or the engine had to
+ * abort it (client 2026-08-30: «إعادة رصيد اللعبة تلقائيًا إذا تعذر إكمالها بسبب
+ * خطأ تقني»). A COMPLETED game was played and is never refunded.
+ *
+ * Idempotent: the refund is claimed by clearing `creditChargedAt` in a
+ * conditional update, so two abandon paths racing can only ever return one credit
+ * — and a later start of the same room would legitimately charge again.
+ */
+async function refundCreditIfUnfinished(gameId: string): Promise<boolean> {
+  const row = await prisma.game
+    .findUnique({ where: { id: gameId }, select: { status: true, creditChargedAt: true, hostPlayerId: true } })
+    .catch(() => null);
+  if (!row?.creditChargedAt || !row.hostPlayerId) return false;
+  if (row.status === GameStatus.COMPLETED) return false;
+
+  const claimed = await prisma.game.updateMany({
+    where: { id: gameId, creditChargedAt: { not: null } },
+    data: { creditChargedAt: null },
+  });
+  if (claimed.count === 0) return false; // another path already refunded it
+
+  await refundCredit(row.hostPlayerId);
+  logger.warn({ gameId, hostPlayerId: row.hostPlayerId }, 'refunded game credit for an unfinished game');
+  return true;
+}
+
 export async function abandonRoom(gameId: string): Promise<void> {
   clearRoundTimer(gameId);
   clearTicks(gameId);
   const state = await getRoom(gameId);
   if (state) {
+    // A paid game that never reached its end shouldn't cost the host anything.
+    await refundCreditIfUnfinished(gameId).catch((err) =>
+      logger.error({ err, gameId }, 'credit refund on abandon failed'),
+    );
     await prisma.game.update({ where: { id: gameId }, data: { status: GameStatus.ABANDONED, endedAt: new Date() } }).catch(() => {});
     await deleteRoom(state);
   }
+}
+
+/**
+ * Abort a live game the engine can no longer run (a technical fault). Ends it for
+ * everyone, refunds the host's credit and tears the room down — nothing is left
+ * hanging for a host who already paid.
+ */
+export async function abortGame(gameId: string, reason: string): Promise<void> {
+  logger.error({ gameId, reason }, 'aborting game');
+  const state = await getRoom(gameId);
+  if (state) {
+    emitter.toRoom(gameId, ServerEvent.GAME_PAUSED, { reason: 'error' });
+  }
+  await abandonRoom(gameId);
 }
 
 export function snapshotFor(state: RoomState, selfId?: string) {

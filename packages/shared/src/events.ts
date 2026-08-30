@@ -476,6 +476,12 @@ export interface RoundCompletedPayload {
   steal?: boolean;
   /** TEAMS games: who gets the steal attempt (only set with `steal`). */
   stealTeam?: { teamId: string; name: string; color: string };
+  /**
+   * ELIMINATION: every remaining player was on their last life and every one of
+   * them missed. Nobody lost a life and the duel simply carries on — flagged so
+   * the recap can say so, since unchanged hearts otherwise look like a bug.
+   */
+  stalemate?: boolean;
 }
 
 export interface GameCompletedPayload {

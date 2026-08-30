@@ -24,7 +24,8 @@
     "db:migrate": "pnpm --filter @tahaddi/server db:migrate",
     "db:seed": "pnpm --filter @tahaddi/server db:seed",
     "db:studio": "pnpm --filter @tahaddi/server db:studio",
-    "db:reset": "pnpm --filter @tahaddi/server db:reset"
+    "db:reset": "pnpm --filter @tahaddi/server db:reset",
+    "bank:check": "pnpm --filter @tahaddi/server bank:validate && pnpm --filter @tahaddi/server bank:audit"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

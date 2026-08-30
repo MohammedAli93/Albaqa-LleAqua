@@ -5,19 +5,23 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "bank:audit": "tsx prisma/auditContent.ts",
+    "bank:audit:fix": "tsx prisma/auditContent.ts --fix",
+    "bank:fit": "tsx prisma/auditFit.ts",
+    "bank:validate": "tsx prisma/validateBank.ts",
     "build": "prisma generate && tsup",
-    "start": "node dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint \"src/**/*.ts\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force"
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint \"src/**/*.ts\"",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

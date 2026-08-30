@@ -86,6 +86,9 @@ export interface ControllerState {
   isFreeTrial: boolean;
   /** Current question is a sudden-death tie-breaker (shown after an equal-score end). */
   isTiebreak: boolean;
+  /** ELIMINATION: everyone left was on their last life and everyone missed — the
+   *  question is replayed and nobody lost a life. */
+  isStalemate: boolean;
   /** TEAMS games: the team whose turn it is — only they may answer this question.
    *  Null in individual games (everybody answers every question). */
   turnTeam: { teamId: string; name: string; color: string } | null;
@@ -118,19 +121,27 @@ export interface ControllerState {
   sjResolved: SjCellResolvedPayload | null;
 
   set: (p: Partial<ControllerState>) => void;
+  /**
+   * Clear everything that belongs to ONE game (room, roster, teams, round, result)
+   * while keeping the app shell (account, locale, which view we're on). The store
+   * is a module singleton, so without this the next game opened in the same tab
+   * inherited the last one's teams and round — «فردي ← تصفيات» came up as a team
+   * room with the previous match's team names (client 2026-08-30).
+   */
+  resetGame: () => void;
   applyServerEvent: (event: string, payload: unknown) => void;
 }
 
-export const useStore = create<ControllerState>((set, get) => ({
-  conn: 'idle',
-  locale: 'ar',
+/** The per-game slice of the store — exactly what `resetGame()` puts back. */
+const BLANK_GAME = {
+  conn: 'idle' as Conn,
   errorCode: null,
   roomCode: '',
   participantId: null,
   nickname: '',
   avatarId: '',
-  phase: 'join',
-  status: 'LOBBY',
+  phase: 'join' as Phase,
+  status: 'LOBBY' as ControllerState['status'],
   gameType: GameType.INDIVIDUAL,
   gameMode: GameMode.POINTS,
   teams: [],
@@ -153,6 +164,7 @@ export const useStore = create<ControllerState>((set, get) => ({
   totalRounds: 0,
   isFreeTrial: false,
   isTiebreak: false,
+  isStalemate: false,
   turnTeam: null,
   isSteal: false,
   pendingStealTeam: null,
@@ -161,17 +173,23 @@ export const useStore = create<ControllerState>((set, get) => ({
   nextCategory: null,
   winner: null,
   paused: false,
-  appView: 'login',
-  account: loadAccount(),
-  hostLaunch: null,
-  legalDoc: 'pricing',
   seenJeem: null,
   myTeamId: null,
   perPlayerCategory: false,
   myCategoryId: null,
   sjResolved: null,
+};
+
+export const useStore = create<ControllerState>((set, get) => ({
+  ...BLANK_GAME,
+  locale: 'ar',
+  appView: 'login',
+  account: loadAccount(),
+  hostLaunch: null,
+  legalDoc: 'pricing',
 
   set: (p) => set(p),
+  resetGame: () => set({ ...BLANK_GAME }),
 
   applyServerEvent: (event, payload) =>
     set(() => {
@@ -180,10 +198,18 @@ export const useStore = create<ControllerState>((set, get) => ({
         case ServerEvent.ROOM_STATE: {
           const snap = payload as RoomSnapshot;
           const self = snap.self;
-          const me = snap.participants.find((p) => p.id === s.participantId);
+          // A reconnect handshake (session token in the socket auth) comes back with
+          // `self` — that IS our seat, so adopt it. Without this a phone returning to
+          // a room it already joined never learns its own participant id and has to
+          // join again as a new player, leaving the old one behind as a ghost
+          // (client 2026-08-30).
+          const participantId = s.participantId ?? self?.participantId ?? null;
+          const me = snap.participants.find((p) => p.id === participantId);
           const myTeamId = me?.teamId ?? s.myTeamId;
           const phase = snap.seenJeem ? 'seenjeem' : derivePhase(snap, self?.status);
           return {
+            participantId,
+            ...(me && !s.nickname ? { nickname: me.nickname, avatarId: me.avatarId } : {}),
             status: snap.game.status,
             gameType: snap.game.type,
             gameMode: snap.game.mode,
@@ -210,7 +236,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             myTeamId,
             perPlayerCategory: snap.game.perPlayerCategory ?? false,
             myCategoryId: me?.categoryId ?? s.myCategoryId,
-            phase: s.participantId ? phase : s.phase,
+            phase: participantId ? phase : s.phase,
           };
         }
         case ServerEvent.GAME_STARTED:
@@ -225,6 +251,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             roundId: p.roundId,
             round: p.round,
             isTiebreak: p.tiebreak ?? false,
+            isStalemate: false,
             turnTeam: p.turnTeam ?? null,
             isSteal: p.steal ?? false,
             pendingStealTeam: null,
@@ -276,6 +303,7 @@ export const useStore = create<ControllerState>((set, get) => ({
             nextRound: p.nextRound ?? null,
             nextCategory: p.nextCategory ?? null,
             pendingStealTeam: p.steal ? (p.stealTeam ?? null) : null,
+            isStalemate: p.stalemate ?? false,
           };
         }
         case ServerEvent.YOU_ELIMINATED: {

@@ -109,7 +109,7 @@ const ar = {
   teamTurnWatch: 'خلّوهم يجاوبون… دوركم جاي',
   teamStealYours: 'فرصة! غلطوا والسؤال صار لكم',
   teamStealOther: 'فرصة ل{team} على نفس السؤال',
-  teamStealIncoming: 'ما جاوبوا صح — السؤال ينتقل ل{team}',
+  teamStealIncoming: 'ما جاوبوا صح — السؤال ينتقل إلى {team}',
   next: 'التالي',
   back: 'رجوع',
   // ── Teams ──
@@ -166,7 +166,28 @@ const ar = {
   preparingRoom: 'جاري تجهيز الغرفة…',
   waitingSecondPlayer: 'بانتظار لاعب ثانٍ لبدء اللعبة.',
   playerReady: 'جاهز',
+  playerOffline: 'منقطع',
   noTeamYet: 'لم يحدد فريقه',
+  // Why the start button is still dead — name the step the room is waiting on.
+  waitingTeamPick: 'بانتظار {count} من اللاعبين لاختيار فريقه.',
+  waitingEmptyTeam: 'كل فريق يحتاج لاعباً واحداً على الأقل.',
+  stillChoosing: 'لا يزال يختار فئته:',
+  waitingCategoryPick: 'بانتظار {count} من اللاعبين لاختيار فئته.',
+  // ── Loading / retry (a request that hangs must never strand the player) ──
+  loadFailed: 'تعذّر التحميل — تحقّق من اتصالك.',
+  retry: 'إعادة المحاولة',
+  loginStuck: 'تم تسجيل الدخول لكن تعذّر الانتقال — اضغط للمتابعة.',
+  continueBtn: 'متابعة',
+  // ── After the game ends ──
+  playAgainSameGroup: 'العب مرة أخرى — أدخل كود الغرفة الجديدة',
+  newGame: 'لعبة جديدة',
+  backHome: 'العودة للرئيسية',
+  // ── ELIMINATION: everyone missed on their last life ──
+  stalemateReplay: 'الجميع أخطأ — يُعاد السؤال بدون خصم أرواح',
+  // ── TEAMS: the verdict shown to a member who is NOT the leader ──
+  // They never answer, so «إجابة صحيحة/خاطئة» never applies to them.
+  supportLeaderCorrect: 'إجابة قائد فريقك صحيحة — أحرز فريقكم نقطة',
+  supportLeaderWrong: 'إجابة قائد فريقك غير صحيحة — انتقل السؤال للفريق الآخر',
   // ── What you need to play (shared screen + a phone each) ──
   devicesNeeded: 'تحتاجون شاشة مشتركة لعرض الأسئلة والنتائج، بالإضافة إلى جوال لكل لاعب. الحد الأدنى: لاعبان + شاشة عرض.',
   devicesHint: 'يمكن استخدام التلفاز أو اللابتوب أو الآيباد أو جوال إضافي كشاشة مشتركة.',

@@ -43,7 +43,9 @@ export default function App() {
       set({ roomCode: code, appView: 'game' });
       const saved = loadSession(code);
       if (saved) {
-        set({ participantId: saved.participantId, nickname: saved.nickname, avatarId: saved.avatarId });
+        // Name + avatar are ours to restore; the participant id is only adopted once
+        // the server's snapshot confirms the seat is still live (see store.ts).
+        set({ nickname: saved.nickname, avatarId: saved.avatarId });
         connect(code, saved.sessionToken);
       } else {
         connect(code);

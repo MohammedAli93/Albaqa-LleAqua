@@ -158,6 +158,75 @@ export function scoreRound(state: RoomState, round: LiveRound): ScoredRound {
 
 export interface ResolutionResult {
   eliminatedIds: string[];
+  /**
+   * ELIMINATION only — what happened when a round would have knocked EVERY
+   * remaining player out at once (they were all on their last life and all got it
+   * wrong):
+   *   'replay'  — nobody lost a life, the duel simply carries on (a free retry);
+   *   'decided' — the free retries are spent, so the round was settled: everyone
+   *               lost their last life except the one player kept in on record.
+   * Undefined on a normal round.
+   */
+  stalemate?: 'replay' | 'decided';
+  /** ELIMINATION only — the round was settled on speed because the duel had run
+   *  past the overtime limit with nobody going out. */
+  suddenDeath?: boolean;
+}
+
+/**
+ * ELIMINATION deadlock rules (client 2026-08-30).
+ *
+ * Two players both on their last life who both answer wrong used to be a dead end:
+ * the "never wipe everyone" safety net refused to take anyone's last life, so no
+ * one was ever eliminated and the match ran «جولة إضافية» forever with the host's
+ * game-credit already spent. Both of these now guarantee the duel ends:
+ *
+ *  1. All remaining players wrong on their last life → the question is replayed
+ *     free of charge (nobody loses a life) at most ELIMINATION_FREE_REPLAYS times
+ *     in a row. After that the round is DECIDED: everyone goes out except the
+ *     player with the best record (see {@link bestOnRecord}).
+ *  2. A duel where nobody ever misses is capped too — once the game is
+ *     ELIMINATION_OVERTIME_LIMIT rounds past its scripted length, each round is
+ *     sudden death: only the fastest correct answer survives it.
+ */
+export const ELIMINATION_FREE_REPLAYS = 2;
+export const ELIMINATION_OVERTIME_LIMIT = 10;
+
+/**
+ * Is round `index` (0-based) inside elimination sudden death — i.e. so far past
+ * the scripted question count that the match has to be settled on speed?
+ */
+export function isEliminationSuddenDeath(state: RoomState, index: number): boolean {
+  if (state.type !== GameType.INDIVIDUAL || state.mode !== GameMode.ELIMINATION) return false;
+  if (!state.totalRounds || state.totalRounds <= 0) return false;
+  return index + 1 > state.totalRounds + ELIMINATION_OVERTIME_LIMIT;
+}
+
+/**
+ * Who stays in when a round has to be decided rather than replayed. Merit first —
+ * more lives, then more correct answers this game, then the faster cumulative
+ * correct-answer time — and only join order as the final, never-reached fallback.
+ */
+function bestOnRecord(players: LiveParticipant[]): LiveParticipant | undefined {
+  return [...players].sort(
+    (a, b) =>
+      b.lives - a.lives ||
+      (b.correctCount ?? 0) - (a.correctCount ?? 0) ||
+      (a.speedMs ?? 0) - (b.speedMs ?? 0) ||
+      a.joinOrder - b.joinOrder,
+  )[0];
+}
+
+/** The fastest correct answer of this round among `players` (undefined if none). */
+function fastestCorrect(
+  outcomes: AnswerOutcome[],
+  players: LiveParticipant[],
+): LiveParticipant | undefined {
+  const alive = new Set(players.map((p) => p.id));
+  const best = outcomes
+    .filter((o) => o.isCorrect && alive.has(o.participantId))
+    .sort((a, b) => a.responseMs - b.responseMs)[0];
+  return best ? players.find((p) => p.id === best.participantId) : undefined;
 }
 
 /**
@@ -195,10 +264,19 @@ export function applyResolution(
   }
 
   const eliminatedIds: string[] = [];
+  let stalemate: 'replay' | 'decided' | undefined;
+  let suddenDeath = false;
+
   if (state.mode === GameMode.ELIMINATION) {
-    const activeBefore = Object.values(state.participants).filter(
-      (p) => p.status === ParticipantStatus.ACTIVE,
-    ).length;
+    const activeBefore = activeParticipants(state);
+    const knockOut = (p: LiveParticipant): void => {
+      p.lives = Math.max(0, p.lives - 1);
+      if (p.lives <= 0) {
+        p.status = ParticipantStatus.ELIMINATED;
+        p.eliminatedRound = round.index;
+        eliminatedIds.push(p.id);
+      }
+    };
     // Active players who got it wrong (or didn't answer) — they'd lose a life.
     const wrongActive = scored.outcomes.filter((o) => {
       const p = state.participants[o.participantId];
@@ -208,25 +286,57 @@ export function applyResolution(
     const wouldExit = wrongActive.filter(
       (o) => state.participants[o.participantId]!.lives - 1 <= 0,
     );
-    // SAFETY NET: if this round would eliminate EVERYONE still in (all remaining
-    // answered wrong), don't eliminate anyone — nobody loses a life and the round
-    // is effectively replayed. This guarantees there's always a survivor, so the
-    // game never ends with all players losing at once.
-    const wipesEveryone = activeBefore > 0 && activeBefore - wouldExit.length <= 0;
-    if (!wipesEveryone) {
+    // Would this round knock EVERY remaining player out at once? The game must
+    // still produce a winner, so it can't simply take everyone's last life.
+    const wipesEveryone = activeBefore.length > 0 && activeBefore.length - wouldExit.length <= 0;
+
+    if (wipesEveryone) {
+      const streak = (state.stalemateStreak ?? 0) + 1;
+      if (streak <= ELIMINATION_FREE_REPLAYS) {
+        // Give them a couple of free retries first: nobody loses a life and the
+        // duel carries on with another question.
+        state.stalemateStreak = streak;
+        stalemate = 'replay';
+      } else {
+        // The retries are spent — settle it. Everyone still takes the hit except
+        // the one player kept in on record, so the match ends with a champion
+        // instead of looping «جولة إضافية» forever (client 2026-08-30).
+        const spared = bestOnRecord(activeBefore)?.id;
+        for (const o of wrongActive) {
+          const p = state.participants[o.participantId]!;
+          if (p.id === spared) continue;
+          knockOut(p);
+        }
+        state.stalemateStreak = 0;
+        stalemate = 'decided';
+      }
+    } else {
+      state.stalemateStreak = 0;
       // A wrong (or missing) answer costs a life; 0 lives → eliminated this round.
-      for (const o of wrongActive) {
-        const p = state.participants[o.participantId]!;
-        p.lives = Math.max(0, p.lives - 1);
-        if (p.lives <= 0) {
+      for (const o of wrongActive) knockOut(state.participants[o.participantId]!);
+    }
+
+    // Endless-duel cap: two players who never miss would play forever. Once the
+    // match is well past its scripted length, a round that eliminated nobody is
+    // settled on speed — only the fastest correct answer survives it.
+    if (!eliminatedIds.length && isEliminationSuddenDeath(state, round.index)) {
+      const survivors = activeParticipants(state);
+      if (survivors.length > 1) {
+        const keep =
+          fastestCorrect(scored.outcomes, survivors) ?? bestOnRecord(survivors);
+        for (const p of survivors) {
+          if (p.id === keep?.id) continue;
+          p.lives = 0;
           p.status = ParticipantStatus.ELIMINATED;
           p.eliminatedRound = round.index;
           eliminatedIds.push(p.id);
         }
+        suddenDeath = true;
+        stalemate = undefined;
       }
     }
   }
-  return { eliminatedIds };
+  return { eliminatedIds, ...(stalemate ? { stalemate } : {}), ...(suddenDeath ? { suddenDeath } : {}) };
 }
 
 /** Players still in the running. */

@@ -14,9 +14,18 @@ export function Result() {
   const {
     phase, lastResult, myLives, locale, gameType, gameMode, lastHeroes, myTeamId, teams,
     leaderboard, participantId, totalRounds, nextRound, nextCategory, pendingStealTeam,
+    participants, isStalemate,
   } = useStore();
   const isTeams = gameType === GameType.TEAMS;
   const isElimination = gameMode === GameMode.ELIMINATION;
+  // TEAMS: only the leader locks the answer, so a teammate never answered anything
+  // — telling them «إجابة خطأ» was plainly wrong (client 2026-08-30). They get the
+  // team's outcome instead: their leader was right (and the team scored) or wrong
+  // (and the question moves to the other team).
+  const myTeam = teams.find((tm) => tm.id === myTeamId);
+  const amLeader = !isTeams || !myTeam?.leaderId || myTeam.leaderId === participantId;
+  const leaderName = participants.find((p) => p.id === myTeam?.leaderId)?.nickname ?? '';
+  const myTeamScored = lastHeroes.some((h) => h.teamId === myTeamId);
 
   // ── Locked: answer recorded, waiting for the reveal (reference screen 17) ──
   if (phase === 'locked') {
@@ -35,7 +44,8 @@ export function Result() {
     );
   }
 
-  const correct = lastResult?.isCorrect;
+  // For a teammate the verdict belongs to the TEAM, not to them.
+  const correct = isTeams && !amLeader ? myTeamScored : lastResult?.isCorrect;
   // Per-player standings on the phone (team totals live on the big screen).
   const showStandings = !isTeams && leaderboard.length > 0;
 
@@ -47,9 +57,24 @@ export function Result() {
             <Squircle size={86} bg={correct ? 'linear-gradient(160deg,#39D98A 0%,#15BC85 100%)' : undefined}>
               {correct ? <Check size={44} strokeWidth={3} /> : <X size={44} strokeWidth={3} />}
             </Squircle>
-            <p className="font-display text-3xl font-black text-desert-ink">
-              {correct ? t(locale, 'correct') : t(locale, 'wrong')}
+            <p className="px-1 text-center font-display text-2xl font-black leading-snug text-desert-ink">
+              {isTeams && !amLeader
+                ? myTeamScored
+                  ? t(locale, 'supportLeaderCorrect', { name: leaderName })
+                  : t(locale, 'supportLeaderWrong', { name: leaderName })
+                : correct
+                  ? t(locale, 'correct')
+                  : t(locale, 'wrong')}
             </p>
+
+            {/* ELIMINATION: everyone left was on their last life and everyone
+                missed — nobody lost a heart and the question comes round again.
+                Without this the unchanged hearts read as a scoring bug. */}
+            {isStalemate && (
+              <Pill color="orange" className="text-center text-base">
+                {t(locale, 'stalemateReplay')}
+              </Pill>
+            )}
 
             {/* TEAMS: a miss doesn't just end the question — the other team gets a
                 shot at it. Say so, otherwise the repeat looks like a bug. */}
@@ -57,7 +82,7 @@ export function Result() {
               <Pill color={pendingStealTeam.teamId === myTeamId ? 'green' : 'orange'} className="text-base">
                 {pendingStealTeam.teamId === myTeamId
                   ? t(locale, 'teamStealYours')
-                  : t(locale, 'teamStealIncoming', { team: pendingStealTeam.name })}
+                  : t(locale, 'teamStealIncoming', { team: teamLabel(locale, pendingStealTeam.name) })}
               </Pill>
             )}
 

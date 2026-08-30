@@ -23,6 +23,14 @@ import { getRoom } from '../../domain/rooms/roomStore.js';
 import { hashCapabilityToken } from '../../domain/auth/tokens.js';
 import type { PlaySocketData } from '../socketContext.js';
 
+/**
+ * How long a phone that dropped IN THE LOBBY stays on the roster before it is
+ * cleared. Short on purpose: an unclaimed lobby seat blocks its nickname and pads
+ * the player count the host starts on. Mid-game drops use the much longer
+ * GAME_RECONNECT_GRACE_SEC instead.
+ */
+const LOBBY_GHOST_MS = 15_000;
+
 export function registerPlayNamespace(playNs: Namespace): void {
   playNs.use(playAuth);
 
@@ -117,9 +125,15 @@ export function registerPlayNamespace(playNs: Namespace): void {
     socket.on('disconnect', async () => {
       if (!ctx.participantId) return;
       // Grace window: mark disconnected. Whether we then fully remove them depends
-      // on game phase.
+      // on game phase. The host lobby shows them as «منقطع» meanwhile and doesn't
+      // count them towards the minimum needed to start (client 2026-08-30).
       await engine.markDisconnected(ctx.gameId, ctx.participantId);
-      const grace = env.GAME_RECONNECT_GRACE_SEC * 1000;
+      // A drop in the LOBBY is cheap to redo — clear the ghost quickly so the room
+      // roster matches the phones actually in it. Mid-game the full grace applies:
+      // a paying player who screen-locked must stay reconnectable all game.
+      const state0 = await getRoom(ctx.gameId);
+      const grace =
+        state0?.status === 'LOBBY' ? LOBBY_GHOST_MS : env.GAME_RECONNECT_GRACE_SEC * 1000;
       setTimeout(async () => {
         const state = await getRoom(ctx.gameId);
         const p = state?.participants[ctx.participantId!];

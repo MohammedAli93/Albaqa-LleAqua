@@ -48,12 +48,12 @@ const TILES = [
 const STEPS = [
   'افتح اللعبة على شاشة مشتركة (تلفاز أو لابتوب أو آيباد).',
   'كل واحد يمسح الكود من جواله ويدخل.',
-  'العبوا فردي أو فِرَق، وكل واحد يختار فئته.',
+  'العبوا فردي أو فِرَق، وفي النسخة الكاملة كل واحد يختار فئته (التجربة المجانية بأسئلة عامة ثابتة).',
   'اجمعوا أكثر نقاط… والبقاء للأقوى.',
 ];
 
 export function Home() {
-  const { account, set } = useStore();
+  const { account, set, resetGame } = useStore();
   const country = account ? COUNTRIES.find((c) => c.code === account.country) : undefined;
   // Three-step chooser: TYPE (فردي/فرق) → MODE (نقاط/تصفيات) → TIER (مجاني/كامل).
   // Both فردي and فِرَق now flow through the orange mode/tier panel.
@@ -68,9 +68,14 @@ export function Home() {
       set({ appView: 'upgrade', hostLaunch: { type, mode, tier: GameTier.PAID } });
       return;
     }
+    // Nothing of the previous match may leak into this one (client 2026-08-30).
+    resetGame();
     set({ appView: 'host', hostLaunch: { type, mode, tier } });
   }
-  const joinByCode = () => set({ appView: 'game', phase: 'join' });
+  const joinByCode = () => {
+    resetGame();
+    set({ appView: 'game', phase: 'join' });
+  };
   const scrollToPlay = () =>
     document.getElementById('play')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 

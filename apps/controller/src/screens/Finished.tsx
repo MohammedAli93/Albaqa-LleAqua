@@ -5,6 +5,8 @@ import { GameType, GameMode } from '@tahaddi/shared';
 import type { RankedEntry, TeamPublic, PublicParticipant } from '@tahaddi/shared';
 import { t } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
+import { leaveRoom } from '../socket.js';
+import { clearSession } from '../lib/config.js';
 import { Avatar } from '../components/Avatar.js';
 import { Hearts } from '../components/Hearts.js';
 import {
@@ -70,8 +72,24 @@ function Gold({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 export function Finished() {
-  const { winner, leaderboard, teams, gameType, gameMode, participantId, myTeamId } = useStore();
+  const { winner, leaderboard, teams, gameType, gameMode, participantId, myTeamId, roomCode, set, resetGame } =
+    useStore();
   const [stage, setStage] = useState<'champion' | 'ranking'>('champion');
+
+  /** Back to a clean join screen, ready for the code of the room the host is
+   *  about to open for the same group. The finished room's seat is forgotten so
+   *  the next join isn't refused its own nickname. */
+  const rejoin = () => {
+    if (roomCode) clearSession(roomCode);
+    leaveRoom();
+    resetGame();
+    set({ appView: 'game', phase: 'join' });
+  };
+  const goHome = () => {
+    leaveRoom();
+    resetGame();
+    set({ appView: 'home' });
+  };
 
   useEffect(() => {
     const hold = stage === 'champion' ? 5500 : 9000;
@@ -134,8 +152,26 @@ export function Finished() {
         </AnimatePresence>
       </div>
 
+      {/* Where to next. The phone used to dead-end on the results with no way out
+          but a page reload (client 2026-08-30). */}
+      <div className="relative z-10 flex w-full max-w-md flex-col gap-2.5 px-5 pb-2">
+        <button
+          onClick={rejoin}
+          className="w-full rounded-2xl py-4 font-display text-lg font-black text-white shadow-[0_16px_30px_-14px_rgba(0,0,0,0.5)]"
+          style={{ backgroundImage: 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)' }}
+        >
+          {t(L, 'playAgainSameGroup')}
+        </button>
+        <button
+          onClick={goHome}
+          className="w-full rounded-2xl bg-white/85 py-3.5 font-display text-base font-black text-desert-ink"
+        >
+          {t(L, 'backHome')}
+        </button>
+      </div>
+
       {/* Stage indicator dots */}
-      <div className="relative z-10 mb-5 flex gap-2">
+      <div className="relative z-10 mb-5 mt-3 flex gap-2">
         {(['champion', 'ranking'] as const).map((s) => (
           <span key={s} className={`h-2.5 rounded-full transition-all ${stage === s ? 'w-6 bg-[#F6C43E]' : 'w-2.5 bg-white/50'}`} />
         ))}

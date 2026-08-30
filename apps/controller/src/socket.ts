@@ -157,6 +157,41 @@ export function getSocket(): Socket | null {
   return socket;
 }
 
+/**
+ * Leave the room for good: tell the server (so the seat and its nickname are freed
+ * immediately rather than after the grace window) and drop the socket. Used by the
+ * "back to home" exits — otherwise the phone keeps a live socket to a room it has
+ * walked away from, and the host's roster keeps showing a player who has gone.
+ */
+export function leaveRoom(): void {
+  try {
+    socket?.emit(ClientEvent.PLAYER_LEAVE, {});
+  } catch {
+    /* the socket may already be down — disconnecting below is enough */
+  }
+  socket?.disconnect();
+  socket = null;
+}
+
+/**
+ * Wait for the server to confirm it rebound this socket to an existing seat. On a
+ * reconnect handshake (`sessionToken` in the auth payload) the /play namespace
+ * replies with a snapshot carrying `self`, which the store lands as
+ * `participantId`. Resolves false if no seat came back within `timeoutMs` — the
+ * caller then joins fresh.
+ */
+export function waitForSelf(timeoutMs = 3000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if (useStore.getState().participantId) return resolve(true);
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      setTimeout(tick, 80);
+    };
+    tick();
+  });
+}
+
 // ─────────────────────────────── Seen-Jeem intents ──────────────────────────
 
 function emitSj(event: string, payload: Record<string, unknown>): Promise<void> {

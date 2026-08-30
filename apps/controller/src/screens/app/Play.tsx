@@ -115,7 +115,7 @@ export function Play() {
       )}
 
       <p className="mt-auto pt-8 text-center text-sm leading-relaxed text-ink-muted">
-        افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود ويختار فئته.
+        افتح اللعبة على الشاشة الكبيرة، ثم كل لاعب يمسح الكود — واختيار الفئات متاح في النسخة الكاملة.
       </p>
     </div>
   );

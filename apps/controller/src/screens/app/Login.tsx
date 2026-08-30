@@ -24,28 +24,46 @@ export function Login() {
   const [mobile, setMobile] = useState('+966');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** Signed in, but the app never left this screen — offer a manual way through. */
+  const [stuck, setStuck] = useState<'home' | 'profile' | null>(null);
 
   const usernameOk = username.trim().length >= 2 && username.trim().length <= 24;
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const mobileOk = MOBILE_REGEX.test(mobile.trim());
   const canSubmit = tab === 'login' ? mobileOk : usernameOk && emailOk && mobileOk;
 
+  /**
+   * Land the signed-in player on the right screen. Sign-in itself had succeeded in
+   * testing but the page stayed on the «…» spinner (client 2026-08-30), so this is
+   * now defensive on every step: storing the account can't block the navigation,
+   * the spinner is always cleared, and if the view somehow hasn't moved a moment
+   * later the player gets an explicit «متابعة» button rather than a dead screen.
+   */
   function finish(r: AuthResponse) {
     const account: Account = { ...r.player, token: r.token };
-    saveAccount(account);
-    const complete = !!account.country;
+    try {
+      saveAccount(account);
+    } catch {
+      /* private mode / storage full — the session still works for this tab */
+    }
+    const next = account.country ? 'home' : 'profile';
     set({
       account,
       nickname: account.username,
       avatarId: account.avatarId,
-      appView: complete ? 'home' : 'profile',
+      appView: next,
     });
+    setBusy(false);
+    window.setTimeout(() => {
+      if (useStore.getState().appView === 'login') setStuck(next);
+    }, 700);
   }
 
   async function submit() {
     if (!canSubmit || busy) return;
     setBusy(true);
     setErr(null);
+    setStuck(null);
     try {
       if (tab === 'login') {
         finish(
@@ -68,6 +86,8 @@ export function Login() {
       }
     } catch (e) {
       setErr(mapErr(e instanceof Error ? e.message : 'ERROR', locale));
+    } finally {
+      // Whatever happened, the button must stop spinning.
       setBusy(false);
     }
   }
@@ -119,11 +139,34 @@ export function Login() {
           </AuthField>
         </div>
 
-        {err && <p className="mt-4 text-center font-bold text-[#B3160B]">{err}</p>}
+        {err && (
+          <div className="mt-4 text-center">
+            <p className="font-bold text-[#B3160B]">{err}</p>
+            <button
+              onClick={submit}
+              className="mt-2 font-display font-bold text-desert-ink underline underline-offset-4"
+            >
+              {t(locale, 'retry')}
+            </button>
+          </div>
+        )}
+
+        {/* Signed in but the screen never changed — don't strand them here. */}
+        {stuck && (
+          <div className="mt-4 text-center">
+            <p className="font-bold text-desert-ink">{t(locale, 'loginStuck')}</p>
+            <button
+              onClick={() => set({ appView: stuck })}
+              className="mt-2 font-display font-bold text-desert-ink underline underline-offset-4"
+            >
+              {t(locale, 'continueBtn')}
+            </button>
+          </div>
+        )}
 
         <div className="mt-7">
           <CtaButton onClick={submit} disabled={busy || !canSubmit}>
-            {busy ? '…' : t(locale, tab === 'register' ? 'register' : 'login')}
+            {busy ? `${t(locale, 'loading')}` : t(locale, tab === 'register' ? 'register' : 'login')}
           </CtaButton>
 
           <button
@@ -147,6 +190,7 @@ export function Login() {
 }
 
 function mapErr(code: string, locale: 'ar' | 'en'): string {
+  if (code === 'TIMEOUT' || code === 'NETWORK_ERROR') return t(locale, 'loadFailed');
   if (code === 'CONFLICT') return locale === 'ar' ? 'الحساب موجود بالفعل (اسم/بريد/جوال مستخدم)' : 'Account already exists';
   if (code === 'NOT_FOUND') return locale === 'ar' ? 'لا يوجد حساب بهذا الرقم — أنشئ حساباً' : 'No account for this number';
   if (code === 'VALIDATION_ERROR') return locale === 'ar' ? 'تحقّق من البيانات المُدخلة' : 'Check your details';

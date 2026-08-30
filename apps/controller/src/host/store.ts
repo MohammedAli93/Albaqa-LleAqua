@@ -101,15 +101,22 @@ export interface ScreenState {
 
   setConn: (c: ConnState) => void;
   setRoom: (code: string, joinUrl: string) => void;
+  /**
+   * Wipe every trace of a hosted game. The store is a module singleton, so without
+   * this the NEXT room opened in the same tab inherited the last one's room code,
+   * teams, roster and round — a fresh solo elimination game came up showing the
+   * previous team match's two team names (client 2026-08-30).
+   */
+  reset: () => void;
   /** FREE tier = the fixed 15-question trial set (no category picking). */
   isFreeTrial: boolean;
   setLocale: (l: Locale) => void;
   applyServerEvent: (event: string, payload: unknown) => void;
 }
 
-export const useStore = create<ScreenState>((set) => ({
+/** Everything a hosted game owns — the exact set `reset()` puts back. */
+const BLANK: Omit<ScreenState, 'locale' | 'setConn' | 'setRoom' | 'reset' | 'setLocale' | 'applyServerEvent'> = {
   conn: 'idle',
-  locale: 'ar',
   roomCode: '',
   joinUrl: '',
   status: 'LOBBY',
@@ -144,10 +151,16 @@ export const useStore = create<ScreenState>((set) => ({
   heroes: [],
   seenJeem: null,
   sjResolved: null,
+  isFreeTrial: false,
+};
+
+export const useStore = create<ScreenState>((set) => ({
+  ...BLANK,
+  locale: 'ar',
 
   setConn: (conn) => set({ conn }),
   setRoom: (roomCode, joinUrl) => set({ roomCode, joinUrl }),
-  isFreeTrial: false,
+  reset: () => set({ ...BLANK }),
   setLocale: (locale) => set({ locale }),
 
   applyServerEvent: (event, payload) => {

@@ -95,6 +95,15 @@ function seedRoom(opts: { tier: GameTier; hostPlayerId?: string; type?: GameType
     speedMs: 0,
     sessionTokenHash: `h-${id}`,
   });
+  const isTeams = (opts.type ?? GameType.INDIVIDUAL) === GameType.TEAMS;
+  const p1 = mk('p1', 0);
+  const p2 = mk('p2', 1);
+  // A team game can only start once every phone has picked a side (fsm guard), so
+  // seed a lobby that has actually finished its picks.
+  if (isTeams) {
+    (p1 as Record<string, unknown>).teamId = 't1';
+    (p2 as Record<string, unknown>).teamId = 't2';
+  }
   h.store.set(GAME, {
     gameId: GAME,
     roomCode: 'ABC123',
@@ -114,8 +123,13 @@ function seedRoom(opts: { tier: GameTier; hostPlayerId?: string; type?: GameType
     questionOrder: ['q1', 'q2'],
     roundIndex: -1,
     totalRounds: 2,
-    participants: { p1: mk('p1', 0), p2: mk('p2', 1) },
-    teams: {},
+    participants: { p1, p2 },
+    teams: isTeams
+      ? {
+          t1: { id: 't1', name: 'الفريق 1', color: '#f00', score: 0, winMs: 0, lives: 0, capacity: null },
+          t2: { id: 't2', name: 'الفريق 2', color: '#00f', score: 0, winMs: 0, lives: 0, capacity: null },
+        }
+      : {},
     currentRound: null,
     createdAt: 0,
   });

@@ -35,24 +35,32 @@ const TABS: { id: LegalDoc; ar: string; en: string }[] = [
  * The hard-coded list below is only the fallback for when that request fails.
  */
 type CatalogEntry = {
+  /** Arabic package name, exactly as the storefront and the admin panel show it. */
   games: string;
-  gamesEn: string;
+  /** How many games the package grants — drives the Arabic sub-label + the key. */
+  credits: number;
   price: number;
   currency: string;
   save: string | null;
-  saveEn?: string;
   best: boolean;
 };
+
+/** «لعبة واحدة» / «لعبتان» / «٥ ألعاب» — Arabic counts, not "5 Games Package". */
+function gamesCountAr(n: number): string {
+  if (n === 1) return 'لعبة واحدة';
+  if (n === 2) return 'لعبتان';
+  return `${toAr(n)} ألعاب`;
+}
 
 const AR_NUM = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
 const toAr = (n: number) => String(n).replace(/\d/g, (d) => AR_NUM[Number(d)]!);
 const CURRENCY_AR: Record<string, string> = { SAR: 'ر.س', AED: 'د.إ', EGP: 'ج.م', KWD: 'د.ك', USD: '$' };
 
 const FALLBACK_PACKAGES: CatalogEntry[] = [
-  { games: 'باقة لعبة واحدة', gamesEn: '1 Game', price: 20, currency: 'SAR', save: null, best: false },
-  { games: 'باقة لعبتين', gamesEn: '2 Games', price: 35, currency: 'SAR', save: 'وفّر ٥ ر.س', saveEn: 'Save 5 SAR', best: false },
-  { games: 'باقة ٥ ألعاب', gamesEn: '5 Games', price: 75, currency: 'SAR', save: 'وفّر ٢٥ ر.س', saveEn: 'Save 25 SAR', best: false },
-  { games: 'باقة ١٠ ألعاب', gamesEn: '10 Games', price: 100, currency: 'SAR', save: 'وفّر ١٠٠ ر.س', saveEn: 'Save 100 SAR', best: true },
+  { games: 'باقة لعبة واحدة', credits: 1, price: 20, currency: 'SAR', save: null, best: false },
+  { games: 'باقة لعبتين', credits: 2, price: 35, currency: 'SAR', save: 'وفّر ٥ ر.س', best: false },
+  { games: 'باقة ٥ ألعاب', credits: 5, price: 75, currency: 'SAR', save: 'وفّر ٢٥ ر.س', best: false },
+  { games: 'باقة ١٠ ألعاب', credits: 10, price: 100, currency: 'SAR', save: 'وفّر ١٠٠ ر.س', best: true },
 ];
 
 type Product = { sku: string; nameAr: string; nameEn?: string | null; kind: string; credits: number | null; priceMinor: number; currency: string };
@@ -71,11 +79,10 @@ function toCatalog(products: Product[]): CatalogEntry[] {
     const cur = CURRENCY_AR[p.currency] ?? p.currency;
     return {
       games: p.nameAr,
-      gamesEn: p.nameEn ?? `${n} ${n === 1 ? 'Game' : 'Games'}`,
+      credits: n,
       price: p.priceMinor / 100,
       currency: p.currency,
       save: savedMinor > 0 ? `وفّر ${toAr(savedMinor / 100)} ${cur}` : null,
-      saveEn: savedMinor > 0 ? `Save ${savedMinor / 100} ${p.currency}` : undefined,
       best: p.sku === bestSku && credits.length > 1,
     };
   });
@@ -167,13 +174,15 @@ export function Legal() {
 
 /* ─────────────────────────── Shared blocks ─────────────────────────── */
 
-function DocTitle({ ar, en }: { ar: string; en: string }) {
+function DocTitle({ ar, en }: { ar: string; en?: string }) {
   return (
     <div className="mb-8 text-center">
       <h1 className="font-display text-3xl font-black text-desert-ink sm:text-4xl" style={{ color: '#1A1A1A' }}>
         {ar}
       </h1>
-      <p className="mt-1 font-display text-base font-bold" style={{ color: '#C89A1E' }}>{en}</p>
+      {/* The English line is there for the payment gateway's review of the legal
+          documents. The price list is customer-facing and stays Arabic-only. */}
+      {en && <p className="mt-1 font-display text-base font-bold" style={{ color: '#C89A1E' }}>{en}</p>}
       <span className="mx-auto mt-4 block h-1 w-20 rounded-full" style={{ backgroundColor: GOLD }} />
     </div>
   );
@@ -216,12 +225,12 @@ function Pricing() {
   const packages = usePackages();
   return (
     <>
-      <DocTitle ar="قائمة الأسعار والباقات" en="Pricing List & Packages" />
+      <DocTitle ar="قائمة الأسعار والباقات" />
 
       <div className="grid gap-5 sm:grid-cols-2">
         {packages.map((p, i) => (
           <motion.div
-            key={p.gamesEn}
+            key={`${p.credits}-${p.games}`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.05 * i, type: 'spring', stiffness: 240, damping: 20 }}
@@ -243,7 +252,7 @@ function Pricing() {
               </span>
             )}
             <p className="font-display text-lg font-extrabold text-desert-ink">{p.games}</p>
-            <p className="text-sm text-desert-ink/45">{p.gamesEn} Package</p>
+            <p className="text-sm text-desert-ink/45">{gamesCountAr(p.credits)}</p>
             <div className="mt-4 flex items-end justify-center gap-1.5">
               <span className="font-display text-5xl font-black text-desert-ink">{p.price}</span>
               <span className="mb-1.5 font-display text-lg font-bold text-desert-ink/70">
@@ -252,10 +261,10 @@ function Pricing() {
             </div>
             {p.save ? (
               <p className="mt-2 font-display text-sm font-bold" style={{ color: '#1F9D55' }}>
-                {p.save} · {p.saveEn}
+                {p.save}
               </p>
             ) : (
-              <p className="mt-2 text-sm text-desert-ink/40">{p.currency} {p.price}</p>
+              <p className="mt-2 text-sm text-desert-ink/40">&nbsp;</p>
             )}
           </motion.div>
         ))}

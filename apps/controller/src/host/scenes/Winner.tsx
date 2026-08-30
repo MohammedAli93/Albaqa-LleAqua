@@ -32,7 +32,7 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   return <span className={className}>{n}</span>;
 }
 
-export function Winner() {
+export function Winner({ onNewGame, onHome }: { onNewGame?: () => void; onHome?: () => void } = {}) {
   const { winner, leaderboard, teams, type, mode } = useStore();
   const [stage, setStage] = useState<'champion' | 'ranking'>('champion');
 
@@ -80,6 +80,30 @@ export function Winner() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Where to next. The host only had the corner X, so the room had no obvious
+          way on to another game (client 2026-08-30). */}
+      {(onNewGame || onHome) && (
+        <div className="absolute bottom-14 left-1/2 z-20 flex -translate-x-1/2 flex-wrap justify-center gap-3">
+          {onNewGame && (
+            <button
+              onClick={onNewGame}
+              className="rounded-full px-8 py-3 font-display text-screen-status font-black text-white shadow-[0_18px_40px_-16px_rgba(214,58,34,0.9)]"
+              style={{ backgroundImage: 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)' }}
+            >
+              {t(L, 'newGame')}
+            </button>
+          )}
+          {onHome && (
+            <button
+              onClick={onHome}
+              className="rounded-full bg-white/85 px-8 py-3 font-display text-screen-status font-black text-desert-ink shadow-card backdrop-blur"
+            >
+              {t(L, 'backHome')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Stage indicator dots */}
       <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">

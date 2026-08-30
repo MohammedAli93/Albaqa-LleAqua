@@ -86,17 +86,27 @@ function buildSettings(opts: {
  * drop into the Setup step to name the teams. `onExit` returns to the landing.
  */
 export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit: () => void }) {
-  const { status, phase, mode, paused, roomCode, conn, locale, setRoom } = useStore();
+  const { status, phase, mode, paused, roomCode, conn, locale, setRoom, reset } = useStore();
   const [error, setError] = useState<string | null>(null);
   const [needSetup, setNeedSetup] = useState(false);
   const [setupType, setSetupType] = useState<GameType | null>(null);
   const booted = useRef(false);
+  /** In-flight room creation — blocks a double-tap from opening two rooms. */
+  const creating = useRef(false);
+  /** The settings this room was created with, so "new game" can repeat it exactly
+   *  — team names the host typed on the Setup screen included (they never reach
+   *  `launch`, so rebuilding from it would silently rename the teams). */
+  const lastSettings = useRef<GameSettings | null>(null);
 
   // Hold a screen wake-lock once a room exists so the host display never sleeps
   // (a sleeping host drops its socket and pauses the game).
   useWakeLock(!!roomCode && status !== 'COMPLETED');
 
   async function createAndHost(settings: GameSettings, demo = false, demoCount = 8): Promise<void> {
+    // Creating a room is a POST that takes a moment; a second tap would open a
+    // second room and orphan the first (client 2026-08-30).
+    if (creating.current) return;
+    creating.current = true;
     try {
       setError(null);
       // The server resolves the package + round count from the tier (free 15 /
@@ -108,6 +118,7 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
         body: JSON.stringify({ settings, tier: settings.tier ?? GameTier.FREE }),
       });
       setNeedSetup(false);
+      lastSettings.current = settings;
       setRoom(room.roomCode, `${CONTROLLER_URL}/?c=${room.roomCode}`);
       // Label the lobby as a trial so the host (and the room) knows why there's no
       // category step and only 15 questions.
@@ -121,6 +132,8 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start');
+    } finally {
+      creating.current = false;
     }
   }
 
@@ -130,6 +143,10 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
     if (booted.current) return;
     booted.current = true;
     initSfxGesture();
+    // Start from a blank slate: the host store is a module singleton, so a room
+    // opened after another one would otherwise inherit its teams, roster and round
+    // (client 2026-08-30 — «فردي ← تصفيات» opened as the previous team match).
+    reset();
 
     if (!launch) {
       setNeedSetup(true);
@@ -153,6 +170,8 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
 
   function exit() {
     disconnectHost();
+    // Leave nothing behind for the next game hosted in this tab.
+    reset();
     onExit();
   }
 
@@ -206,7 +225,26 @@ export function HostApp({ launch, onExit }: { launch: HostLaunch | null; onExit:
             {scene === 'question' && <Question />}
             {scene === 'seenjeem' && <SeenJeem />}
             {scene === 'scoreboard' && <Scoreboard />}
-            {scene === 'winner' && <Winner />}
+            {scene === 'winner' && (
+              <Winner
+                onNewGame={() => {
+                  // Same format again, fresh room: everyone rescans the new QR.
+                  disconnectHost();
+                  reset();
+                  setNeedSetup(false);
+                  void createAndHost(
+                    lastSettings.current ??
+                      buildSettings({
+                        type: launch?.mode === GameMode.SEEN_JEEM ? GameType.TEAMS : (launch?.type ?? GameType.INDIVIDUAL),
+                        mode: launch?.mode ?? GameMode.POINTS,
+                        teamNames: launch?.teamNames,
+                        tier: launch?.tier,
+                      }),
+                  );
+                }}
+                onHome={exit}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       )}

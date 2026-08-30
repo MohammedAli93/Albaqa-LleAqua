@@ -207,4 +207,10 @@ export interface RoomState {
   /** Question ids already spent on tiebreak rounds (so overtime doesn't repeat
    *  a question while fresh ones remain in the package). */
   usedTiebreakIds?: string[];
+  /**
+   * ELIMINATION: how many rounds IN A ROW every remaining player answered wrong
+   * while on their last life. The first couple are replayed free of charge; past
+   * that the round is decided so the match can't hang (see scoring.ts).
+   */
+  stalemateStreak?: number;
 }

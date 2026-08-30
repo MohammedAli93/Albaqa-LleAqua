@@ -34,9 +34,9 @@ export function connectHost(hostToken: string, roomCode: string): Socket {
 
 function emit(event: string, payload: Record<string, unknown> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
-    socket?.emit(event, payload, (res: { ok: boolean; error?: { message: string } }) => {
+    socket?.emit(event, payload, (res: { ok: boolean; error?: { message?: string; code?: string } }) => {
       if (res?.ok) resolve();
-      else reject(new Error(res?.error?.message ?? 'failed'));
+      else reject(new Error(res?.error?.message || res?.error?.code || 'failed'));
     });
   });
 }

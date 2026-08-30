@@ -8,6 +8,9 @@ import {
   activeParticipants,
   topContenders,
   decideTiebreak,
+  isEliminationSuddenDeath,
+  ELIMINATION_FREE_REPLAYS,
+  ELIMINATION_OVERTIME_LIMIT,
 } from '../src/domain/game/scoring.js';
 import type { LiveTeam } from '../src/domain/rooms/types.js';
 import { makeParticipant, makeRound, makeRoom } from './fixtures.js';
@@ -83,6 +86,95 @@ describe('scoreRound — individual', () => {
     expect(byId.p2!.pointsAwarded).toBe(3);
     expect(byId.p1!.pointsAwarded).toBe(2);
     expect(byId.p3!.pointsAwarded).toBe(1);
+  });
+});
+
+describe('applyResolution — elimination deadlock (client 2026-08-30)', () => {
+  /** Two survivors on their last life; neither answers → both would go out. */
+  function lastLifeDuel(streak?: number) {
+    const p1 = makeParticipant('p1', { lives: 1, joinOrder: 0, correctCount: 5, speedMs: 4000 });
+    const p2 = makeParticipant('p2', { lives: 1, joinOrder: 1, correctCount: 2, speedMs: 9000 });
+    const round = makeRound({ answers: {} }); // both time out → both wrong
+    const state = makeRoom([p1, p2], {
+      mode: GameMode.ELIMINATION,
+      currentRound: round,
+      ...(streak === undefined ? {} : { stalemateStreak: streak }),
+    });
+    return { p1, p2, round, state };
+  }
+
+  it('replays the round free of charge the first time everyone misses', () => {
+    const { round, state } = lastLifeDuel();
+    const res = applyResolution(state, round, scoreRound(state, round));
+    expect(res.stalemate).toBe('replay');
+    expect(res.eliminatedIds).toHaveLength(0);
+    expect(state.participants.p1!.lives).toBe(1);
+    expect(state.participants.p2!.lives).toBe(1);
+    expect(state.stalemateStreak).toBe(1);
+  });
+
+  it('settles the match once the free replays are spent — never loops forever', () => {
+    const { round, state } = lastLifeDuel(ELIMINATION_FREE_REPLAYS);
+    const res = applyResolution(state, round, scoreRound(state, round));
+    expect(res.stalemate).toBe('decided');
+    // The better record (more correct, faster) stays in; the match now has a winner.
+    expect(state.participants.p1!.status).toBe(ParticipantStatus.ACTIVE);
+    expect(state.participants.p2!.status).toBe(ParticipantStatus.ELIMINATED);
+    expect(activeParticipants(state)).toHaveLength(1);
+    expect(evaluateWinCondition(state, false)).toEqual({ isOver: true, winnerId: 'p1' });
+    expect(state.stalemateStreak).toBe(0);
+  });
+
+  it('a round that eliminates someone clears the stalemate streak', () => {
+    const p1 = makeParticipant('p1', { lives: 2 });
+    const p2 = makeParticipant('p2', { lives: 1 });
+    const round = makeRound({ answers: { p1: { optionId: 'a', serverTs: 1_001_000 } } });
+    const state = makeRoom([p1, p2], {
+      mode: GameMode.ELIMINATION,
+      currentRound: round,
+      stalemateStreak: 2,
+    });
+    const res = applyResolution(state, round, scoreRound(state, round));
+    expect(res.stalemate).toBeUndefined();
+    expect(state.stalemateStreak).toBe(0);
+    expect(res.eliminatedIds).toEqual(['p2']);
+  });
+
+  it('caps an endless duel: past the overtime limit the fastest correct survives', () => {
+    const overtimeIndex = 3 + ELIMINATION_OVERTIME_LIMIT; // totalRounds is 3 in the fixture
+    const p1 = makeParticipant('p1', { lives: 3, joinOrder: 0 });
+    const p2 = makeParticipant('p2', { lives: 3, joinOrder: 1 });
+    const round = makeRound({
+      index: overtimeIndex,
+      answers: {
+        p1: { optionId: 'a', serverTs: 1_005_000 }, // correct, slower
+        p2: { optionId: 'a', serverTs: 1_002_000 }, // correct, faster
+      },
+    });
+    const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION, currentRound: round });
+    expect(isEliminationSuddenDeath(state, overtimeIndex)).toBe(true);
+
+    const res = applyResolution(state, round, scoreRound(state, round));
+    expect(res.suddenDeath).toBe(true);
+    expect(state.participants.p2!.status).toBe(ParticipantStatus.ACTIVE);
+    expect(state.participants.p1!.status).toBe(ParticipantStatus.ELIMINATED);
+    expect(evaluateWinCondition(state, false)).toEqual({ isOver: true, winnerId: 'p2' });
+  });
+
+  it('leaves normal rounds alone (no sudden death inside the scripted count)', () => {
+    const p1 = makeParticipant('p1', { lives: 3 });
+    const p2 = makeParticipant('p2', { lives: 3 });
+    const round = makeRound({
+      index: 1,
+      answers: {
+        p1: { optionId: 'a', serverTs: 1_005_000 },
+        p2: { optionId: 'a', serverTs: 1_002_000 },
+      },
+    });
+    const state = makeRoom([p1, p2], { mode: GameMode.ELIMINATION, currentRound: round });
+    const res = applyResolution(state, round, scoreRound(state, round));
+    expect(res.suddenDeath).toBeUndefined();
+    expect(activeParticipants(state)).toHaveLength(2);
   });
 });
 

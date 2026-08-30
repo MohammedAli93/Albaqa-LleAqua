@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Lock, Check } from 'lucide-react';
+import { ChevronLeft, Lock, Check, RotateCw } from 'lucide-react';
 import { t, type Locale } from '@tahaddi/i18n';
 import { useStore } from '../store.js';
 import { fetchCategoryGroups, type PickerGroup, type PickerCategory } from '../lib/categories.js';
@@ -25,20 +25,37 @@ export function CategoryPicker({
   const { locale } = useStore();
   const [groups, setGroups] = useState<PickerGroup[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [openGroup, setOpenGroup] = useState<PickerGroup | null>(null);
 
+  // The catalogue request is capped by api()'s timeout, so a hung network ends in
+  // `failed` rather than an endless «لحظة…» (client 2026-08-30). `attempt` re-runs
+  // the effect when the player taps retry.
   useEffect(() => {
     let alive = true;
+    setFailed(false);
+    setGroups(null);
     fetchCategoryGroups()
       .then((g) => alive && setGroups(g))
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [attempt]);
 
   if (failed) {
-    return <p className="mt-10 text-center font-semibold text-ink-primary">{t(locale, 'error')}</p>;
+    return (
+      <div className="mt-10 flex flex-col items-center gap-3 text-center">
+        <p className="font-semibold text-white">{t(locale, 'loadFailed')}</p>
+        <button
+          onClick={() => setAttempt((n) => n + 1)}
+          className="flex items-center gap-2 rounded-2xl px-6 py-3 font-display text-lg font-black text-white shadow-[0_14px_26px_-14px_rgba(0,0,0,0.55)]"
+          style={{ backgroundImage: 'linear-gradient(180deg,#F2796C 0%,#E8473A 100%)' }}
+        >
+          <RotateCw size={20} /> {t(locale, 'retry')}
+        </button>
+      </div>
+    );
   }
   if (!groups) {
     return (
