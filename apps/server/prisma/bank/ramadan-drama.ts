@@ -35,7 +35,6 @@ export const ramadanDrama: BankQuestion[] = [
   { ar: "ما النوع من المسلسلات الذي يحكي حياة البادية والقبائل؟", en: "Drama type depicting Bedouin and tribal life?", o: ["الكوميدية", "البدوية", "الخيال العلمي", "الرعب"], c: 1, d: 'MEDIUM' },
   { ar: "ما الفترة من السنة التي تُعرض فيها أكثر الإعلانات بأسعار مرتفعة؟", en: "Period with the most premium-priced ads?", o: ["المحرم", "رمضان", "شعبان", "رجب"], c: 1, d: 'MEDIUM' },
   { ar: "ما النوع الدرامي الذي يُضحك المشاهد في رمضان؟", en: "Drama genre that makes viewers laugh in Ramadan?", o: ["الرعب", "الكوميدية", "الوثائقية", "الإخبارية"], c: 1, d: 'EASY' },
-  { ar: "بأي شهر هجري يأتي رمضان؟", en: "Which Hijri month is Ramadan?", o: ["الثامن", "التاسع", "العاشر", "الأول"], c: 1 },
   { ar: "ما الوجبة قبيل الفجر في رمضان؟", en: "Pre-dawn meal in Ramadan?", o: ["الإفطار", "السحور", "الغبقة", "القيلولة"], c: 1, d: 'EASY' },
   { ar: "ما الوجبة التي يفطر عليها الصائم عند الغروب؟", en: "Meal to break the fast at sunset?", o: ["السحور", "الإفطار", "الغداء", "العشاء"], c: 1, d: 'EASY' },
   { ar: "ما الشهر الذي يصومه المسلمون من كل عام؟", en: "Month Muslims fast every year?", o: ["شعبان", "رمضان", "رجب", "محرم"], c: 1, d: 'EASY' },

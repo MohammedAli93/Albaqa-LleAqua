@@ -22,6 +22,7 @@ import { ensureCategoryQuestions } from '../content/questionGen.js';
 import { newRoomCode } from './roomCode.js';
 import { codeInUse, saveRoom, getRoomByCode, deleteRoom } from './roomStore.js';
 import type { RoomState } from './types.js';
+import { RepeatGuard, correctAnswerText, type GuardedQuestion } from './repeatGuard.js';
 
 /** Mark questions as shown (increments usageCount) so the NEXT game skips them
  *  until the whole pool has cycled. This is what makes a question "never seen
@@ -52,11 +53,19 @@ const HARD_SHARE = 0.15;
 function blendByDifficulty(
   buckets: { EASY: string[]; MEDIUM: string[]; HARD: string[] },
   count: number,
+  /** Return false to skip a candidate (the per-game repeat guard). Skipped ids are
+   *  dropped, not deferred — the bucket simply yields the next one down. */
+  accept: (id: string) => boolean = () => true,
 ): string[] {
   const hardQuota = Math.floor(count * HARD_SHARE);
   const picked: string[] = [];
   const take = (from: string[], n: number) => {
-    for (let i = 0; i < n && from.length > 0; i++) picked.push(from.shift()!);
+    for (let i = 0; i < n && from.length > 0; ) {
+      const id = from.shift()!;
+      if (!accept(id)) continue; // repeats one already picked for this game
+      picked.push(id);
+      i++;
+    }
   };
   take(buckets.HARD, hardQuota);
   // Alternate MEDIUM/EASY (medium-leaning) for the remainder.
@@ -88,7 +97,13 @@ function shuffleIds(ids: string[]): string[] {
  * Marking used here means the next game automatically excludes these until the
  * pool wraps.
  */
-export async function drawFreshQuestions(count: number, categoryId?: string): Promise<string[]> {
+export async function drawFreshQuestions(
+  count: number,
+  categoryId?: string,
+  /** Pass an existing guard to keep the no-repeats promise across several draws
+   *  that build ONE game's round order. Omit it and the draw guards itself. */
+  guard: RepeatGuard = new RepeatGuard(),
+): Promise<string[]> {
   const rows = await prisma.question.findMany({
     where: {
       deletedAt: null,
@@ -105,9 +120,38 @@ export async function drawFreshQuestions(count: number, categoryId?: string): Pr
     .sort((a, b) => a.used - b.used || a.rand - b.rand);
   const buckets = { EASY: [] as string[], MEDIUM: [] as string[], HARD: [] as string[] };
   for (const r of ordered) (buckets[r.diff as keyof typeof buckets] ?? buckets.MEDIUM).push(r.id);
-  const ids = blendByDifficulty(buckets, count);
+  // Only the head of each bucket can be reached by a game of `count` rounds, even
+  // if the guard rejects a few — so the prompts are fetched for that head alone.
+  // A whole-bank draw sees ~21,000 rows; pulling every prompt and options blob to
+  // read 35 of them would be megabytes per room creation.
+  const texts = await questionTexts(headOf(buckets, count));
+  const ids = blendByDifficulty(buckets, count, (id) => {
+    const q = texts.get(id);
+    return q ? guard.accept(q) : true; // beyond the fetched head: let it through
+  });
   await markQuestionsUsed(ids);
   return ids;
+}
+
+/** The ids a draw of `count` could plausibly reach, across all three buckets. */
+function headOf(buckets: { EASY: string[]; MEDIUM: string[]; HARD: string[] }, count: number): string[] {
+  const depth = count * 3 + 20; // room for the guard to reject and keep walking
+  return [...buckets.HARD.slice(0, depth), ...buckets.MEDIUM.slice(0, depth), ...buckets.EASY.slice(0, depth)];
+}
+
+/** id → the three fields the repeat guard compares, for a bounded set of ids. */
+async function questionTexts(ids: string[]): Promise<Map<string, GuardedQuestion>> {
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.question.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, promptAr: true, options: true, correctOptionId: true },
+  });
+  return new Map(
+    rows.map((r) => [
+      r.id,
+      { id: r.id, promptAr: r.promptAr, answerAr: correctAnswerText(r.options, r.correctOptionId) },
+    ]),
+  );
 }
 
 /**
@@ -130,7 +174,13 @@ async function categoryQuestionOrder(categoryId: string, desiredRounds: number):
  * if the category has no usable questions. Used to extend an ELIMINATION game
  * past its scripted order WITHOUT drifting into other categories.
  */
-export async function pickCategoryQuestion(categoryId: string, exclude: Set<string>): Promise<string | null> {
+export async function pickCategoryQuestion(
+  categoryId: string,
+  exclude: Set<string>,
+  /** Primed with what this game already asked, so the extra question isn't a
+   *  re-phrasing of one of them (client 2026-09-01). */
+  guard?: RepeatGuard,
+): Promise<string | null> {
   const rows = await prisma.question.findMany({
     where: {
       categoryId,
@@ -144,9 +194,30 @@ export async function pickCategoryQuestion(categoryId: string, exclude: Set<stri
   // Never repeat a question already used this game: only draw from ones not in
   // `exclude`. If the category is fully spent, return null so the caller widens the
   // pool (to other categories) instead of recycling — no in-game repeats.
-  const fresh = rows.map((r) => r.id).filter((id) => !exclude.has(id));
+  return pickGuarded(rows.map((r) => r.id), exclude, guard);
+}
+
+/** How many shuffled candidates a single pick will read prompts for. One question
+ *  is being chosen, so the odds of 30 in a row all repeating something are nil. */
+const GUARD_SAMPLE = 30;
+
+/** Shuffle the fresh candidates and return the first the guard accepts (or the
+ *  first fresh one when no guard was supplied / every sampled candidate was
+ *  rejected — a rejected-but-unused question still beats no question at all). */
+async function pickGuarded(
+  ids: string[],
+  exclude: Set<string>,
+  guard?: RepeatGuard,
+): Promise<string | null> {
+  const fresh = shuffleIds(ids.filter((id) => !exclude.has(id)));
   if (fresh.length === 0) return null;
-  return fresh[Math.floor(Math.random() * fresh.length)]!;
+  if (!guard) return fresh[0]!;
+  const texts = await questionTexts(fresh.slice(0, GUARD_SAMPLE));
+  for (const id of fresh.slice(0, GUARD_SAMPLE)) {
+    const q = texts.get(id);
+    if (!q || guard.accept(q)) return id;
+  }
+  return fresh[0]!;
 }
 
 /**
@@ -156,7 +227,10 @@ export async function pickCategoryQuestion(categoryId: string, exclude: Set<stri
  * repeating one. Returns null only when every approved question is already used
  * (practically never — the bank holds thousands).
  */
-export async function pickAnyUnusedQuestion(exclude: Set<string>): Promise<string | null> {
+export async function pickAnyUnusedQuestion(
+  exclude: Set<string>,
+  guard?: RepeatGuard,
+): Promise<string | null> {
   const rows = await prisma.question.findMany({
     where: {
       deletedAt: null,
@@ -166,9 +240,19 @@ export async function pickAnyUnusedQuestion(exclude: Set<string>): Promise<strin
     },
     select: { id: true },
   });
-  const fresh = rows.map((r) => r.id).filter((id) => !exclude.has(id));
-  if (fresh.length === 0) return null;
-  return fresh[Math.floor(Math.random() * fresh.length)]!;
+  return pickGuarded(rows.map((r) => r.id), exclude, guard);
+}
+
+/**
+ * A repeat guard primed with the questions a game has ALREADY asked, so a question
+ * appended mid-game (an elimination duel that outran its script, a decisive
+ * tiebreak question) is judged against them and not just against their ids.
+ */
+export async function guardForAskedQuestions(askedIds: string[]): Promise<RepeatGuard> {
+  const guard = new RepeatGuard();
+  if (askedIds.length === 0) return guard;
+  for (const q of (await questionTexts(askedIds)).values()) guard.accept(q);
+  return guard;
 }
 
 /** Fallback category for players who never picked one (per-player mode). */
@@ -199,6 +283,11 @@ export async function buildPerPlayerOrder(
   const playerCat = new Map<string, string>();
   const catPool = new Map<string, string[]>();
   const catCursor = new Map<string, number>();
+  // One guard for the WHOLE order: two players who picked the same category (or two
+  // categories that overlap on a subject) must not put the same question — or two
+  // phrasings of it — into one match. See repeatGuard.ts.
+  const guard = new RepeatGuard();
+  const text = new Map<string, GuardedQuestion>();
   for (const p of players) {
     const catId = p.categoryId ?? fallback;
     if (!catId) continue;
@@ -232,6 +321,9 @@ export async function buildPerPlayerOrder(
       const ordered = [...head, ...byUse.map((r) => r.id).filter((id) => !inHead.has(id))];
       catPool.set(catId, ordered);
       catCursor.set(catId, 0);
+      // Prompts for the head of this category's pool only — the rounds it can
+      // actually serve, plus slack for the guard to skip a few.
+      for (const [id, q] of await questionTexts(ordered.slice(0, targetRounds * 3 + 20))) text.set(id, q);
     }
   }
 
@@ -247,13 +339,21 @@ export async function buildPerPlayerOrder(
       if (!catId) continue;
       const pool = catPool.get(catId)!;
       if (pool.length === 0) continue; // this category has no questions at all
-      const idx = catCursor.get(catId)!;
       // No recycling: once a category's distinct questions are used up, skip it so
       // a question never repeats. The game ends a little early rather than repeat.
-      if (idx >= pool.length) continue;
-      questionOrder.push(pool[idx]!);
+      // The guard walks the cursor past anything that repeats an earlier pick.
+      let idx = catCursor.get(catId)!;
+      let chosen: string | undefined;
+      while (idx < pool.length) {
+        const id = pool[idx]!;
+        idx++;
+        const q = text.get(id);
+        if (!q || guard.accept(q)) { chosen = id; break; } // past the fetched head: let it through
+      }
+      catCursor.set(catId, idx);
+      if (!chosen) continue;
+      questionOrder.push(chosen);
       roundOwners.push(p.id);
-      catCursor.set(catId, idx + 1);
       placed = true;
       break;
     }

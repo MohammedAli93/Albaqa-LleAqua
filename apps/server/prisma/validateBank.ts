@@ -53,8 +53,34 @@ const seenQuoted = new Map<string, string>(); // category → first prompt quoti
 const STOP = new Set(['ما', 'من', 'هو', 'هي', 'اسم', 'التي', 'الذي', 'في', 'علي', 'الي',
   'اي', 'كم', 'متي', 'اين', 'كيف', 'لماذا', 'هل', 'عن', 'مع', 'الي', 'هذا', 'هذه',
   'يسمي', 'تسمي', 'تعني', 'يعني', 'ماذا', 'كان', 'كانت', 'و', 'او', 'ثم', 'قد', 'بـ']);
+/**
+ * Strip the clitics Arabic glues onto the front of a word, so the comparison sees
+ * the word and not the sentence position it happened to sit in.
+ *
+ * This is the whole reason «من الثنائي الذي لحّن وكتب معظم أعمال فيروز؟» and «من
+ * الثنائي الذي كتب ولحّن معظم أعمال فيروز؟» sat in the bank as two questions with
+ * one answer until the client found them (2026-09-01): «وكتب» and «كتب» are the same
+ * word, and an unstemmed comparison called them different, which broke the subset
+ * test that would otherwise have matched the two prompts exactly.
+ *
+ * Deliberately shallow — a leading و/ف, the definite article, and بـ/لـ/كـ before it.
+ * Anything deeper needs a morphological analyser, and a wrong stem invents duplicates
+ * that aren't there.
+ */
+const stem = (w: string): string => {
+  let x = w;
+  if (x.length > 3 && (x[0] === 'و' || x[0] === 'ف')) x = x.slice(1);
+  if (x.length > 4 && (x[0] === 'ب' || x[0] === 'ل' || x[0] === 'ك') && x.startsWith(x[0] + 'ال')) x = x.slice(3);
+  else if (x.length > 4 && x.startsWith('ال')) x = x.slice(2);
+  return x;
+};
 const contentWords = (s: string): Set<string> =>
-  new Set(normalizeAr(s).split(' ').filter((w) => w.length > 1 && !STOP.has(w)));
+  new Set(
+    normalizeAr(s)
+      .split(' ')
+      .map(stem)
+      .filter((w) => w.length > 1 && !STOP.has(w) && !STOP.has(`ال${w}`)),
+  );
 
 /**
  * Decorative words that do not change what a question asks. Stripped before comparing,

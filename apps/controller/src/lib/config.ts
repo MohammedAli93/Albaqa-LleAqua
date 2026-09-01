@@ -18,6 +18,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${API_URL}${path}`, {
       ...init,
       signal: init?.signal ?? ctrl.signal,
+      // Never read an API response out of the HTTP cache. The profile GET is the
+      // one that bit us: after a game the balance and the win record had already
+      // changed on the server, and the phone kept re-serving the cached body until
+      // the player force-reloaded (client 2026-09-01).
+      cache: init?.cache ?? 'no-store',
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
   } catch (e) {

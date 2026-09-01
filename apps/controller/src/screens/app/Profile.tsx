@@ -5,6 +5,7 @@ import { useStore } from '../../store.js';
 import { Avatar } from '../../components/Avatar.js';
 import { api } from '../../lib/config.js';
 import { saveAccount, type Account } from '../../lib/account.js';
+import { refreshAccount } from '../../lib/refreshAccount.js';
 import { COUNTRIES, REGIONS, type Region } from '../../lib/catalog.js';
 import { AuthShell, AuthCard, CtaButton } from './AuthShell.js';
 
@@ -44,25 +45,11 @@ export function Profile() {
     [region],
   );
 
-  // Pull the latest profile (wins / games played) from the server whenever the
-  // screen opens, so stats reflect games finished since this device last synced.
+  // Wins / games played / balance come from the server, not this device's cache —
+  // App.tsx also refreshes on entering the screen, and refreshAccount() de-dupes an
+  // in-flight request, so this is the belt to that braces.
   useEffect(() => {
-    if (!account) return;
-    let alive = true;
-    api<PlayerProfile>('/api/v1/player/me', {
-      headers: { Authorization: `Bearer ${account.token}` },
-    })
-      .then((fresh) => {
-        if (!alive) return;
-        const merged: Account = { ...fresh, token: account.token };
-        saveAccount(merged);
-        set({ account: merged });
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void refreshAccount();
   }, []);
 
   async function finish() {

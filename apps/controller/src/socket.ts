@@ -8,6 +8,7 @@ import {
 } from '@tahaddi/shared';
 import { API_URL, saveSession, type Session } from './lib/config.js';
 import { loadAccount } from './lib/account.js';
+import { refreshAccount } from './lib/refreshAccount.js';
 import { syncClock } from './lib/clock.js';
 import { useStore } from './store.js';
 
@@ -65,7 +66,14 @@ export function connect(roomCode: string, sessionToken?: string): Socket {
   socket.on('connect_error', (err) => set({ conn: 'error', errorCode: (err as Error & { data?: { code?: string } }).data?.code ?? 'CONNECT_ERROR' }));
 
   for (const ev of ALL_SERVER_EVENTS) {
-    socket.on(ev, (payload: unknown) => applyServerEvent(ev, payload));
+    socket.on(ev, (payload: unknown) => {
+      applyServerEvent(ev, payload);
+      // The game's result (games played + the win) is written in the same
+      // transaction that completes it, so by the time this event lands the server
+      // already has the new numbers. Pull them now instead of leaving the profile
+      // showing the previous record until a manual reload (client 2026-09-01).
+      if (ev === ServerEvent.GAME_COMPLETED) void refreshAccount();
+    });
   }
   hookResume();
   return socket;

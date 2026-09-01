@@ -48,7 +48,12 @@ import {
 import { teamLeaderId, ensureTeamLeaders } from './teams.js';
 import * as fsm from './fsm.js';
 import { profileStatUpdates } from './profileStats.js';
-import { buildPerPlayerOrder, pickCategoryQuestion, pickAnyUnusedQuestion } from '../rooms/roomService.js';
+import {
+  buildPerPlayerOrder,
+  pickCategoryQuestion,
+  pickAnyUnusedQuestion,
+  guardForAskedQuestions,
+} from '../rooms/roomService.js';
 import { consumeCredit, refundCredit } from '../payments/paymentService.js';
 import {
   scheduleRoundEnd,
@@ -1175,15 +1180,65 @@ function isFreeTier(state: RoomState): boolean {
   return state.settings.tier === GameTier.FREE && state.mode !== GameMode.SEEN_JEEM;
 }
 
-/** A package question not yet used (scripted or prior tiebreak); reuse one only
- *  when the package is fully spent. */
+/**
+ * The categories this game is actually being played on — the per-player picks in
+ * per-player-category mode, or the host's single category. Empty only when the game
+ * draws from the whole bank (free tier, or no category was chosen at all).
+ *
+ * `only` narrows it to a set of participants (the tie's contenders), so a decisive
+ * question in a two-team game comes from a category one of the TIED teams picked
+ * rather than from a team that is already out of the running.
+ */
+function gameCategoryIds(state: RoomState, only?: (p: LiveParticipant) => boolean): string[] {
+  if (!state.settings.perPlayerCategory) {
+    return state.settings.categoryId ? [state.settings.categoryId] : [];
+  }
+  const pool = Object.values(state.participants).filter((p) => (only ? only(p) : true));
+  return [...new Set(pool.map((p) => p.categoryId).filter((c): c is string => !!c))];
+}
+
+/** Fisher–Yates, so "pick one of the tied contenders' categories" isn't always the
+ *  first team's topic. */
+function shuffled<T>(xs: T[]): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
+/**
+ * The decisive (sudden-death) question.
+ *
+ * Client 2026-09-01: a teams game played on «السيارات» and «التقنية» broke its tie
+ * on a question from «فنانون عرب وأجانب» — the decisive question was drawn from the
+ * whole bank, which reads as the game changing the rules at the moment it matters
+ * most. It now comes from a category the players actually chose: first one of the
+ * TIED contenders' categories, then any category in play, and only if all of those
+ * are exhausted does it widen to the rest of the bank.
+ *
+ * FREE stays inside its own 15-question pack (recycling it) as before.
+ */
 async function pickTiebreakQuestion(state: RoomState): Promise<string> {
   const used = new Set([...state.questionOrder, ...(state.usedTiebreakIds ?? [])]);
-  // FREE stays inside its own pack (recycling it); paid games prefer a FRESH
-  // question from anywhere in the bank and only recycle the package as an
-  // absolute last resort (every approved question already used — practically never).
   if (isFreeTier(state)) return pickPackageQuestion(state, used);
-  return (await pickAnyUnusedQuestion(used)) ?? pickPackageQuestion(state, used);
+
+  const guard = await guardForAskedQuestions([...used]);
+  const tb = state.tiebreak;
+  const contenders = tb
+    ? gameCategoryIds(state, (p) => (tb.isTeam ? !!p.teamId && tb.contenders.includes(p.teamId) : tb.contenders.includes(p.id)))
+    : [];
+  // Contenders' categories first, then the rest of the game's categories.
+  const inPlay = gameCategoryIds(state);
+  const ordered = [...shuffled(contenders), ...shuffled(inPlay.filter((c) => !contenders.includes(c)))];
+  for (const categoryId of ordered) {
+    const id = await pickCategoryQuestion(categoryId, used, guard);
+    if (id) return id;
+  }
+  // Every chosen category is spent (or the game had none) → widen, then recycle the
+  // package as an absolute last resort.
+  return (await pickAnyUnusedQuestion(used, guard)) ?? pickPackageQuestion(state, used);
 }
 
 /** Pick a package question not in `used`; once the bank is fully spent, fall back
@@ -1229,6 +1284,9 @@ async function ensureEliminationQuestion(state: RoomState): Promise<void> {
   const nextIndex = state.questionOrder.length;
   let nextId: string | null = null;
   let ownerId: string | undefined;
+  // Judged against what this duel has already asked, not just against its ids —
+  // an elimination that outruns its script must not start re-phrasing itself.
+  const guard = await guardForAskedQuestions([...used]);
 
   // FREE tier: never widen into the paid bank — replay the free-15 pack instead,
   // so a free elimination duel past question 15 keeps recycling the same set.
@@ -1242,15 +1300,15 @@ async function ensureEliminationQuestion(state: RoomState): Promise<void> {
     const survivors = active.sort((a, b) => a.joinOrder - b.joinOrder);
     const owner = survivors[nextIndex % survivors.length]!;
     ownerId = owner.id;
-    if (owner.categoryId) nextId = await pickCategoryQuestion(owner.categoryId, used);
+    if (owner.categoryId) nextId = await pickCategoryQuestion(owner.categoryId, used, guard);
   } else if (state.settings.categoryId) {
-    nextId = await pickCategoryQuestion(state.settings.categoryId, used);
+    nextId = await pickCategoryQuestion(state.settings.categoryId, used, guard);
   }
 
   // The chosen category ran out of UNUSED questions → widen to a fresh question from
   // anywhere in the bank rather than repeat one. Recycle the package only as an
   // absolute last resort (the whole bank is used this game — never in practice).
-  if (!nextId) nextId = await pickAnyUnusedQuestion(used);
+  if (!nextId) nextId = await pickAnyUnusedQuestion(used, guard);
   if (!nextId) nextId = await pickPackageQuestion(state, used);
 
   state.questionOrder.push(nextId);

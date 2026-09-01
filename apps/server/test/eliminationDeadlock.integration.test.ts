@@ -63,6 +63,10 @@ vi.mock('../src/domain/rooms/roomService.js', () => ({
   buildPerPlayerOrder: async () => ({ questionOrder: [], roundOwners: [] }),
   pickCategoryQuestion: async () => null,
   pickAnyUnusedQuestion: async (used: Set<string>) => `extra-${used.size}`,
+  // The engine primes a per-game repeat guard from what has already been asked
+  // before it appends a question; here there is no DB to read prompts from, so the
+  // guard is a no-op that accepts everything.
+  guardForAskedQuestions: async () => ({ accept: () => true }),
 }));
 vi.mock('../src/domain/game/lock.js', () => ({
   withRoomLock: (_g: string, fn: () => unknown) => fn(),

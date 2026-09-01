@@ -49,7 +49,13 @@ playerRouter.post(
 playerRouter.get(
   '/me',
   playerAuth,
-  asyncHandler(async (req, res) => ok(res, await auth.getPlayer(playerId(req)))),
+  asyncHandler(async (req, res) => {
+    // The wallet balance and the win/played record change the moment a game starts
+    // and the moment it ends. A cached copy of this response is a profile screen
+    // showing yesterday's numbers (client 2026-09-01), so it is never cacheable.
+    res.set('Cache-Control', 'no-store');
+    ok(res, await auth.getPlayer(playerId(req)));
+  }),
 );
 
 playerRouter.patch(

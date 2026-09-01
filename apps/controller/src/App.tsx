@@ -5,6 +5,7 @@ import { t } from '@tahaddi/i18n';
 import { useStore } from './store.js';
 import { connect } from './socket.js';
 import { loadSession } from './lib/config.js';
+import { refreshAccount } from './lib/refreshAccount.js';
 import { useWakeLock } from './hooks/useDevice.js';
 import { Aurora } from './components/Aurora.js';
 // In-game flow
@@ -65,6 +66,18 @@ export default function App() {
     // logging in just saves their wins/profile.
     set({ appView: 'home' });
   }, [set, account]);
+
+  // Any shell screen that shows the wallet balance or the win/played record reads
+  // it off `account`, which is a localStorage cache. Re-pull the server's copy each
+  // time one of them is opened so a game that just finished (or a credit that was
+  // just spent) is reflected without a manual reload (client 2026-09-01).
+  useEffect(() => {
+    if (!account) return;
+    if (appView === 'home' || appView === 'profile' || appView === 'upgrade') void refreshAccount();
+    // `account` is intentionally not a dependency: refreshAccount() writes to it,
+    // and depending on it here would make the effect re-run on its own result.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appView]);
 
   // ── Host mode (the "screen" engine, merged into one link) ──
   // Full-bleed, responsive phone↔TV; brings its own background + particles.

@@ -4,6 +4,7 @@ import { ClientEvent, ServerEvent } from '@tahaddi/shared';
 import { API_URL } from './lib/config.js';
 import { syncClock } from '../lib/clock.js';
 import { useStore } from './store.js';
+import { refreshAccount } from '../lib/refreshAccount.js';
 
 let socket: Socket | null = null;
 
@@ -27,7 +28,13 @@ export function connectHost(hostToken: string, roomCode: string): Socket {
   socket.on('disconnect', () => setConn('reconnecting'));
 
   for (const ev of ALL_SERVER_EVENTS) {
-    socket.on(ev, (payload: unknown) => applyServerEvent(ev, payload));
+    socket.on(ev, (payload: unknown) => {
+      applyServerEvent(ev, payload);
+      // The host's wallet moves when the game STARTS (that's when the credit is
+      // charged) and their record moves when it COMPLETES. Re-read the profile at
+      // both, so leaving the host screen lands on real numbers (client 2026-09-01).
+      if (ev === ServerEvent.GAME_STARTED || ev === ServerEvent.GAME_COMPLETED) void refreshAccount();
+    });
   }
   return socket;
 }
